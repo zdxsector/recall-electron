@@ -304,8 +304,10 @@ export const NotebookSidebar = ({
               <div className="navigation-bar__notebook-header">
                 {editingNotebookId === notebookId ? (
                   // NOTE: do not nest inputs inside buttons (invalid HTML + flaky typing/focus in Electron)
-                  <div className="navigation-bar__notebook-toggle">
-                    {isExpanded ? '▾' : '▸'}{' '}
+                  <div className="navigation-bar__notebook-edit">
+                    <span className="navigation-bar__notebook-icon">
+                      {isExpanded ? '▾' : '▸'}
+                    </span>
                     <input
                       className="navigation-bar__rename-input"
                       autoFocus

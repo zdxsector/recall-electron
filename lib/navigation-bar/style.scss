@@ -69,6 +69,24 @@
   }
 }
 
+.navigation-bar__notebook-edit {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 6px;
+  color: var(--primary-color);
+  border-radius: 6px;
+}
+
+.navigation-bar__notebook-icon {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .navigation-bar__notebook-add,
 .navigation-bar__notebook-delete {
   flex: none;
