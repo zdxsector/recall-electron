@@ -1,4 +1,4 @@
-import React, { Component, CSSProperties } from 'react';
+import React, { Component, CSSProperties, createRef } from 'react';
 import { connect } from 'react-redux';
 import classNames from 'classnames';
 
@@ -10,6 +10,7 @@ import { decorateWith, makeFilterDecorator } from './decorators';
 import { getTerms } from '../utils/filter-notes';
 import { noteTitleAndPreview } from '../utils/note-utils';
 import { withCheckboxCharacters } from '../utils/task-transform';
+import { renderNoteToHtml } from '../utils/render-note-to-html';
 
 import actions from '../state/actions';
 
@@ -21,6 +22,58 @@ const HTML_IMAGE_LINE_ONLY_RE = /^\s*<img\b[^>]*>\s*$/i;
 const HTML_IMAGE_SRC_RE = /\bsrc\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/i;
 const HTML_IMAGE_ALT_RE = /\balt\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/i;
 const MAX_TITLE_THUMBNAIL_LINES = 4;
+const MAX_RENDERED_PREVIEW_LINES = 30;
+const MAX_RENDERED_PREVIEW_CHARS = 2500;
+
+const findTitleLineIndex = (content: string): number => {
+  const lines = String(content ?? '').split(/\r?\n/);
+  let firstImageIdx: number | null = null;
+  for (let i = 0; i < lines.length; i++) {
+    const trimmed = String(lines[i]).trim();
+    if (!trimmed) continue;
+    const imgMatch = IMAGE_LINE_ONLY_RE.exec(trimmed);
+    if (imgMatch || HTML_IMAGE_LINE_ONLY_RE.test(trimmed)) {
+      if (firstImageIdx === null) firstImageIdx = i;
+      continue;
+    }
+    return i;
+  }
+  return firstImageIdx ?? -1;
+};
+
+const getRenderedPreviewSource = (content: string): string => {
+  const allLines = String(content ?? '').split(/\r?\n/);
+  if (allLines.length === 0) return '';
+
+  const titleIdx = findTitleLineIndex(content);
+  if (titleIdx < 0) return '';
+  const titleLine = String(allLines[titleIdx] ?? '').trim();
+
+  // If the "title line" is image-only (e.g. note is only images),
+  // include it in the preview so users can still see the image.
+  const titleIsImageOnly =
+    IMAGE_LINE_ONLY_RE.test(titleLine) ||
+    HTML_IMAGE_LINE_ONLY_RE.test(titleLine);
+
+  let startIdx = titleIsImageOnly ? titleIdx : titleIdx + 1;
+
+  // Skip leading blank lines after the title.
+  while (startIdx < allLines.length && !String(allLines[startIdx]).trim()) {
+    startIdx++;
+  }
+
+  let chars = 0;
+  const slice: string[] = [];
+  for (let i = startIdx; i < allLines.length; i++) {
+    const line = String(allLines[i] ?? '');
+    slice.push(line);
+    chars += line.length + 1;
+    if (slice.length >= MAX_RENDERED_PREVIEW_LINES) break;
+    if (chars >= MAX_RENDERED_PREVIEW_CHARS) break;
+  }
+
+  return slice.join('\n').trim();
+};
 
 const extractMarkdownImageSrc = (raw: string): string => {
   const trimmed = String(raw ?? '').trim();
@@ -70,6 +123,9 @@ type Props = OwnProps & StateProps & DispatchProps;
 export class NoteCell extends Component<Props> {
   createdAt: number;
   updateScheduled: ReturnType<typeof setTimeout> | undefined;
+  renderedPreviewRef = createRef<HTMLDivElement>();
+  renderedPreviewScheduled: ReturnType<typeof setTimeout> | undefined;
+  renderedPreviewSeq = 0;
 
   constructor(props: Props) {
     super(props);
@@ -78,9 +134,30 @@ export class NoteCell extends Component<Props> {
     this.createdAt = Date.now();
   }
 
+  componentDidMount() {
+    this.scheduleRenderedPreview();
+  }
+
   componentDidUpdate(prevProps: Props) {
     if (prevProps.note?.content !== this.props.note?.content) {
       this.props.invalidateHeight();
+    }
+
+    if (
+      prevProps.isOpened !== this.props.isOpened ||
+      prevProps.displayMode !== this.props.displayMode ||
+      prevProps.searchQuery !== this.props.searchQuery
+    ) {
+      this.props.invalidateHeight();
+    }
+
+    if (
+      prevProps.note?.content !== this.props.note?.content ||
+      prevProps.isOpened !== this.props.isOpened ||
+      prevProps.displayMode !== this.props.displayMode ||
+      prevProps.searchQuery !== this.props.searchQuery
+    ) {
+      this.scheduleRenderedPreview();
     }
 
     // make sure we reset our update indicator
@@ -92,6 +169,105 @@ export class NoteCell extends Component<Props> {
 
   componentWillUnmount() {
     clearTimeout(this.updateScheduled);
+    clearTimeout(this.renderedPreviewScheduled);
+  }
+
+  shouldShowRenderedPreview() {
+    const { displayMode, isOpened, searchQuery, note } = this.props;
+    if (!note) return false;
+    if (!isOpened) return false;
+    if ('condensed' === displayMode) return false;
+    if ((searchQuery ?? '').trim()) return false;
+
+    // Show rendered preview when Markdown is enabled or when an image exists
+    // near the top (since the text-only excerpt intentionally skips images).
+    if (note.systemTags.includes('markdown')) return true;
+    const top = String(note.content ?? '').slice(0, 2000);
+    return /!\[[^\]]*\]\(|<img\b/i.test(top);
+  }
+
+  scheduleRenderedPreview() {
+    clearTimeout(this.renderedPreviewScheduled);
+    this.renderedPreviewScheduled = setTimeout(
+      () => this.renderRenderedPreview(),
+      90
+    );
+  }
+
+  async renderRenderedPreview() {
+    const node = this.renderedPreviewRef.current;
+    if (!node) return;
+
+    if (!this.shouldShowRenderedPreview()) {
+      node.innerHTML = '';
+      return;
+    }
+
+    const { note, noteId, folders, notebooks } = this.props;
+    const source = getRenderedPreviewSource(note?.content ?? '');
+    if (!source) {
+      node.innerHTML = '';
+      return;
+    }
+
+    const seq = ++this.renderedPreviewSeq;
+
+    try {
+      const html = await renderNoteToHtml(source);
+      if (seq !== this.renderedPreviewSeq) return;
+
+      node.innerHTML = html;
+
+      // Ensure preview content isn't interactive inside the list item button.
+      node.querySelectorAll('a').forEach((a) => {
+        const span = document.createElement('span');
+        span.textContent = a.textContent ?? '';
+        a.replaceWith(span);
+      });
+      node.querySelectorAll('input').forEach((input) => {
+        try {
+          (input as HTMLInputElement).disabled = true;
+          (input as HTMLInputElement).readOnly = true;
+          (input as HTMLInputElement).tabIndex = -1;
+        } catch {
+          // ignore
+        }
+      });
+
+      // Materialize assets/<name> image URLs into file:// URLs.
+      const resolveFn = window.electron?.resolveNoteAssetFileUrl;
+      if (typeof resolveFn === 'function') {
+        node.querySelectorAll('img').forEach((img) => {
+          try {
+            const raw = (img.getAttribute('src') ?? '').trim();
+            if (!raw) return;
+
+            const normalized = raw.replace(/^(\.\/|\/)/, '');
+            if (!normalized.startsWith('assets/')) return;
+
+            const resolved = resolveFn({
+              noteId,
+              note,
+              folders,
+              notebooks,
+              rel: normalized,
+            });
+            if (resolved) img.setAttribute('src', resolved);
+          } catch {
+            // ignore
+          }
+        });
+      }
+
+      // Keep previews lightweight.
+      node.querySelectorAll('img').forEach((img) => {
+        img.setAttribute('loading', 'lazy');
+        img.setAttribute('draggable', 'false');
+      });
+    } catch {
+      if (seq !== this.renderedPreviewSeq) return;
+      node.innerHTML = '';
+    }
   }
 
   render() {
@@ -127,6 +303,7 @@ export class NoteCell extends Component<Props> {
     const pinnerLabel = isPinned ? `Unpin note ${title}` : `Pin note ${title}`;
 
     const decorators = getTerms(searchQuery).map(makeFilterDecorator);
+    const showRenderedPreview = this.shouldShowRenderedPreview();
 
     // If an image appears in the first 4 non-empty editor lines, show a thumbnail in the title row.
     // Skip this when searching so contextual text previews remain clear.
@@ -234,26 +411,42 @@ export class NoteCell extends Component<Props> {
               </span>
               {titleThumbnail}
             </div>
-            {'expanded' === displayMode && preview.length > 0 && (
-              <div className="note-list-item-excerpt">
-                {withCheckboxCharacters(preview)
-                  .split('\n')
-                  .map((line, index) => (
-                    <React.Fragment key={index}>
-                      {index > 0 && <br />}
-                      {decorateWith(decorators, line.slice(0, 200))}
-                    </React.Fragment>
-                  ))}
-              </div>
-            )}
-            {'comfy' === displayMode && preview.length > 0 && (
-              <div className="note-list-item-excerpt">
-                {decorateWith(
-                  decorators,
-                  withCheckboxCharacters(preview).slice(0, 200)
-                )}
-              </div>
-            )}
+            {'expanded' === displayMode &&
+              (showRenderedPreview ? (
+                <div
+                  className="note-list-item-excerpt note-list-item-excerpt-rendered"
+                  ref={this.renderedPreviewRef}
+                />
+              ) : (
+                preview.length > 0 && (
+                  <div className="note-list-item-excerpt">
+                    {withCheckboxCharacters(preview)
+                      .split('\n')
+                      .map((line, index) => (
+                        <React.Fragment key={index}>
+                          {index > 0 && <br />}
+                          {decorateWith(decorators, line.slice(0, 200))}
+                        </React.Fragment>
+                      ))}
+                  </div>
+                )
+              ))}
+            {'comfy' === displayMode &&
+              (showRenderedPreview ? (
+                <div
+                  className="note-list-item-excerpt note-list-item-excerpt-rendered"
+                  ref={this.renderedPreviewRef}
+                />
+              ) : (
+                preview.length > 0 && (
+                  <div className="note-list-item-excerpt">
+                    {decorateWith(
+                      decorators,
+                      withCheckboxCharacters(preview).slice(0, 200)
+                    )}
+                  </div>
+                )
+              ))}
           </button>
           <div className="note-list-item-status-right">
             {hasPendingChanges && (
