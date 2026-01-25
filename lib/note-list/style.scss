@@ -32,6 +32,19 @@
   background: inherit;
   background-color: var(--background-color);
 
+  // `react-virtualized` uses an internal Grid with `overflow: auto` and may
+  // introduce a tiny horizontal overflow due to sub-pixel width calculations.
+  // Keep the note list strictly vertically scrollable.
+  .ReactVirtualized__Grid,
+  .ReactVirtualized__List {
+    overflow-x: hidden !important;
+  }
+
+  .ReactVirtualized__Grid__innerScrollContainer {
+    overflow-x: hidden !important;
+    max-width: 100%;
+  }
+
   .comfy .note-list-item-excerpt {
     white-space: nowrap;
     height: 30px;
@@ -186,6 +199,7 @@
   .note-list-item-content {
     display: flex;
     width: 100%;
+    min-width: 0; // allow flex children to shrink; prevents horizontal overflow
   }
 
   .note-list-item-status {
@@ -211,6 +225,7 @@
     overflow: hidden;
     padding: 9px 0;
     border-bottom: 1px solid var(--secondary-color);
+    min-width: 0; // important for flexbox truncation without overflow
   }
 
   .note-list-item-title,

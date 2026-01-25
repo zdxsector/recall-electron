@@ -73,6 +73,7 @@ const MuyaEditor = forwardRef<MuyaEditorHandle, Props>(
     const lastEmittedValueRef = useRef<string | null>(null);
     const inputTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const isMountedRef = useRef<boolean>(true);
+    const lastUndoRedoShortcutAtRef = useRef<number>(0);
 
     const materializeForEditor = (markdown: string): string => {
       try {
@@ -231,6 +232,47 @@ const MuyaEditor = forwardRef<MuyaEditorHandle, Props>(
         if (!wrapperRef.current?.contains(e.target as Node)) {
           return;
         }
+        const cmdOrCtrl = e.ctrlKey || e.metaKey;
+        const key = e.key?.toLowerCase?.() ?? '';
+
+        // Muya performs some structural edits (notably with images) via its own JSON ops,
+        // which won't participate in the browser's native undo stack. Route undo/redo
+        // through Muya's history to make Ctrl/Cmd+Z reliable.
+        if (cmdOrCtrl && !e.altKey) {
+          if (key === 'z') {
+            try {
+              // Ensure the editor is focused before undo/redo so Muya can resolve selection.
+              focus();
+              if (e.shiftKey) {
+                canCall(muyaRef.current, 'redo') && muyaRef.current.redo();
+              } else {
+                canCall(muyaRef.current, 'undo') && muyaRef.current.undo();
+              }
+              lastUndoRedoShortcutAtRef.current = Date.now();
+            } finally {
+              // Prevent Electron menu/browser undo from running in parallel.
+              e.preventDefault();
+              e.stopPropagation();
+              scheduleFlush();
+            }
+            return;
+          }
+
+          // Windows/Linux also commonly use Ctrl+Y for redo.
+          if (key === 'y') {
+            try {
+              focus();
+              canCall(muyaRef.current, 'redo') && muyaRef.current.redo();
+              lastUndoRedoShortcutAtRef.current = Date.now();
+            } finally {
+              e.preventDefault();
+              e.stopPropagation();
+              scheduleFlush();
+            }
+            return;
+          }
+        }
+
         // Schedule flush for keys that typically modify content
         if (['Backspace', 'Delete', 'Enter', 'Tab'].includes(e.key)) {
           scheduleFlush();
@@ -640,10 +682,44 @@ const MuyaEditor = forwardRef<MuyaEditorHandle, Props>(
       document.addEventListener('paste', onPasteCapture, true);
       document.addEventListener('keydown', onKeyDownCapture, true);
 
+      // Support Electron menu/context-menu editor commands (Undo/Redo/Select All/etc).
+      // Menu accelerators may not reach the editor as key events, so we must handle IPC.
+      const onEditorCommand = (command: any) => {
+        const action = String(command?.action ?? '');
+        if (!action) return;
+        if (!muyaRef.current) return;
+        switch (action) {
+          case 'undo':
+            // Some Electron builds fire both the renderer keydown and the menu
+            // accelerator. Avoid applying undo twice.
+            if (Date.now() - lastUndoRedoShortcutAtRef.current < 150) return;
+            focus();
+            canCall(muyaRef.current, 'undo') && muyaRef.current.undo();
+            scheduleFlush();
+            return;
+          case 'redo':
+            if (Date.now() - lastUndoRedoShortcutAtRef.current < 150) return;
+            focus();
+            canCall(muyaRef.current, 'redo') && muyaRef.current.redo();
+            scheduleFlush();
+            return;
+          case 'selectAll':
+            canCall(muyaRef.current, 'selectAll') &&
+              muyaRef.current.selectAll();
+            return;
+          default:
+            return;
+        }
+      };
+      window.electron?.receive?.('editorCommand', onEditorCommand);
+
       // Cleanup if supported.
       return () => {
         // Mark as unmounted to prevent async callbacks from firing
         isMountedRef.current = false;
+
+        // Remove all editorCommand listeners (preload provides coarse removal).
+        window.electron?.removeListener?.('editorCommand');
 
         document.removeEventListener('input', onInputCapture, true);
         document.removeEventListener('paste', onPasteCapture, true);
