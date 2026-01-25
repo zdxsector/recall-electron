@@ -132,7 +132,7 @@
   cursor: pointer;
   display: flex;
   -webkit-tap-highlight-color: rgba(0, 0, 0, 0);
-  font-family: 'Simplenote Tasks', $sans, sans-serif;
+  font-family: 'Curnote Tasks', $sans, sans-serif;
   min-height: 64px;
 
   .note-list-item-content {
@@ -174,6 +174,53 @@
   }
 
   .note-list-item-excerpt {
+    color: var(--foreground-color);
+  }
+
+  .note-list-item-image-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    max-width: 100%;
+    overflow: hidden;
+    vertical-align: middle;
+  }
+
+  .note-list-item-image-thumb {
+    width: 22px;
+    height: 22px;
+    border-radius: 3px;
+    object-fit: cover;
+    flex: 0 0 auto;
+    border: 1px solid var(--secondary-color);
+  }
+
+  .note-list-item-image-fallback {
+    width: 22px;
+    height: 22px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    border-radius: 3px;
+    border: 1px solid var(--secondary-color);
+    color: var(--foreground-color);
+
+    svg {
+      width: 16px;
+      height: 16px;
+    }
+  }
+
+  .note-list-item-image-sep {
+    height: 1px;
+    width: 18px;
+    background: var(--secondary-color);
+    flex: 0 0 auto;
+  }
+
+  .note-list-item-image-ellipsis {
+    flex: 0 0 auto;
     color: var(--foreground-color);
   }
 
@@ -222,14 +269,24 @@
 
   .note-list-item-title {
     display: flex;
+    align-items: center;
     justify-content: space-between;
+    gap: 8px;
     font-size: 16px;
     font-weight: 500;
     color: var(--primary-color);
 
-    & span {
+    .note-list-item-title-text {
+      flex: 1 1 auto;
+      min-width: 0;
       text-overflow: ellipsis;
       overflow: hidden;
+    }
+
+    .note-list-item-title-thumbnail {
+      flex: 0 0 auto;
+      display: inline-flex;
+      align-items: center;
     }
   }
 
@@ -253,6 +310,33 @@
 
     &.note-list-item-pinned .note-list-item-pinner {
       color: var(--primary-color);
+    }
+  }
+
+  // When a title thumbnail is shown, apply a subtle horizontal fade to the
+  // title text so truncation blends into the thumbnail area.
+  &.note-list-item-has-title-thumbnail {
+    @supports (-webkit-mask-image: linear-gradient(to right, #000, transparent))
+      or (mask-image: linear-gradient(to right, #000, transparent)) {
+      .note-list-item-title-text {
+        text-overflow: clip;
+        -webkit-mask-image: linear-gradient(
+          to right,
+          rgba(0, 0, 0, 1) 0%,
+          rgba(0, 0, 0, 1) calc(100% - 24px),
+          rgba(0, 0, 0, 0) 100%
+        );
+        mask-image: linear-gradient(
+          to right,
+          rgba(0, 0, 0, 1) 0%,
+          rgba(0, 0, 0, 1) calc(100% - 24px),
+          rgba(0, 0, 0, 0) 100%
+        );
+        -webkit-mask-size: 100% 100%;
+        mask-size: 100% 100%;
+        -webkit-mask-repeat: no-repeat;
+        mask-repeat: no-repeat;
+      }
     }
   }
 }

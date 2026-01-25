@@ -4,6 +4,7 @@ const {
   app,
   BrowserWindow,
   ipcMain,
+  dialog,
   shell,
   Menu,
   session,
@@ -42,13 +43,38 @@ module.exports = function main() {
     app.disableHardwareAcceleration();
   }
 
+  // ---------------------------------------------------------------------------
+  // IPC helpers for renderer/preload (replaces removed `remote` module).
+  // ---------------------------------------------------------------------------
+  ipcMain.on('curnote:getPath', (event, name) => {
+    try {
+      // Restrict to the one path we need for note persistence.
+      if (name !== 'documents') {
+        event.returnValue = null;
+        return;
+      }
+      event.returnValue = app.getPath('documents');
+    } catch {
+      event.returnValue = null;
+    }
+  });
+
+  ipcMain.on('curnote:showMessageBoxSync', (event, options) => {
+    try {
+      const win = BrowserWindow.fromWebContents(event.sender);
+      event.returnValue = dialog.showMessageBoxSync(win, options || {});
+    } catch {
+      event.returnValue = 0;
+    }
+  });
+
   app.on('will-finish-launching', function () {
     setTimeout(updater.ping.bind(updater), config.updater.delay);
     app.on('open-url', function (event, url) {
       event.preventDefault();
-      if (url.startsWith('simplenote://auth')) {
+      if (url.startsWith('curnote://auth')) {
         mainWindow.webContents.send('wpLogin', url);
-      } else if (url.startsWith('simplenote://login')) {
+      } else if (url.startsWith('curnote://login')) {
         mainWindow.webContents.send('tokenLogin', url);
       }
     });
@@ -231,10 +257,10 @@ module.exports = function main() {
     }
     // Protocol handler for platforms other than macOS
     // argv: An array of the second instance’s (command line / deep linked) arguments
-    // The last index of argv is the full deeplink url (simplenote://SOME_URL)
-    if (argv[argv.length - 1].startsWith('simplenote://auth')) {
+    // The last index of argv is the full deeplink url (curnote://SOME_URL)
+    if (argv[argv.length - 1].startsWith('curnote://auth')) {
       mainWindow.webContents.send('wpLogin', argv[argv.length - 1]);
-    } else if (argv[argv.length - 1].startsWith('simplenote://login')) {
+    } else if (argv[argv.length - 1].startsWith('curnote://login')) {
       mainWindow.webContents.send('tokenLogin', argv[argv.length - 1]);
     }
   });
@@ -243,9 +269,9 @@ module.exports = function main() {
     return app.quit();
   }
 
-  if (!app.isDefaultProtocolClient('simplenote')) {
-    // Define custom protocol handler. This allows for deeplinking into the app from simplenote://
-    app.setAsDefaultProtocolClient('simplenote');
+  if (!app.isDefaultProtocolClient('curnote')) {
+    // Define custom protocol handler. This allows for deeplinking into the app from curnote://
+    app.setAsDefaultProtocolClient('curnote');
   }
 
   // Quit when all windows are closed.
@@ -272,6 +298,6 @@ module.exports = function main() {
   // This method will be called when Electron has finished
   // initialization and is ready to create browser windows.
   app.on('ready', activateWindow);
-  app.on('ready', () => app.setAppUserModelId('com.automattic.simplenote'));
+  app.on('ready', () => app.setAppUserModelId('com.automattic.curnote'));
   app.on('activate', activateWindow);
 };

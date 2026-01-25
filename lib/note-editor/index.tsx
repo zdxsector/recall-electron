@@ -8,7 +8,7 @@ import * as selectors from '../state/selectors';
 
 import * as S from '../state';
 import * as T from '../types';
-import SimplenoteCompactLogo from '../icons/simplenote-compact';
+import CurnoteCompactLogo from '../icons/curnote-compact';
 
 type StateProps = {
   allTags: Map<T.TagHash, T.Tag>;
@@ -31,6 +31,12 @@ type Props = DispatchProps & StateProps;
 
 export class NoteEditor extends Component<Props> {
   static displayName = 'NoteEditor';
+
+  // Class property declarations for focus management
+  private editorHasFocus?: () => boolean;
+  private focusNoteEditor?: () => void;
+  private focusTagField?: () => void;
+  private _tagFieldHasFocus?: () => boolean;
 
   componentDidMount() {
     this.toggleShortcuts(true);
@@ -90,9 +96,9 @@ export class NoteEditor extends Component<Props> {
 
   storeFocusTagField = (f) => (this.focusTagField = f);
 
-  storeTagFieldHasFocus = (f) => (this.tagFieldHasFocus = f);
+  storeTagFieldHasFocus = (f: () => boolean) => (this._tagFieldHasFocus = f);
 
-  tagFieldHasFocus = () => this.tagFieldHasFocus && this.tagFieldHasFocus();
+  tagFieldHasFocus = () => this._tagFieldHasFocus?.() ?? false;
 
   toggleShortcuts = (doEnable: boolean) => {
     if (doEnable) {
@@ -108,7 +114,7 @@ export class NoteEditor extends Component<Props> {
     if (!note) {
       return (
         <div className="note-detail-placeholder">
-          <SimplenoteCompactLogo />
+          <CurnoteCompactLogo />
         </div>
       );
     }

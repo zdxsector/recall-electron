@@ -64,7 +64,7 @@ optgroup {
   height: 100%;
 }
 
-.simplenote-app {
+.curnote-app {
   display: flex;
   position: relative;
   width: 100%;
@@ -93,6 +93,12 @@ optgroup {
   &[data-current-match='true'] {
     background-color: var(--search-selection-color);
   }
+}
+
+// On macOS, the current find match is a bright highlight (often yellow)
+// with dark text for contrast. Ensure readability in dark mode.
+body[data-theme='dark'] .search-match[data-current-match='true'] {
+  color: var(--background-color);
 }
 
 /* stylelint-disable-next-line selector-class-pattern */

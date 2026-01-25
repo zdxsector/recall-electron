@@ -15,6 +15,7 @@ type OwnProps = {
 
 type StateProps = {
   folders: Map<T.FolderId, T.Folder>;
+  notebooks: Map<T.NotebookId, T.Notebook>;
   isFocusMode: boolean;
   keyboardShortcuts: boolean;
   lineLength: T.LineLength;
@@ -68,9 +69,13 @@ class NoteContentEditor extends Component<Props> {
   handleChecklist = (event: Event) => {
     // Minimal behavior: append a task list item to the end of the note.
     // (Muya handles the actual rendering/checkbox UI itself.)
-    const current = this.props.note?.content ?? '';
+    const { noteId, note } = this.props;
+    if (!noteId || !note) {
+      return;
+    }
+    const current = note.content ?? '';
     const prefix = current.length > 0 && !current.endsWith('\n') ? '\n' : '';
-    this.props.editNote(this.props.noteId, {
+    this.props.editNote(noteId, {
       content: `${current}${prefix}- [ ] `,
     });
     this.props.insertTask();
@@ -82,7 +87,11 @@ class NoteContentEditor extends Component<Props> {
   hasFocus = () => this.muyaRef.current?.hasFocus() || false;
 
   onChange = (nextValue: string) => {
-    this.props.editNote(this.props.noteId, { content: nextValue });
+    const { noteId } = this.props;
+    if (!noteId) {
+      return;
+    }
+    this.props.editNote(noteId, { content: nextValue });
   };
 
   updateMatchesCount = () => {
@@ -112,6 +121,9 @@ class NoteContentEditor extends Component<Props> {
           ref={this.muyaRef}
           noteId={this.props.noteId as unknown as string}
           value={this.props.note?.content ?? ''}
+          note={this.props.note}
+          folders={Array.from(this.props.folders)}
+          notebooks={Array.from(this.props.notebooks)}
           onChange={this.onChange}
         />
       </div>
@@ -121,6 +133,7 @@ class NoteContentEditor extends Component<Props> {
 
 const mapStateToProps: S.MapState<StateProps> = (state) => ({
   folders: state.data.folders,
+  notebooks: state.data.notebooks,
   isFocusMode: state.settings.focusModeEnabled,
   keyboardShortcuts: state.settings.keyboardShortcuts,
   lineLength: state.settings.lineLength,

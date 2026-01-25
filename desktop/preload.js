@@ -1,15 +1,24 @@
-const { contextBridge, ipcRenderer, remote } = require('electron');
+const {
+  contextBridge,
+  ipcRenderer,
+  clipboard,
+  nativeImage,
+} = require('electron');
 const path = require('path');
 const fs = require('fs');
+const { pathToFileURL, fileURLToPath } = require('url');
 const sanitizeFilename = require('sanitize-filename');
 
-const NOTES_ROOT_NAME = 'SimpleNotes';
-const META_DIR_NAME = '.simplenote';
+const NOTES_ROOT_NAME = 'CurNotes';
+const META_DIR_NAME = '.curnote';
 const META_FILE_NAME = 'store.json';
 const REVISIONS_FILE_NAME = 'revisions.json';
 
 const getNotesRoot = () => {
-  const documents = remote.app.getPath('documents');
+  const documents = ipcRenderer.sendSync('curnote:getPath', 'documents');
+  if (!documents) {
+    throw new Error('Could not resolve documents path from main process');
+  }
   return path.join(documents, NOTES_ROOT_NAME);
 };
 
@@ -171,7 +180,7 @@ const validChannels = [
 
 const electronAPI = {
   confirmLogout: (changes) => {
-    const response = remote.dialog.showMessageBoxSync({
+    const response = ipcRenderer.sendSync('curnote:showMessageBoxSync', {
       type: 'warning',
       buttons: [
         'Export Unsynced Notes',
@@ -198,7 +207,7 @@ const electronAPI = {
   },
   confirm: ({ title, message, detail } = {}) => {
     try {
-      const response = remote.dialog.showMessageBoxSync({
+      const response = ipcRenderer.sendSync('curnote:showMessageBoxSync', {
         type: 'warning',
         buttons: ['Cancel', 'Delete'],
         defaultId: 0,
@@ -232,7 +241,6 @@ const electronAPI = {
       const notePaths = rawMeta.notePaths ?? {};
       const TurndownService = (() => {
         try {
-          // eslint-disable-next-line global-require
           return require('turndown');
         } catch {
           return null;
@@ -300,7 +308,6 @@ const electronAPI = {
       // (We still keep markdown in-memory for the editor.)
       const showdown = (() => {
         try {
-          // eslint-disable-next-line global-require
           return require('showdown');
         } catch {
           return null;
@@ -409,7 +416,14 @@ const electronAPI = {
       console.error('Failed to save revisions to filesystem:', e);
     }
   },
-  saveNoteAssetFromDataUrl: ({ noteId, note, mimeType, dataUrl, folders }) => {
+  saveNoteAssetFromDataUrl: async ({
+    noteId,
+    note,
+    mimeType,
+    dataUrl,
+    folders,
+    notebooks,
+  }) => {
     try {
       const root = getNotesRoot();
       ensureDir(root);
@@ -417,33 +431,218 @@ const electronAPI = {
       const rawMeta = readJsonFile(metaPath) ?? {};
       const notePaths = rawMeta.notePaths ?? {};
       const existingDirRel = notePaths?.[noteId]?.dirRel;
-      const notebooksArray = rawMeta.notebooks ?? [];
+      const notebooksArray = notebooks ?? rawMeta.notebooks ?? [];
       const noteDir = existingDirRel
         ? path.join(root, existingDirRel)
         : getOrCreateNoteDir(root, folders ?? [], notebooksArray, noteId, note)
             .noteDir;
+
+      // Ensure the note's dirRel is persisted as soon as we create/resolve it so
+      // subsequent asset URL resolutions don't depend on a later full persistence pass.
+      if (!existingDirRel) {
+        try {
+          const nextNotePaths = {
+            ...notePaths,
+            [noteId]: {
+              ...(notePaths?.[noteId] ?? {}),
+              dirRel: path.relative(root, noteDir),
+            },
+          };
+          writeJsonFile(metaPath, { ...rawMeta, notePaths: nextNotePaths });
+        } catch {
+          // best-effort
+        }
+      }
+
       const assetsDir = path.join(noteDir, 'assets');
       ensureDir(assetsDir);
+
+      // Normalize whitespace in base64 payload (some clipboard sources insert newlines).
+      const normalizedDataUrl = (() => {
+        const s = String(dataUrl || '');
+        if (!s.startsWith('data:image/')) return s;
+        const commaIdx = s.indexOf(',');
+        if (commaIdx < 0) return s;
+        return (
+          s.slice(0, commaIdx + 1) + s.slice(commaIdx + 1).replace(/\s+/g, '')
+        );
+      })();
+
+      // Decode using Electron-native image pipeline (more robust than manual base64 parsing).
+      const img = nativeImage.createFromDataURL(normalizedDataUrl);
+      if (!img || (typeof img.isEmpty === 'function' && img.isEmpty())) {
+        // eslint-disable-next-line no-console
+        console.error('Failed to save note asset: nativeImage is empty', {
+          noteId,
+          mimeType,
+        });
+        return null;
+      }
+
+      // Choose output format: keep JPEGs as JPEG; everything else as PNG.
+      const outputIsJpeg = mimeType === 'image/jpeg';
+      const ext = outputIsJpeg ? 'jpg' : 'png';
+      const buffer = outputIsJpeg ? img.toJPEG(90) : img.toPNG();
+
+      const fileName = `pasted-${Date.now()}.${ext}`;
+      const filePath = path.join(assetsDir, fileName);
+      await fs.promises.writeFile(filePath, buffer);
+
+      const rel = `assets/${fileName}`;
+      const fileUrl = pathToFileURL(filePath).toString();
+      return { rel, fileUrl };
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.error('Failed to save note asset:', e, {
+        noteId,
+        mimeType,
+      });
+      return null;
+    }
+  },
+  saveNoteAssetFromUrl: async ({ noteId, note, url, folders, notebooks }) => {
+    try {
+      const root = getNotesRoot();
+      ensureDir(root);
+      const metaPath = path.join(root, META_DIR_NAME, META_FILE_NAME);
+      const rawMeta = readJsonFile(metaPath) ?? {};
+      const notePaths = rawMeta.notePaths ?? {};
+      const existingDirRel = notePaths?.[noteId]?.dirRel;
+      const notebooksArray = notebooks ?? rawMeta.notebooks ?? [];
+      const noteDir = existingDirRel
+        ? path.join(root, existingDirRel)
+        : getOrCreateNoteDir(root, folders ?? [], notebooksArray, noteId, note)
+            .noteDir;
+
+      if (!existingDirRel) {
+        try {
+          const nextNotePaths = {
+            ...notePaths,
+            [noteId]: {
+              ...(notePaths?.[noteId] ?? {}),
+              dirRel: path.relative(root, noteDir),
+            },
+          };
+          writeJsonFile(metaPath, { ...rawMeta, notePaths: nextNotePaths });
+        } catch {
+          // best-effort
+        }
+      }
+      const assetsDir = path.join(noteDir, 'assets');
+      ensureDir(assetsDir);
+
+      const urlStr = String(url || '').trim();
+      const isFileUrl = /^file:\/\//i.test(urlStr);
+      const isAbsolutePath =
+        /^\//.test(urlStr) || /^[a-zA-Z]:[\\/]/.test(urlStr);
+
+      const extFromPath = (p) =>
+        String(path.extname(p) || '')
+          .replace(/^\./, '')
+          .toLowerCase();
+      const normalizeExt = (ext) => (ext === 'jpeg' ? 'jpg' : ext);
+      const isSupportedImageExt = (ext) =>
+        ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg'].includes(ext);
+
+      // Support local file URLs/paths (common when pasting an image file path from the OS).
+      if (isFileUrl || isAbsolutePath) {
+        const localPath = isFileUrl ? fileURLToPath(urlStr) : urlStr;
+        const extRaw = extFromPath(localPath);
+        if (!isSupportedImageExt(extRaw)) return null;
+        if (!fs.existsSync(localPath)) return null;
+
+        const buffer = await fs.promises.readFile(localPath);
+        const fileName = `pasted-${Date.now()}.${normalizeExt(extRaw)}`;
+        const filePath = path.join(assetsDir, fileName);
+        await fs.promises.writeFile(filePath, buffer);
+
+        const rel = `assets/${fileName}`;
+        const fileUrl = pathToFileURL(filePath).toString();
+        return { rel, fileUrl };
+      }
+
+      const fetch = require('electron-fetch').default;
+      const res = await fetch(urlStr);
+      if (!res.ok) return null;
+
+      const contentType =
+        (res.headers && res.headers.get && res.headers.get('content-type')) ||
+        '';
+      const mimeType = String(contentType).split(';')[0].trim();
 
       const ext =
         mimeType === 'image/png'
           ? 'png'
           : mimeType === 'image/jpeg'
             ? 'jpg'
-            : mimeType === 'image/webp'
-              ? 'webp'
-              : 'png';
+            : mimeType === 'image/gif'
+              ? 'gif'
+              : mimeType === 'image/webp'
+                ? 'webp'
+                : 'png';
 
       const fileName = `pasted-${Date.now()}.${ext}`;
       const filePath = path.join(assetsDir, fileName);
-      const base64 = String(dataUrl).split(',')[1] || '';
-      fs.writeFileSync(filePath, Buffer.from(base64, 'base64'));
 
-      // Return a markdown-relative path from the note md file
-      return `assets/${fileName}`;
+      const buffer = await res.buffer();
+      await fs.promises.writeFile(filePath, buffer);
+
+      const rel = `assets/${fileName}`;
+      const fileUrl = pathToFileURL(filePath).toString();
+      return { rel, fileUrl };
     } catch (e) {
       // eslint-disable-next-line no-console
-      console.error('Failed to save note asset:', e);
+      console.error('Failed to save note asset from url:', e);
+      return null;
+    }
+  },
+  resolveNoteAssetFileUrl: ({ noteId, note, folders, notebooks, rel }) => {
+    try {
+      const root = getNotesRoot();
+      const metaPath = path.join(root, META_DIR_NAME, META_FILE_NAME);
+      const rawMeta = readJsonFile(metaPath) ?? {};
+      const notePaths = rawMeta.notePaths ?? {};
+      const existingDirRel = notePaths?.[noteId]?.dirRel;
+      const notebooksArray = notebooks ?? rawMeta.notebooks ?? [];
+      const noteDir = existingDirRel
+        ? path.join(root, existingDirRel)
+        : getOrCreateNoteDir(root, folders ?? [], notebooksArray, noteId, note)
+            .noteDir;
+
+      if (!existingDirRel) {
+        try {
+          const nextNotePaths = {
+            ...notePaths,
+            [noteId]: {
+              ...(notePaths?.[noteId] ?? {}),
+              dirRel: path.relative(root, noteDir),
+            },
+          };
+          writeJsonFile(metaPath, { ...rawMeta, notePaths: nextNotePaths });
+        } catch {
+          // best-effort
+        }
+      }
+      const abs = path.join(noteDir, String(rel || ''));
+      return pathToFileURL(abs).toString();
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.error('Failed to resolve asset url:', e);
+      return null;
+    }
+  },
+  readClipboardImageDataUrl: () => {
+    try {
+      const img = clipboard.readImage();
+      if (!img || (typeof img.isEmpty === 'function' && img.isEmpty())) {
+        return null;
+      }
+      // Electron returns PNG data by default here.
+      const dataUrl = img.toDataURL();
+      return typeof dataUrl === 'string' && dataUrl.startsWith('data:image/')
+        ? dataUrl
+        : null;
+    } catch (e) {
       return null;
     }
   },

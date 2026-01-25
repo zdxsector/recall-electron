@@ -1,15 +1,15 @@
 {
-  "name": "simplenote",
-  "description": "Simplenote is an easy way to keep notes, lists, ideas and more. Your notes stay in sync with all your devices for free.",
+  "name": "curnote",
+  "description": "Curnote is an easy way to keep notes, lists, ideas and more. Your notes stay in sync with all your devices for free.",
   "author": {
     "name": "Automattic, Inc.",
-    "email": "support@simplenote.com"
+    "email": "support@curnote.com"
   },
-  "productName": "Simplenote",
+  "productName": "Curnote",
   "version": "2.24.0-beta.1",
   "main": "desktop/index.js",
   "license": "GPL-2.0",
-  "homepage": "https://simplenote.com",
+  "homepage": "https://curnote.com",
   "scripts": {
     "dev": "make dev",
     "start": "make start NODE_ENV=development",
@@ -22,7 +22,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git://github.com/Automattic/simplenote-electron.git"
+    "url": "git://github.com/Automattic/curnote-electron.git"
   },
   "engines": {
     "node": ">= 12.14.1",
@@ -39,6 +39,7 @@
   "devDependencies": {
     "@babel/core": "7.26.8",
     "@babel/eslint-parser": "7.26.8",
+    "@babel/plugin-proposal-decorators": "7.25.9",
     "@babel/plugin-syntax-dynamic-import": "7.8.3",
     "@babel/plugin-transform-class-properties": "7.25.9",
     "@babel/plugin-transform-object-rest-spread": "7.25.9",
@@ -118,9 +119,9 @@
     "@automattic/color-studio": "4.1.0",
     "@emotion/react": "11.14.0",
     "@emotion/styled": "11.14.0",
-    "@muyajs/core": "0.0.39",
     "@mui/material": "6.4.6",
     "@mui/styles": "6.4.6",
+    "@muyajs/core": "0.0.39",
     "@sentry/react": "7.120.3",
     "better-sqlite3": "11.7.0",
     "clipboard": "2.0.11",
@@ -169,7 +170,7 @@
     "semver": "7.7.1",
     "setimmediate": "1.0.5",
     "showdown": "2.1.0",
-    "simperium": "1.1.4",
+    "simperium": "^1.1.4",
     "string-replace-to-array": "2.1.1",
     "turndown": "7.2.0",
     "unorm": "1.6.0",

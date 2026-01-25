@@ -5,6 +5,7 @@ import classNames from 'classnames';
 import PublishIcon from '../icons/published-small';
 import SmallPinnedIcon from '../icons/pinned-small';
 import SmallSyncIcon from '../icons/sync-small';
+import FileSmallIcon from '../icons/file-small';
 import { decorateWith, makeFilterDecorator } from './decorators';
 import { getTerms } from '../utils/filter-notes';
 import { noteTitleAndPreview } from '../utils/note-utils';
@@ -14,6 +15,32 @@ import actions from '../state/actions';
 
 import * as S from '../state';
 import * as T from '../types';
+
+const IMAGE_LINE_ONLY_RE = /^\s*!\[([^\]]*)\]\(\s*([^)]+?)\s*\)\s*$/;
+const HTML_IMAGE_LINE_ONLY_RE = /^\s*<img\b[^>]*>\s*$/i;
+const HTML_IMAGE_SRC_RE = /\bsrc\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/i;
+const HTML_IMAGE_ALT_RE = /\balt\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/i;
+const MAX_TITLE_THUMBNAIL_LINES = 4;
+
+const extractMarkdownImageSrc = (raw: string): string => {
+  const trimmed = String(raw ?? '').trim();
+  if (!trimmed) return '';
+  // Support the <url> form and optional title: ![alt](<url> "title")
+  if (trimmed.startsWith('<')) {
+    const closeIdx = trimmed.indexOf('>');
+    if (closeIdx > 1) {
+      return trimmed.slice(1, closeIdx).trim();
+    }
+  }
+  // Otherwise, treat the first whitespace-delimited token as the URL.
+  return trimmed.split(/\s+/)[0] ?? '';
+};
+
+const extractHtmlAttribute = (re: RegExp, s: string): string | null => {
+  const m = re.exec(String(s ?? ''));
+  const value = (m?.[1] ?? m?.[2] ?? m?.[3] ?? '').trim();
+  return value || null;
+};
 
 type OwnProps = {
   invalidateHeight: () => any;
@@ -27,6 +54,8 @@ type StateProps = {
   isOffline: boolean;
   isOpened: boolean;
   lastUpdated: number;
+  folders: any[];
+  notebooks: any[];
   note?: T.Note;
   searchQuery: string;
 };
@@ -72,6 +101,8 @@ export class NoteCell extends Component<Props> {
       isOffline,
       isOpened,
       lastUpdated,
+      folders,
+      notebooks,
       noteId,
       note,
       openNote,
@@ -89,12 +120,6 @@ export class NoteCell extends Component<Props> {
     const isPublished = !!note.publishURL;
     const recentlyUpdated =
       lastUpdated - this.createdAt > 1000 && Date.now() - lastUpdated < 1200;
-    const classes = classNames('note-list-item', {
-      'note-list-item-selected': isOpened,
-      'note-list-item-pinned': isPinned,
-      'note-recently-updated': recentlyUpdated,
-      'published-note': isPublished,
-    });
 
     const pinnerClasses = classNames('note-list-item-pinner', {
       'note-list-item-pinned': isPinned,
@@ -102,6 +127,88 @@ export class NoteCell extends Component<Props> {
     const pinnerLabel = isPinned ? `Unpin note ${title}` : `Pin note ${title}`;
 
     const decorators = getTerms(searchQuery).map(makeFilterDecorator);
+
+    // If an image appears in the first 4 non-empty editor lines, show a thumbnail in the title row.
+    // Skip this when searching so contextual text previews remain clear.
+    const shouldShowTitleThumbnail = !(searchQuery ?? '').trim();
+    const titleThumbnail = (() => {
+      if (!shouldShowTitleThumbnail) return null;
+
+      const content = String(note.content ?? '');
+      const candidateLines: string[] = [];
+      for (const line of content.split(/\r?\n/)) {
+        const trimmed = String(line).trim();
+        if (!trimmed) continue;
+        candidateLines.push(trimmed);
+        if (candidateLines.length >= MAX_TITLE_THUMBNAIL_LINES) break;
+      }
+
+      let alt = 'Image';
+      let rawSrc = '';
+      for (const line of candidateLines) {
+        const md = IMAGE_LINE_ONLY_RE.exec(line);
+        if (md) {
+          alt = (md[1] ?? '').trim() || 'Image';
+          rawSrc = extractMarkdownImageSrc(md[2] ?? '').replace(/^<|>$/g, '');
+          break;
+        }
+        if (HTML_IMAGE_LINE_ONLY_RE.test(line)) {
+          const src = extractHtmlAttribute(HTML_IMAGE_SRC_RE, line);
+          if (!src) continue;
+          rawSrc = src.replace(/^<|>$/g, '');
+          alt = extractHtmlAttribute(HTML_IMAGE_ALT_RE, line) || alt;
+          break;
+        }
+      }
+
+      if (!rawSrc) return null;
+      const normalizedSrc = rawSrc.replace(/^(\.\/|\/)/, '');
+
+      const resolveFn = window.electron?.resolveNoteAssetFileUrl;
+      const resolvedSrc =
+        normalizedSrc.startsWith('assets/') && typeof resolveFn === 'function'
+          ? resolveFn({
+              noteId,
+              note,
+              folders,
+              notebooks,
+              rel: normalizedSrc,
+            }) || rawSrc
+          : rawSrc;
+
+      // Avoid rendering very large data: thumbnails in the list (can be huge and cause jank).
+      const isHttp = /^https?:\/\//i.test(resolvedSrc);
+      const isFile = /^file:\/\//i.test(resolvedSrc);
+      const isSmallDataImage =
+        /^data:image\//i.test(resolvedSrc) && resolvedSrc.length <= 8_192;
+      const showThumb = isFile || isHttp || isSmallDataImage;
+
+      return (
+        <span className="note-list-item-title-thumbnail">
+          {showThumb ? (
+            <img
+              className="note-list-item-image-thumb"
+              src={resolvedSrc}
+              alt={alt}
+              loading="lazy"
+            />
+          ) : (
+            <span className="note-list-item-image-fallback" aria-hidden="true">
+              <FileSmallIcon />
+            </span>
+          )}
+        </span>
+      );
+    })();
+
+    const hasTitleThumbnail = !!titleThumbnail;
+    const classes = classNames('note-list-item', {
+      'note-list-item-selected': isOpened,
+      'note-list-item-pinned': isPinned,
+      'note-recently-updated': recentlyUpdated,
+      'published-note': isPublished,
+      'note-list-item-has-title-thumbnail': hasTitleThumbnail,
+    });
 
     return (
       <div style={style} className={classes} role="row">
@@ -122,9 +229,10 @@ export class NoteCell extends Component<Props> {
             onClick={() => openNote(noteId)}
           >
             <div className="note-list-item-title">
-              <span>
+              <span className="note-list-item-title-text">
                 {decorateWith(decorators, withCheckboxCharacters(title))}
               </span>
+              {titleThumbnail}
             </div>
             {'expanded' === displayMode && preview.length > 0 && (
               <div className="note-list-item-excerpt">
@@ -179,6 +287,8 @@ const mapStateToProps: S.MapState<StateProps, OwnProps> = (
   isOffline: false,
   isOpened: state.ui.openedNote === noteId,
   lastUpdated: -Infinity,
+  folders: Array.from(state.data.folders),
+  notebooks: Array.from(state.data.notebooks),
   note: state.data.notes.get(noteId),
   searchQuery: state.ui.searchQuery,
 });

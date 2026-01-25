@@ -36,26 +36,26 @@ type Props = StateProps & DispatchProps;
 
 export class NavigationBar extends Component<Props> {
   static displayName = 'NavigationBar';
-  isMounted = false;
+  private _isMounted = false;
 
   componentDidMount() {
-    this.isMounted = true;
+    this._isMounted = true;
   }
 
   componentWillUnmount() {
-    this.isMounted = false;
+    this._isMounted = false;
   }
 
   handleFocusTrapDeactivate = () => {
     const { onFocusTrapDeactivate, showNavigation } = this.props;
 
     // isMounted prevents reopening sidebar after navigation event
-    if (showNavigation && this.isMounted) {
+    if (showNavigation && this._isMounted) {
       onFocusTrapDeactivate();
     }
   };
 
-  onHelpClicked = () => viewExternalUrl('http://simplenote.com/help');
+  onHelpClicked = () => viewExternalUrl('http://curnote.com/help');
 
   onSelectTrash = () => {
     this.props.selectTrash();
