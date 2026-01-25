@@ -4,7 +4,7 @@ import cryptoRandomString from '../utils/crypto-random-string';
 import { get } from 'lodash';
 import { isDev } from '../../desktop/env';
 import MailIcon from '../icons/mail';
-import CurnoteLogo from '../icons/curnote';
+import RecallLogo from '../icons/recall';
 import Spinner from '../components/spinner';
 import { isElectron, isMac } from '../utils/platform';
 import { viewExternalUrl } from '../utils/url-utils';
@@ -92,11 +92,11 @@ export class Auth extends Component<Props> {
       <>
         Could not request account creation. Please try again or
         <a
-          href="mailto:support@curnote.com?subject=Curnote%20Support"
+          href="mailto:support@recall.com?subject=Recall%20Support"
           onClick={(event) => {
             event.preventDefault();
             viewExternalUrl(
-              'mailto:support@curnote.com?subject=Curnote%20Support'
+              'mailto:support@recall.com?subject=Recall%20Support'
             );
           }}
         >
@@ -129,11 +129,11 @@ export class Auth extends Component<Props> {
               <a
                 onClick={(event) => {
                   event.preventDefault();
-                  viewExternalUrl('mailto:support@curnote.com');
+                  viewExternalUrl('mailto:support@recall.com');
                 }}
-                href="mailto:support@curnote.com"
+                href="mailto:support@recall.com"
               >
-                support@curnote.com
+                support@recall.com
               </a>{' '}
               for help.
             </p>
@@ -213,7 +213,7 @@ export class Auth extends Component<Props> {
     return (
       <div className={mainClasses}>
         {isElectron && isMac && <div className="login__draggable-area" />}
-        <CurnoteLogo />
+        <RecallLogo />
         <form className="login__form" onSubmit={this.onSubmit}>
           <h1>{headerLabel}</h1>
           {!this.state.onLine && (
@@ -228,7 +228,7 @@ export class Auth extends Component<Props> {
               <a
                 className="login__reset"
                 href={
-                  'https://app.curnote.com/reset/?email=' +
+                  'https://app.recall.com/reset/?email=' +
                   encodeURIComponent(get(this.usernameInput, 'value'))
                 }
                 target="_blank"
@@ -251,7 +251,7 @@ export class Auth extends Component<Props> {
               <a
                 className="login__reset"
                 href={
-                  'https://app.curnote.com/account/verify-email/' +
+                  'https://app.recall.com/account/verify-email/' +
                   btoa(get(this.usernameInput, 'value'))
                 }
                 target="_blank"
@@ -273,7 +273,7 @@ export class Auth extends Component<Props> {
               <a
                 className="login__reset"
                 href={
-                  'https://app.curnote.com/reset/?email=' +
+                  'https://app.recall.com/reset/?email=' +
                   encodeURIComponent(get(this.usernameInput, 'value'))
                 }
                 target="_blank"
@@ -388,7 +388,7 @@ export class Auth extends Component<Props> {
           {!isCreatingAccount && usePassword && (
             <a
               className="login__forgot"
-              href="https://app.curnote.com/forgot/"
+              href="https://app.recall.com/forgot/"
               target="_blank"
               rel="noopener noreferrer"
               onClick={this.onForgot}
@@ -409,10 +409,10 @@ export class Auth extends Component<Props> {
             <div className="terms">
               By creating an account you agree to our
               <a
-                href="https://curnote.com/terms/"
+                href="https://recall.com/terms/"
                 onClick={(event) => {
                   event.preventDefault();
-                  viewExternalUrl('https://curnote.com/terms/');
+                  viewExternalUrl('https://recall.com/terms/');
                 }}
               >
                 Terms of Service
@@ -588,7 +588,7 @@ export class Auth extends Component<Props> {
           );
         case '2':
           return this.authError(
-            'Please confirm your account with the confirmation email before signing in to Curnote.'
+            'Please confirm your account with the confirmation email before signing in to Recall.'
           );
         default:
           return this.authError('An error was encountered while signing in.');

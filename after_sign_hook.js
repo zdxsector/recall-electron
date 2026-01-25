@@ -11,12 +11,12 @@ module.exports = async function (params) {
   const appStoreConnectKeyPath = path.join(
     process.env.HOME,
     '.configure',
-    'curnote-electron',
+    'recall-electron',
     'secrets',
     'app_store_connect_api_key.p8'
   );
 
-  const envPath = path.join(process.env.HOME, '.a8c-apps/curnote-electron.env');
+  const envPath = path.join(process.env.HOME, '.a8c-apps/recall-electron.env');
   if (fs.existsSync(envPath)) {
     dotenv.config({ path: envPath });
   } else {
@@ -51,7 +51,7 @@ module.exports = async function (params) {
   }
 
   // Same appId in electron-builder.
-  let appId = 'com.automattic.curnote';
+  let appId = 'com.automattic.recall';
 
   let appPath = params.appOutDir
     ? path.join(

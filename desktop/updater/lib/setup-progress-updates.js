@@ -9,7 +9,7 @@ const progressBarBlue = '#4895d9';
  */
 const setupProgressUpdates = ({ updater, willAutoDownload }) => {
   let progressBar;
-  const title = 'Update Curnote';
+  const title = 'Update Recall';
   const style = {
     bar: {
       height: '8px',
@@ -33,7 +33,7 @@ const setupProgressUpdates = ({ updater, willAutoDownload }) => {
     updater.removeListener('update-not-available', notifyNoUpdate);
     closeProgressAndShowMessage({
       message: 'You’re up to date!',
-      detail: `Curnote ${app.getVersion()} is currently the newest version available.`,
+      detail: `Recall ${app.getVersion()} is currently the newest version available.`,
     });
   };
 

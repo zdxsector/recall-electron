@@ -1,8 +1,8 @@
 {
   "updater": {
-    "downloadUrl": "https://github.com/Automattic/curnote-electron/releases/latest",
-    "changelogUrl": "https://github.com/Automattic/curnote-electron/blob/trunk/RELEASE-NOTES.md",
-    "apiUrl": "https://api.github.com/repos/automattic/curnote-electron/releases/latest",
+    "downloadUrl": "https://github.com/Automattic/recall-electron/releases/latest",
+    "changelogUrl": "https://github.com/Automattic/recall-electron/blob/trunk/RELEASE-NOTES.md",
+    "apiUrl": "https://api.github.com/repos/automattic/recall-electron/releases/latest",
     "delay": 2000,
     "interval": 600000
   }

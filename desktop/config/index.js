@@ -5,7 +5,7 @@ let config = require('../config-updater.json');
 
 // Merge in some details from package.json
 config.name = pkg.productName;
-config.description = 'Curnote Desktop';
+config.description = 'Recall Desktop';
 config.version = pkg.version;
 config.author = pkg.author;
 

@@ -46,7 +46,7 @@ module.exports = function main() {
   // ---------------------------------------------------------------------------
   // IPC helpers for renderer/preload (replaces removed `remote` module).
   // ---------------------------------------------------------------------------
-  ipcMain.on('curnote:getPath', (event, name) => {
+  ipcMain.on('recall:getPath', (event, name) => {
     try {
       // Restrict to the one path we need for note persistence.
       if (name !== 'documents') {
@@ -59,7 +59,7 @@ module.exports = function main() {
     }
   });
 
-  ipcMain.on('curnote:showMessageBoxSync', (event, options) => {
+  ipcMain.on('recall:showMessageBoxSync', (event, options) => {
     try {
       const win = BrowserWindow.fromWebContents(event.sender);
       event.returnValue = dialog.showMessageBoxSync(win, options || {});
@@ -72,9 +72,9 @@ module.exports = function main() {
     setTimeout(updater.ping.bind(updater), config.updater.delay);
     app.on('open-url', function (event, url) {
       event.preventDefault();
-      if (url.startsWith('curnote://auth')) {
+      if (url.startsWith('recall://auth')) {
         mainWindow.webContents.send('wpLogin', url);
-      } else if (url.startsWith('curnote://login')) {
+      } else if (url.startsWith('recall://login')) {
         mainWindow.webContents.send('tokenLogin', url);
       }
     });
@@ -257,10 +257,10 @@ module.exports = function main() {
     }
     // Protocol handler for platforms other than macOS
     // argv: An array of the second instance’s (command line / deep linked) arguments
-    // The last index of argv is the full deeplink url (curnote://SOME_URL)
-    if (argv[argv.length - 1].startsWith('curnote://auth')) {
+    // The last index of argv is the full deeplink url (recall://SOME_URL)
+    if (argv[argv.length - 1].startsWith('recall://auth')) {
       mainWindow.webContents.send('wpLogin', argv[argv.length - 1]);
-    } else if (argv[argv.length - 1].startsWith('curnote://login')) {
+    } else if (argv[argv.length - 1].startsWith('recall://login')) {
       mainWindow.webContents.send('tokenLogin', argv[argv.length - 1]);
     }
   });
@@ -269,9 +269,9 @@ module.exports = function main() {
     return app.quit();
   }
 
-  if (!app.isDefaultProtocolClient('curnote')) {
-    // Define custom protocol handler. This allows for deeplinking into the app from curnote://
-    app.setAsDefaultProtocolClient('curnote');
+  if (!app.isDefaultProtocolClient('recall')) {
+    // Define custom protocol handler. This allows for deeplinking into the app from recall://
+    app.setAsDefaultProtocolClient('recall');
   }
 
   // Quit when all windows are closed.
@@ -298,6 +298,6 @@ module.exports = function main() {
   // This method will be called when Electron has finished
   // initialization and is ready to create browser windows.
   app.on('ready', activateWindow);
-  app.on('ready', () => app.setAppUserModelId('com.automattic.curnote'));
+  app.on('ready', () => app.setAppUserModelId('com.automattic.recall'));
   app.on('activate', activateWindow);
 };

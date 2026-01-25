@@ -19,7 +19,7 @@ import * as A from '../state/action-types';
 import * as S from '../state';
 ```
 
-`types` contains app-wide type definitions including those for the Curnote data models, the UI behaviors, and common language/platform helpers.
+`types` contains app-wide type definitions including those for the Recall data models, the UI behaviors, and common language/platform helpers.
 
 ```ts
 import * as T from '../types';

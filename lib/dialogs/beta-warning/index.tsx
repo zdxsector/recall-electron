@@ -1,6 +1,6 @@
 import React, { Component } from 'react';
 import { connect } from 'react-redux';
-import CurnoteLogo from '../../icons/curnote';
+import RecallLogo from '../../icons/recall';
 import CrossIcon from '../../icons/cross';
 import Dialog from '../../dialog';
 import { closeDialog } from '../../state/ui/actions';
@@ -21,13 +21,13 @@ export class BetaWarning extends Component<Props> {
       <div className="about">
         <Dialog hideTitleBar onDone={closeDialog} title="Beta Release">
           <div className="about-top">
-            <CurnoteLogo />
+            <RecallLogo />
 
-            <h1>Curnote</h1>
+            <h1>Recall</h1>
           </div>
 
           <p style={{ textAlign: 'center' }}>
-            This is a beta release of Curnote.
+            This is a beta release of Recall.
           </p>
 
           <p style={{ textAlign: 'center' }}>

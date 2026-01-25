@@ -1,4 +1,4 @@
-import CurnoteImporter, { convertModificationDates } from '.';
+import RecallImporter, { convertModificationDates } from '.';
 import CoreImporter from '..';
 jest.mock('../');
 
@@ -10,11 +10,11 @@ global.FileReader = jest.fn(() => ({
   onload: null,
 })) as any;
 
-describe('CurnoteImporter', () => {
+describe('RecallImporter', () => {
   let importer;
 
   beforeEach(() => {
-    importer = new CurnoteImporter(() => {});
+    importer = new RecallImporter(() => {});
     importer.emit = jest.spyOn(importer, 'emit');
     CoreImporter.mockClear();
     CoreImporter.mockImplementation(function () {
@@ -100,7 +100,7 @@ describe('CurnoteImporter', () => {
       expect(importer.emit).toHaveBeenCalledWith(
         'status',
         'error',
-        'Invalid Curnote JSON format.'
+        'Invalid Recall JSON format.'
       );
     });
 
