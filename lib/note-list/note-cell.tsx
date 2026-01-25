@@ -175,15 +175,24 @@ export class NoteCell extends Component<Props> {
   shouldShowRenderedPreview() {
     const { displayMode, isOpened, searchQuery, note } = this.props;
     if (!note) return false;
-    if (!isOpened) return false;
     if ('condensed' === displayMode) return false;
     if ((searchQuery ?? '').trim()) return false;
 
-    // Show rendered preview when Markdown is enabled or when an image exists
-    // near the top (since the text-only excerpt intentionally skips images).
-    if (note.systemTags.includes('markdown')) return true;
+    // Check if note has images near the top
     const top = String(note.content ?? '').slice(0, 2000);
-    return /!\[[^\]]*\]\(|<img\b/i.test(top);
+    const hasImages = /!\[[^\]]*\]\(|<img\b/i.test(top);
+
+    // Always show rendered preview for notes with images (to persist image preview
+    // in the notes list even when the note is not opened)
+    if (hasImages) return true;
+
+    // For notes without images, only show rendered markdown preview when opened
+    if (!isOpened) return false;
+
+    // Show rendered preview when Markdown is enabled
+    if (note.systemTags.includes('markdown')) return true;
+
+    return false;
   }
 
   scheduleRenderedPreview() {
