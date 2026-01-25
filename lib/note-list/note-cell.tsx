@@ -178,15 +178,16 @@ export class NoteCell extends Component<Props> {
     if ('condensed' === displayMode) return false;
     if ((searchQuery ?? '').trim()) return false;
 
-    // Check if note has images near the top
+    // Check if note has images or code blocks near the top
     const top = String(note.content ?? '').slice(0, 2000);
     const hasImages = /!\[[^\]]*\]\(|<img\b/i.test(top);
+    const hasCodeBlock = /```[\s\S]*?```|^( {4}|\t)[^\s]/m.test(top);
 
-    // Always show rendered preview for notes with images (to persist image preview
-    // in the notes list even when the note is not opened)
-    if (hasImages) return true;
+    // Always show rendered preview for notes with images or code blocks
+    // (to persist preview with syntax highlighting even when the note is not opened)
+    if (hasImages || hasCodeBlock) return true;
 
-    // For notes without images, only show rendered markdown preview when opened
+    // For notes without images/code, only show rendered markdown preview when opened
     if (!isOpened) return false;
 
     // Show rendered preview when Markdown is enabled
@@ -273,6 +274,22 @@ export class NoteCell extends Component<Props> {
         img.setAttribute('loading', 'lazy');
         img.setAttribute('draggable', 'false');
       });
+
+      // Apply syntax highlighting to code blocks
+      const codeElements = node.querySelectorAll('pre code');
+      if (codeElements.length) {
+        try {
+          const { default: highlight } = await import(
+            /* webpackChunkName: 'highlight' */ 'highlight.js'
+          );
+          if (seq !== this.renderedPreviewSeq) return;
+          codeElements.forEach((el) =>
+            highlight.highlightElement(el as HTMLElement)
+          );
+        } catch {
+          // ignore highlight errors
+        }
+      }
     } catch {
       if (seq !== this.renderedPreviewSeq) return;
       node.innerHTML = '';

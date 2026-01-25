@@ -1,3 +1,4 @@
+@use 'sass:meta';
 @use '../../scss/variables' as *;
 
 @keyframes announce-note-update {
@@ -304,6 +305,38 @@
     code {
       font-size: 0.95em;
     }
+
+    // Syntax highlighting styles for code blocks
+    pre {
+      background-color: var(--background-color);
+      border-radius: 3px;
+      padding: 4px 6px;
+      overflow: hidden;
+      max-height: 60px;
+
+      code {
+        background: transparent;
+        padding: 0;
+      }
+    }
+  }
+
+  // Syntax highlighting for light theme
+  body[data-theme='light']
+    &
+    .note-list-item-excerpt.note-list-item-excerpt-rendered {
+    @include meta.load-css(
+      '../../node_modules/highlight.js/scss/base16/solarized-light'
+    );
+  }
+
+  // Syntax highlighting for dark theme
+  body[data-theme='dark']
+    &
+    .note-list-item-excerpt.note-list-item-excerpt-rendered {
+    @include meta.load-css(
+      '../../node_modules/highlight.js/scss/base16/solarized-dark'
+    );
   }
 
   // Keep comfy mode a stable single-line preview (including images).
