@@ -104,12 +104,79 @@ body[data-theme='dark'] .muya-editor-root {
 }
 
 // Muya applies colors to nested nodes; force inheritance for editor subtree.
-body[data-theme='light'] .muya-editor-root * {
+// Exception: preserve Prism.js syntax highlighting colors on .token elements.
+body[data-theme='light'] .muya-editor-root *:not(.token) {
   color: inherit !important;
 }
 
-body[data-theme='dark'] .muya-editor-root * {
+body[data-theme='dark'] .muya-editor-root *:not(.token) {
   color: inherit !important;
+}
+
+// Prism.js dark mode token colors (override light theme defaults)
+body[data-theme='dark'] {
+  .token.comment,
+  .token.prolog,
+  .token.doctype,
+  .token.cdata {
+    color: #8b949e !important;
+  }
+
+  .token.punctuation {
+    color: #c9d1d9 !important;
+  }
+
+  .token.property,
+  .token.tag,
+  .token.boolean,
+  .token.number,
+  .token.constant,
+  .token.symbol {
+    color: #79c0ff !important;
+  }
+
+  .token.selector,
+  .token.attr-name,
+  .token.string,
+  .token.char,
+  .token.builtin {
+    color: #a5d6ff !important;
+  }
+
+  .token.inserted {
+    color: #7ee787 !important;
+    background: rgba(46, 160, 67, 0.15) !important;
+  }
+
+  .token.deleted {
+    color: #ffa198 !important;
+    background: rgba(248, 81, 73, 0.15) !important;
+  }
+
+  .token.operator,
+  .token.entity,
+  .token.url,
+  .language-css .token.string,
+  .style .token.string {
+    color: #d2a8ff !important;
+  }
+
+  .token.atrule,
+  .token.attr-value,
+  .token.keyword {
+    color: #ff7b72 !important;
+  }
+
+  .token.function,
+  .token.class-name {
+    color: #d2a8ff !important;
+  }
+
+  .token.regex,
+  .token.important,
+  .token.variable {
+    color: #ffa657 !important;
+  }
 }
 
 // Align Muya editor width with Curnote's line length setting.

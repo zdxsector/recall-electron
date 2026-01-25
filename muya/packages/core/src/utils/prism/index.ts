@@ -54,9 +54,32 @@ function search(text: string) {
     .slice(0, 5);
 }
 
-// pre load latex and yaml and html for `math block` \ `front matter` and `html block`
-loadLanguage('latex');
-loadLanguage('yaml');
+// Pre-load common languages for immediate syntax highlighting:
+// - latex/yaml for math blocks and front matter
+// - common programming languages users are likely to use
+const preloadLanguages = [
+  'latex',
+  'yaml',
+  'c',
+  'cpp',
+  'csharp',
+  'java',
+  'python',
+  'ruby',
+  'go',
+  'rust',
+  'swift',
+  'kotlin',
+  'typescript',
+  'php',
+  'sql',
+  'bash',
+  'json',
+  'xml',
+  'markdown',
+];
+
+preloadLanguages.forEach((lang) => loadLanguage(lang));
 
 export { walkTokens } from './walkToken';
 export { loadedLanguages, loadLanguage, search, transformAliasToOrigin };

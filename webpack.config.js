@@ -184,6 +184,12 @@ module.exports = () => {
         resourceRegExp: /^\.\/locale$/,
         contextRegExp: /moment$/,
       }),
+      // Tell webpack about dynamic imports for Prism.js language components.
+      // This ensures all prism-*.js files are available as lazy-loadable chunks.
+      new webpack.ContextReplacementPlugin(
+        /prismjs[\\/]components$/,
+        /prism-[\w-]+\.js$/
+      ),
     ],
   };
 };
