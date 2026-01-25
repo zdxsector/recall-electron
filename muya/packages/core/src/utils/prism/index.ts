@@ -8,7 +8,21 @@ import initLoadLanguage, {
 
 const prism = Prism;
 window.Prism = Prism;
-import('prismjs/plugins/keep-markup/prism-keep-markup');
+
+// Track if keep-markup plugin is loaded
+let keepMarkupLoaded = false;
+
+// Load keep-markup plugin and track its status
+import('prismjs/plugins/keep-markup/prism-keep-markup')
+  .then(() => {
+    keepMarkupLoaded = true;
+  })
+  .catch((err) => {
+    console.warn('Failed to load Prism keep-markup plugin:', err);
+  });
+
+// Export function to check if keep-markup is ready
+export const isKeepMarkupReady = () => keepMarkupLoaded;
 
 const langs: {
   name: string;
@@ -57,6 +71,8 @@ function search(text: string) {
 // Pre-load common languages for immediate syntax highlighting:
 // - latex/yaml for math blocks and front matter
 // - common programming languages users are likely to use
+// NOTE: Languages are loaded sequentially to respect dependencies
+// (e.g., cpp depends on c, which depends on clike)
 const preloadLanguages = [
   'latex',
   'yaml',
@@ -79,7 +95,16 @@ const preloadLanguages = [
   'markdown',
 ];
 
-preloadLanguages.forEach((lang) => loadLanguage(lang));
+// Load languages sequentially to ensure dependencies are loaded first
+(async () => {
+  for (const lang of preloadLanguages) {
+    try {
+      await loadLanguage(lang);
+    } catch (err) {
+      console.warn(`Failed to preload Prism language "${lang}":`, err);
+    }
+  }
+})();
 
 export { walkTokens } from './walkToken';
 export { loadedLanguages, loadLanguage, search, transformAliasToOrigin };
