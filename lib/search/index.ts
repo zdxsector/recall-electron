@@ -453,12 +453,28 @@ export const middleware: S.Middleware = (store) => {
         };
         return next(withSearch(action));
 
-      case 'OPEN_FOLDER':
+      case 'OPEN_FOLDER': {
         searchState.collection = {
           type: 'folder',
           folderId: action.folderId,
         };
-        return next(withSearch(action));
+        // Check if currently opened note is in this folder
+        const { openedNote } = store.getState().ui;
+        const folderNotes = runSearch();
+        const noteInFolder = openedNote && folderNotes.includes(openedNote);
+        // Close the editor if the opened note is not in this folder (or folder is empty)
+        const searchAction = withSearch(action);
+        if (openedNote && !noteInFolder) {
+          return next({
+            ...searchAction,
+            meta: {
+              ...searchAction.meta,
+              nextNoteToOpen: null,
+            },
+          });
+        }
+        return next(searchAction);
+      }
 
       case 'PIN_NOTE': {
         const note = searchState.notes.get(action.noteId);
