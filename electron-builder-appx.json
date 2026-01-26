@@ -1,13 +1,13 @@
 {
-  "productName": "Curnote",
-  "appId": "com.automattic.curnote",
+  "productName": "Recall",
+  "appId": "com.automattic.recall",
   "directories": {
     "output": "./release",
     "buildResources": "./resources"
   },
   "files": ["desktop", "dist", "shared"],
   "win": {
-    "icon": "resources/images/curnote.ico",
+    "icon": "resources/images/recall.ico",
     "target": [
       {
         "target": "appx",
@@ -16,18 +16,18 @@
     ]
   },
   "appx": {
-    "applicationId": "Curnote",
-    "identityName": "22490Automattic.Curnote",
+    "applicationId": "Recall",
+    "identityName": "22490Automattic.Recall",
     "publisher": "CN=E2E5A157-746D-4B04-9116-ABE5CB928306",
     "publisherDisplayName": "Automattic, Inc.",
     "backgroundColor": "transparent",
     "showNameOnTiles": true,
-    "artifactName": "Curnote-win-store-${version}-${arch}.${ext}"
+    "artifactName": "Recall-win-store-${version}-${arch}.${ext}"
   },
   "protocols": [
     {
-      "name": "curnote",
-      "schemes": ["curnote"]
+      "name": "recall",
+      "schemes": ["recall"]
     }
   ]
 }

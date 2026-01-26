@@ -141,25 +141,52 @@ class CodeBlockContent extends Content {
     // transform alias to original language
     const fullLengthLang = transformAliasToOrigin([lang])[0];
     const domNode = this.domNode!;
-    const code = escapeHTML(getHighlightHtml(text, highlights, true, true))
+
+    // Apply search highlights first (these are preserved through syntax highlighting)
+    const codeWithHighlights = escapeHTML(
+      getHighlightHtml(text, highlights, true, true)
+    )
       .replace(new RegExp(MARKER_HASH['<'], 'g'), '<')
       .replace(new RegExp(MARKER_HASH['>'], 'g'), '>')
       .replace(new RegExp(MARKER_HASH['"'], 'g'), '"')
       .replace(new RegExp(MARKER_HASH["'"], 'g'), "'");
 
+    // Check if we can apply Prism syntax highlighting
     if (
       fullLengthLang &&
-      /\S/.test(code) &&
-      loadedLanguages.has(fullLengthLang)
+      /\S/.test(text) &&
+      loadedLanguages.has(fullLengthLang) &&
+      prism.languages[fullLengthLang]
     ) {
-      const wrapper = document.createElement('div');
-      wrapper.classList.add(`language-${fullLengthLang}`);
-      wrapper.innerHTML = code;
-      prism.highlightElement(wrapper, false, function (this: HTMLElement) {
-        domNode.innerHTML = this.innerHTML;
-      });
+      try {
+        // Use prism.highlight() for synchronous highlighting with the grammar
+        // This returns HTML with .token spans for syntax coloring
+        const highlightedHtml = prism.highlight(
+          text,
+          prism.languages[fullLengthLang],
+          fullLengthLang
+        );
+        // If there are search highlights, we need to merge them.
+        // For simplicity, when there are no search highlights, use pure Prism output.
+        if (highlights.length === 0) {
+          domNode.innerHTML = highlightedHtml;
+        } else {
+          // When search highlights exist, use the keep-markup plugin approach:
+          // wrap the highlighted code in a container and let Prism process it
+          const wrapper = document.createElement('code');
+          wrapper.className = `language-${fullLengthLang}`;
+          wrapper.innerHTML = codeWithHighlights;
+          prism.highlightElement(wrapper, false, function (this: HTMLElement) {
+            domNode.innerHTML = this.innerHTML;
+          });
+        }
+      } catch (err) {
+        // Fallback to plain code if Prism fails (e.g., language dependency not loaded)
+        console.warn(`Prism highlighting failed for "${fullLengthLang}":`, err);
+        domNode.innerHTML = codeWithHighlights;
+      }
     } else {
-      domNode.innerHTML = code;
+      domNode.innerHTML = codeWithHighlights;
     }
   }
 
@@ -343,39 +370,45 @@ class CodeBlockContent extends Content {
       if (
         fullLengthLang &&
         /\S/.test(text) &&
-        loadedLanguages.has(fullLengthLang)
+        loadedLanguages.has(fullLengthLang) &&
+        prism.languages[lang]
       ) {
-        const tokens = prism.tokenize(text, prism.languages[lang]);
-        let offset = start.offset;
-        let code = '';
-        let needRender = false;
+        try {
+          const tokens = prism.tokenize(text, prism.languages[lang]);
+          let offset = start.offset;
+          let code = '';
+          let needRender = false;
 
-        walkTokens(tokens, (token) => {
-          if (
-            offset === 1 &&
-            token.type === 'temp-text' &&
-            typeof token.content === 'string'
-          ) {
-            token.content = token.content.substring(1);
-            needRender = true;
-          } else if (
-            offset === token.length &&
-            token.type !== 'temp-text' &&
-            typeof token.content === 'string'
-          ) {
-            token.content = token.content.substring(0, token.length - 1);
-            needRender = true;
+          walkTokens(tokens, (token) => {
+            if (
+              offset === 1 &&
+              token.type === 'temp-text' &&
+              typeof token.content === 'string'
+            ) {
+              token.content = token.content.substring(1);
+              needRender = true;
+            } else if (
+              offset === token.length &&
+              token.type !== 'temp-text' &&
+              typeof token.content === 'string'
+            ) {
+              token.content = token.content.substring(0, token.length - 1);
+              needRender = true;
+            }
+            code += token.content;
+            // string and Token both has length property...
+            offset -= token.length;
+          });
+
+          if (needRender) {
+            event.preventDefault();
+            this.text = code;
+            this.updatePreviewIfHave(this.text);
+            return this.setCursor(--start.offset, --end.offset, true);
           }
-          code += token.content;
-          // string and Token both has length property...
-          offset -= token.length;
-        });
-
-        if (needRender) {
-          event.preventDefault();
-          this.text = code;
-          this.updatePreviewIfHave(this.text);
-          return this.setCursor(--start.offset, --end.offset, true);
+        } catch (err) {
+          // Ignore tokenize errors - Firefox compatibility code is best-effort
+          console.warn(`Prism tokenize failed for "${lang}":`, err);
         }
       }
     }

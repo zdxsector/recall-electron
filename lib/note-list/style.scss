@@ -1,3 +1,4 @@
+@use 'sass:meta';
 @use '../../scss/variables' as *;
 
 @keyframes announce-note-update {
@@ -32,8 +33,63 @@
   background: inherit;
   background-color: var(--background-color);
 
+  // `react-virtualized` uses an internal Grid with `overflow: auto` and may
+  // introduce a tiny horizontal overflow due to sub-pixel width calculations.
+  // Keep the note list strictly vertically scrollable.
+  .ReactVirtualized__Grid,
+  .ReactVirtualized__List {
+    overflow-x: hidden !important;
+  }
+
+  .ReactVirtualized__Grid__innerScrollContainer {
+    overflow-x: hidden !important;
+    max-width: 100%;
+  }
+
   .comfy .note-list-item-excerpt {
     white-space: nowrap;
+    height: 30px;
+    line-height: 30px;
+
+    // Comfy is a single-line preview; fade out at the right edge AND bottom
+    // for visual consistency with expanded mode.
+    @supports (-webkit-mask-image: linear-gradient(to right, #000, transparent))
+      or (mask-image: linear-gradient(to right, #000, transparent)) {
+      text-overflow: clip;
+      // Combine horizontal and vertical gradients using mask-composite
+      -webkit-mask-image:
+        linear-gradient(
+          to right,
+          rgba(0, 0, 0, 1) 0%,
+          rgba(0, 0, 0, 1) 80%,
+          rgba(0, 0, 0, 0) 100%
+        ),
+        linear-gradient(
+          to bottom,
+          rgba(0, 0, 0, 1) 0%,
+          rgba(0, 0, 0, 1) 70%,
+          rgba(0, 0, 0, 0) 100%
+        );
+      mask-image:
+        linear-gradient(
+          to right,
+          rgba(0, 0, 0, 1) 0%,
+          rgba(0, 0, 0, 1) 80%,
+          rgba(0, 0, 0, 0) 100%
+        ),
+        linear-gradient(
+          to bottom,
+          rgba(0, 0, 0, 1) 0%,
+          rgba(0, 0, 0, 1) 70%,
+          rgba(0, 0, 0, 0) 100%
+        );
+      -webkit-mask-size: 100% 100%;
+      mask-size: 100% 100%;
+      -webkit-mask-repeat: no-repeat;
+      mask-repeat: no-repeat;
+      -webkit-mask-composite: destination-in;
+      mask-composite: intersect;
+    }
   }
 
   .condensed {
@@ -59,7 +115,31 @@
 
   .expanded .note-list-item-excerpt {
     white-space: normal;
-    max-height: 63px;
+    height: 63px;
+    max-height: none;
+
+    // Fade out clipped content at the bottom.
+    @supports (
+        -webkit-mask-image: linear-gradient(to bottom, #000, transparent)
+      )
+      or (mask-image: linear-gradient(to bottom, #000, transparent)) {
+      -webkit-mask-image: linear-gradient(
+        to bottom,
+        rgba(0, 0, 0, 1) 0%,
+        rgba(0, 0, 0, 1) 70%,
+        rgba(0, 0, 0, 0) 100%
+      );
+      mask-image: linear-gradient(
+        to bottom,
+        rgba(0, 0, 0, 1) 0%,
+        rgba(0, 0, 0, 1) 70%,
+        rgba(0, 0, 0, 0) 100%
+      );
+      -webkit-mask-size: 100% 100%;
+      mask-size: 100% 100%;
+      -webkit-mask-repeat: no-repeat;
+      mask-repeat: no-repeat;
+    }
   }
 
   &.is-empty {
@@ -132,12 +212,13 @@
   cursor: pointer;
   display: flex;
   -webkit-tap-highlight-color: rgba(0, 0, 0, 0);
-  font-family: 'Curnote Tasks', $sans, sans-serif;
+  font-family: 'Recall Tasks', $sans, sans-serif;
   min-height: 64px;
 
   .note-list-item-content {
     display: flex;
     width: 100%;
+    min-width: 0; // allow flex children to shrink; prevents horizontal overflow
   }
 
   .note-list-item-status {
@@ -163,6 +244,7 @@
     overflow: hidden;
     padding: 9px 0;
     border-bottom: 1px solid var(--secondary-color);
+    min-width: 0; // important for flexbox truncation without overflow
   }
 
   .note-list-item-title,
@@ -175,6 +257,96 @@
 
   .note-list-item-excerpt {
     color: var(--foreground-color);
+  }
+
+  // Rendered excerpt for the currently-open note. This mirrors the top
+  // of the note content (including images), but stays non-interactive and
+  // visually compact for list performance and accessibility.
+  .note-list-item-excerpt.note-list-item-excerpt-rendered {
+    pointer-events: none;
+
+    // Keep block elements from adding vertical padding/margins in the list.
+    p,
+    ul,
+    ol,
+    pre,
+    blockquote,
+    table,
+    hr {
+      margin: 0;
+    }
+
+    ul,
+    ol {
+      padding-left: 16px;
+    }
+
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6 {
+      margin: 0;
+      font-size: inherit;
+      font-weight: 600;
+    }
+
+    img {
+      display: inline-block;
+      max-width: 100%;
+      max-height: 56px;
+      object-fit: cover;
+      border-radius: 3px;
+      border: 1px solid var(--secondary-color);
+      vertical-align: middle;
+    }
+
+    code {
+      font-size: 0.95em;
+    }
+
+    // Syntax highlighting styles for code blocks
+    pre {
+      background-color: var(--background-color);
+      border-radius: 3px;
+      padding: 4px 6px;
+      overflow: hidden;
+      max-height: 60px;
+
+      code {
+        background: transparent;
+        padding: 0;
+      }
+    }
+  }
+
+  // Syntax highlighting for light theme
+  body[data-theme='light']
+    &
+    .note-list-item-excerpt.note-list-item-excerpt-rendered {
+    @include meta.load-css(
+      '../../node_modules/highlight.js/scss/base16/solarized-light'
+    );
+  }
+
+  // Syntax highlighting for dark theme
+  body[data-theme='dark']
+    &
+    .note-list-item-excerpt.note-list-item-excerpt-rendered {
+    @include meta.load-css(
+      '../../node_modules/highlight.js/scss/base16/solarized-dark'
+    );
+  }
+
+  // Keep comfy mode a stable single-line preview (including images).
+  .comfy .note-list-item-excerpt.note-list-item-excerpt-rendered {
+    white-space: nowrap;
+  }
+
+  .comfy .note-list-item-excerpt.note-list-item-excerpt-rendered img {
+    max-height: 19px;
+    max-width: 19px;
   }
 
   .note-list-item-image-indicator {

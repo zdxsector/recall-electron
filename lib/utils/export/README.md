@@ -1,4 +1,4 @@
-# Curnote Export
+# Recall Export
 
 This module provides a couple of functions for exporting all of the notes in the active account.
 
@@ -16,7 +16,7 @@ This archive contains each note as its own file with a generated filename and th
   "activeNotes": [
     {
       "id": "some-auto-generated-id",
-      "content": "Curnote is so simple! I love it.",
+      "content": "Recall is so simple! I love it.",
       "creationDate": "2016-11-18T23:28:42.957Z",
       "lastModified": "2016-12-22T21:59:36.623Z"
     },

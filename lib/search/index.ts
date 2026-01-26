@@ -387,19 +387,35 @@ export const middleware: S.Middleware = (store) => {
         return next(withSearch(action));
       }
 
-      case 'CREATE_NOTE_WITH_ID':
-        if (action.note?.tags && action.note?.tags.length > 0) {
+      case 'CREATE_NOTE_WITH_ID': {
+        // Preserve the current collection context when creating a new note.
+        // The note is already assigned the correct folderId/tags by the data middleware.
+        const noteFolderId = action.note?.folderId as T.FolderId | null;
+        const noteTags = action.note?.tags;
+
+        if (noteFolderId) {
+          // If note was created in a folder, stay in that folder view
+          searchState.collection = {
+            type: 'folder',
+            folderId: noteFolderId,
+          };
+        } else if (noteTags && noteTags.length > 0) {
+          // If note has tags (created in a tag view), stay in that tag view
           searchState.collection = {
             type: 'tag',
-            tagName: action.note.tags[0],
+            tagName: noteTags[0],
           };
-        } else {
+        } else if (searchState.collection.type === 'trash') {
+          // Don't stay in trash when creating a note
           searchState.collection = { type: 'all' };
         }
+        // Otherwise, preserve the current collection (e.g., 'all', 'untagged')
+
         searchState.notes.set(action.noteId, toSearchNote(action.note ?? {}));
         indexNote(action.noteId);
         queueSearch();
         return next(action);
+      }
       case 'IMPORT_NOTE_WITH_ID':
       case 'REMOTE_NOTE_UPDATE':
       case 'RESTORE_NOTE_REVISION':
@@ -453,12 +469,28 @@ export const middleware: S.Middleware = (store) => {
         };
         return next(withSearch(action));
 
-      case 'OPEN_FOLDER':
+      case 'OPEN_FOLDER': {
         searchState.collection = {
           type: 'folder',
           folderId: action.folderId,
         };
-        return next(withSearch(action));
+        // Check if currently opened note is in this folder
+        const { openedNote } = store.getState().ui;
+        const folderNotes = runSearch();
+        const noteInFolder = openedNote && folderNotes.includes(openedNote);
+        // Close the editor if the opened note is not in this folder (or folder is empty)
+        const searchAction = withSearch(action);
+        if (openedNote && !noteInFolder) {
+          return next({
+            ...searchAction,
+            meta: {
+              ...searchAction.meta,
+              nextNoteToOpen: null,
+            },
+          });
+        }
+        return next(searchAction);
+      }
 
       case 'PIN_NOTE': {
         const note = searchState.notes.get(action.noteId);

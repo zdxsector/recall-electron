@@ -47,7 +47,16 @@ class NoteContentEditor extends Component<Props> {
     this.props.storeHasFocus(this.hasFocus);
     window.addEventListener('toggleChecklist', this.handleChecklist, true);
     this.updateMatchesCount();
+    // Auto-focus editor when note opens - use delay for reliable focus in Electron
+    this.focusEditorDelayed();
   }
+
+  // Focus editor with delay to ensure DOM and window are ready (Electron focus quirk)
+  focusEditorDelayed = () => {
+    setTimeout(() => {
+      this.focusEditor();
+    }, 100);
+  };
 
   componentWillUnmount() {
     window.removeEventListener('toggleChecklist', this.handleChecklist, true);
@@ -114,9 +123,20 @@ class NoteContentEditor extends Component<Props> {
     this.props.storeNumberOfMatchesInNote(count);
   };
 
+  // Handle click on editor shell - ensures focus even when Electron loses track
+  handleShellClick = () => {
+    // Only focus if not already focused to avoid disrupting selection
+    if (!this.hasFocus()) {
+      this.focusEditor();
+    }
+  };
+
   render() {
     return (
-      <div className="note-content-editor-shell">
+      <div
+        className="note-content-editor-shell"
+        onClick={this.handleShellClick}
+      >
         <MuyaEditor
           ref={this.muyaRef}
           noteId={this.props.noteId as unknown as string}

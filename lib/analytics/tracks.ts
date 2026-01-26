@@ -289,7 +289,7 @@ function buildTracks() {
     }
 
     userId = newUserId;
-    userIdType = 'curnote:user_id';
+    userIdType = 'recall:user_id';
     set(userNameCookie, userId);
     const anonId = get(userAnonCookie);
     if (anonId) {

@@ -1,12 +1,12 @@
 ---
 name: "\U0001F41E Bug Report"
-about: "Report a bug if something isn't working as expected in the Windows, Linux, or Web Curnote app."
+about: "Report a bug if something isn't working as expected in the Windows, Linux, or Web Recall app."
 title: ''
 labels: bug
 assignees: ''
 ---
 
-<!-- IMPORTANT NOTE: Do not share any private information here. GitHub issues are public, including any screenshots or files uploaded to this issue. For assistance troubleshooting account-related questions, please contact us at support@curnote.com. -->
+<!-- IMPORTANT NOTE: Do not share any private information here. GitHub issues are public, including any screenshots or files uploaded to this issue. For assistance troubleshooting account-related questions, please contact us at support@recall.com. -->
 
 <!-- Please, be as descriptive as possible.  Issues lacking detail, or for any other reason than to report a bug, may be closed without action. -->
 
@@ -43,4 +43,4 @@ assignees: ''
 - OS version:
 - Browser (if applicable):
 - Browser version (if applicable):
-- Curnote app version:
+- Recall app version:

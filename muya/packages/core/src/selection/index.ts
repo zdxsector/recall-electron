@@ -218,8 +218,21 @@ class Selection {
 
     if (!anchorDomNode || !focusDomNode) return null;
 
-    const anchorBlock = anchorDomNode[BLOCK_DOM_PROPERTY] as Content;
-    const focusBlock = focusDomNode[BLOCK_DOM_PROPERTY] as Content;
+    // In some transient states (e.g. after deleting atomic widgets like images,
+    // or when the caret is inside DOM that hasn't been bound to a block yet),
+    // `.mu-content` nodes may exist without a bound block instance. Treat this
+    // as "no valid selection in editor" rather than throwing.
+    const anchorBlock = (anchorDomNode as any)[BLOCK_DOM_PROPERTY] as
+      | Content
+      | undefined
+      | null;
+    const focusBlock = (focusDomNode as any)[BLOCK_DOM_PROPERTY] as
+      | Content
+      | undefined
+      | null;
+    if (!anchorBlock || !focusBlock) return null;
+    if (!(anchorBlock as any).path || !(focusBlock as any).path) return null;
+
     const anchorPath = anchorBlock.path;
     const focusPath = focusBlock.path;
 

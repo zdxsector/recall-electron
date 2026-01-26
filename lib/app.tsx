@@ -199,7 +199,7 @@ class AppComponent extends Component<Props> {
       'touch-enabled': 'ontouchstart' in document.body,
     });
 
-    const mainClasses = classNames('curnote-app', {
+    const mainClasses = classNames('recall-app', {
       'is-electron': isElectron,
     });
 

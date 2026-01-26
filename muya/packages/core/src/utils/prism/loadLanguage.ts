@@ -6,6 +6,25 @@ interface ILangLoadStatus {
   lang: string;
   status: 'noexist' | 'cached' | 'loaded';
 }
+
+// Create a require.context to tell webpack about all prism language components.
+// This ensures they are available as lazy-loadable chunks.
+const prismLangContext = require.context(
+  'prismjs/components',
+  false,
+  /prism-[\w-]+\.js$/,
+  'lazy'
+);
+
+// Map from language name to the context key (e.g., 'c' -> './prism-c.js')
+const prismLangKeys = new Map<string, string>();
+prismLangContext.keys().forEach((key: string) => {
+  const match = /prism-([\w-]+)\.js$/.exec(key);
+  if (match) {
+    prismLangKeys.set(match[1], key);
+  }
+});
+
 /**
  * The set of all languages which have been loaded using the below function.
  *
@@ -87,14 +106,23 @@ function initLoadLanguage(Prism: any) {
         });
       } else {
         delete Prism.languages[lang];
-        // Import prism languages via package path so it works when Muya is vendored
-        // into another repo (no relative `node_modules` layout assumptions).
-        await import(`prismjs/components/prism-${lang}.js`);
-        defer.resolve({
-          lang,
-          status: 'loaded',
-        });
-        loadedLanguages.add(lang);
+        // Use the pre-built require.context map to load prism language components.
+        // This ensures webpack bundles all language files as lazy-loadable chunks.
+        const contextKey = prismLangKeys.get(lang);
+        if (contextKey) {
+          await prismLangContext(contextKey);
+          defer.resolve({
+            lang,
+            status: 'loaded',
+          });
+          loadedLanguages.add(lang);
+        } else {
+          // Fallback for languages not found in context (shouldn't happen normally)
+          defer.resolve({
+            lang,
+            status: 'noexist',
+          });
+        }
       }
     });
 

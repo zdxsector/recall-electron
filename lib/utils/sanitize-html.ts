@@ -81,8 +81,8 @@ const isAllowedAttr = (tagName: string, attrName: string, value: string) => {
     case 'a':
       switch (attrName) {
         case 'href':
-          // disallow any protocol except for http://, https://, and curnote://
-          return ['http', 'https', 'curnote'].includes(
+          // disallow any protocol except for http://, https://, and recall://
+          return ['http', 'https', 'recall'].includes(
             value.toLowerCase().trim().split('://')[0]
           );
         case 'alt':

@@ -24,7 +24,13 @@ const marked = new Marked(
         console.warn(`Unable to find grammar for "${lang}".`);
         return code;
       }
-      return Prism.highlight(code, grammar, lang);
+      try {
+        return Prism.highlight(code, grammar, lang);
+      } catch (err) {
+        // Fallback to plain code if Prism fails (e.g., language dependency issue)
+        console.warn(`Prism highlighting failed for "${lang}":`, err);
+        return code;
+      }
     },
   })
 );

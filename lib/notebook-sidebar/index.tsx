@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { connect } from 'react-redux';
 
 import actions from '../state/actions';
@@ -62,6 +62,33 @@ export const NotebookSidebar = ({
     null
   );
   const [draftName, setDraftName] = useState<string>('');
+
+  // Refs for input fields - used for reliable focus in Electron
+  const notebookInputRef = useRef<HTMLInputElement>(null);
+  const folderInputRef = useRef<HTMLInputElement>(null);
+
+  // Focus input when editing starts - autoFocus is unreliable in Electron
+  useEffect(() => {
+    if (editingNotebookId !== null) {
+      // Small delay ensures DOM is ready and window has focus
+      const timer = setTimeout(() => {
+        notebookInputRef.current?.focus();
+        notebookInputRef.current?.select();
+      }, 50);
+      return () => clearTimeout(timer);
+    }
+  }, [editingNotebookId]);
+
+  useEffect(() => {
+    if (editingFolderId !== null) {
+      // Small delay ensures DOM is ready and window has focus
+      const timer = setTimeout(() => {
+        folderInputRef.current?.focus();
+        folderInputRef.current?.select();
+      }, 50);
+      return () => clearTimeout(timer);
+    }
+  }, [editingFolderId]);
 
   const confirmDelete = (title: string, message: string) => {
     const electronConfirm = (window as any).electron?.confirm;
@@ -232,8 +259,8 @@ export const NotebookSidebar = ({
                 <FolderIcon />
               </span>
               <input
+                ref={folderInputRef}
                 className="navigation-bar__rename-input"
-                autoFocus
                 value={draftName}
                 onChange={(e) => setDraftName(e.target.value)}
                 onKeyDown={(e) => {
@@ -304,11 +331,13 @@ export const NotebookSidebar = ({
               <div className="navigation-bar__notebook-header">
                 {editingNotebookId === notebookId ? (
                   // NOTE: do not nest inputs inside buttons (invalid HTML + flaky typing/focus in Electron)
-                  <div className="navigation-bar__notebook-toggle">
-                    {isExpanded ? '▾' : '▸'}{' '}
+                  <div className="navigation-bar__notebook-edit">
+                    <span className="navigation-bar__notebook-icon">
+                      {isExpanded ? '▾' : '▸'}
+                    </span>
                     <input
+                      ref={notebookInputRef}
                       className="navigation-bar__rename-input"
-                      autoFocus
                       value={draftName}
                       onChange={(e) => setDraftName(e.target.value)}
                       onKeyDown={(e) => {

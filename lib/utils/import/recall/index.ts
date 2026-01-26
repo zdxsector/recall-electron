@@ -4,7 +4,7 @@ import { endsWith, isEmpty } from 'lodash';
 
 import * as T from '../../../types';
 
-class CurnoteImporter extends EventEmitter {
+class RecallImporter extends EventEmitter {
   constructor(
     addNote: (note: T.Note) => any,
     options,
@@ -73,7 +73,7 @@ class CurnoteImporter extends EventEmitter {
     }
 
     if (!dataObj.activeNotes || !Array.isArray(dataObj.activeNotes)) {
-      this.emit('status', 'error', 'Invalid Curnote JSON format.');
+      this.emit('status', 'error', 'Invalid Recall JSON format.');
       return;
     }
 
@@ -86,7 +86,7 @@ class CurnoteImporter extends EventEmitter {
     coreImporter.importNotes(processedNotes, this.options).then(() => {
       this.emit('status', 'complete', noteCount);
       this.recordEvent('importer_import_completed', {
-        source: 'curnote',
+        source: 'recall',
         note_count: noteCount,
       });
     });
@@ -142,7 +142,7 @@ class CurnoteImporter extends EventEmitter {
 
 export function convertModificationDates(notes) {
   return notes.map(({ lastModified, ...note }) => {
-    // Account for Curnote's exported `lastModified` date
+    // Account for Recall's exported `lastModified` date
     let modificationDate = note.modificationDate || lastModified;
 
     // Convert to timestamp
@@ -157,4 +157,4 @@ export function convertModificationDates(notes) {
   });
 }
 
-export default CurnoteImporter;
+export default RecallImporter;
