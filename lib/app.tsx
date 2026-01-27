@@ -70,9 +70,38 @@ type Props = OwnProps & StateProps & DispatchProps;
 class AppComponent extends Component<Props> {
   static displayName = 'App';
 
+  syncWindowsTitleBarOverlay = () => {
+    try {
+      if (!window?.electron?.isWindows) {
+        return;
+      }
+      // Preload may not expose this in non-Electron contexts.
+      if (typeof window.electron.setTitleBarOverlay !== 'function') {
+        return;
+      }
+
+      // Read the *actual* theme colors from CSS variables.
+      // This makes the native controls background follow theme immediately.
+      const styles = window.getComputedStyle(document.body);
+      const color = styles.getPropertyValue('--background-color').trim();
+      const symbolColor = styles.getPropertyValue('--primary-color').trim();
+
+      // Defer one frame so the new `data-theme` styles are applied first.
+      window.requestAnimationFrame(() => {
+        window.electron.setTitleBarOverlay({
+          color: color || undefined,
+          symbolColor: symbolColor || undefined,
+        });
+      });
+    } catch {
+      // ignore
+    }
+  };
+
   componentDidMount() {
     window.electron?.send('setAutoHideMenuBar', this.props.autoHideMenuBar);
     document.body.dataset.theme = this.props.theme;
+    this.syncWindowsTitleBarOverlay();
 
     this.toggleShortcuts(true);
 
@@ -82,6 +111,7 @@ class AppComponent extends Component<Props> {
 
   componentDidUpdate() {
     document.body.dataset.theme = this.props.theme;
+    this.syncWindowsTitleBarOverlay();
   }
 
   componentWillUnmount() {

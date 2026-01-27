@@ -37,6 +37,11 @@ type ElectronBridge = {
   windowMaximize: () => void;
   windowClose: () => void;
   windowIsMaximized: () => Promise<boolean>;
+  setTitleBarOverlay: (overlay: {
+    color?: string;
+    symbolColor?: string;
+    height?: number;
+  }) => void;
   onWindowMaximized: (callback: (isMaximized: boolean) => void) => () => void;
 };
 

@@ -37,6 +37,19 @@ function getConfig() {
 module.exports = () => {
   const isDevMode = process.env.NODE_ENV === 'development';
   const config = getConfig();
+  const buildReference = (() => {
+    try {
+      const res = spawnSync('git', ['describe', '--always', '--dirty'], {
+        encoding: 'utf8',
+      });
+      if (res && res.status === 0 && typeof res.stdout === 'string') {
+        return res.stdout.trim();
+      }
+    } catch {
+      // ignore; fall back to empty string
+    }
+    return '';
+  })();
 
   return {
     context: __dirname + '/lib',
@@ -63,8 +76,16 @@ module.exports = () => {
             },
           ],
         },
+        // Handle CSS imports with ?inline query (Vite-style) - export as raw string
+        {
+          test: /\.css$/,
+          resourceQuery: /inline/,
+          type: 'asset/source',
+        },
         {
           test: /\.(sa|sc|c)ss$/,
+          // Exclude CSS files with ?inline query (handled above)
+          resourceQuery: { not: [/inline/] },
           use: [
             isDevMode ? 'style-loader' : MiniCssExtractPlugin.loader,
             {
@@ -131,9 +152,7 @@ module.exports = () => {
       }),
       new HtmlWebpackPlugin({
         'build-platform': process.platform,
-        'build-reference': spawnSync('git', ['describe', '--always', '--dirty'])
-          .stdout.toString('utf8')
-          .replace('\n', ''),
+        'build-reference': buildReference,
         favicon: process.cwd() + '/resources/images/favicon.ico',
         'node-version': process.version,
         template: 'index.ejs',

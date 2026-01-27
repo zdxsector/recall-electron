@@ -99,7 +99,8 @@ module.exports = function main() {
     });
 
     const isWindows = process.platform === 'win32';
-    // Check if system prefers dark mode for initial title bar colors
+
+    // Check if system prefers dark mode for initial window colors
     const prefersDark = nativeTheme.shouldUseDarkColors;
     
     mainWindow = new BrowserWindow({
@@ -111,13 +112,14 @@ module.exports = function main() {
       minWidth: 370,
       minHeight: 520,
       show: false,
-      // Custom title bar overlay for Windows (keeps native frame but hides title bar content)
+      // Custom title bar on Windows: use native overlay controls (minimize/maximize/close)
+      // while allowing custom content in the title bar area.
       ...(isWindows && {
         titleBarStyle: 'hidden',
         titleBarOverlay: {
           color: prefersDark ? '#1c1c1e' : '#ffffff',
-          symbolColor: prefersDark ? '#f2f2f7' : '#1d1d1f',
-          height: 32,
+          symbolColor: prefersDark ? '#ffffff' : '#1c1c1e',
+          height: 40,
         },
       }),
       webPreferences: {
@@ -158,14 +160,21 @@ module.exports = function main() {
       );
       if ('theme' in settings) {
         nativeTheme.themeSource = settings.theme;
-        // Update title bar overlay colors on Windows when theme changes
-        if (process.platform === 'win32' && mainWindow) {
-          const isDark = settings.theme === 'dark';
-          mainWindow.setTitleBarOverlay({
-            color: isDark ? '#1c1c1e' : '#ffffff',
-            symbolColor: isDark ? '#f2f2f7' : '#1d1d1f',
-            height: 32,
-          });
+        // Update titleBarOverlay colors when theme changes (Windows only)
+        if (
+          isWindows &&
+          mainWindow &&
+          typeof mainWindow.setTitleBarOverlay === 'function'
+        ) {
+          try {
+            const isDark = nativeTheme.shouldUseDarkColors;
+            mainWindow.setTitleBarOverlay({
+              color: isDark ? '#1c1c1e' : '#ffffff',
+              symbolColor: isDark ? '#ffffff' : '#1c1c1e',
+            });
+          } catch {
+            // ignore
+          }
         }
       }
     });
@@ -197,31 +206,85 @@ module.exports = function main() {
       mainWindow.setMenuBarVisibility(!autoHideMenuBar);
     });
 
-    // Window control handlers for custom title bar (Windows)
-    ipcMain.on('window:minimize', () => {
-      if (mainWindow) {
-        mainWindow.minimize();
-      }
-    });
-
-    ipcMain.on('window:maximize', () => {
-      if (mainWindow) {
-        if (mainWindow.isMaximized()) {
-          mainWindow.unmaximize();
-        } else {
-          mainWindow.maximize();
+    // Backwards-compatible no-op for old renderer builds that call this.
+    // When using a fully custom frameless title bar, Windows titleBarOverlay is not used.
+    ipcMain.on('window:setTitleBarOverlay', function (event, overlay) {
+      try {
+        if (
+          process.platform !== 'win32' ||
+          !mainWindow ||
+          typeof mainWindow.setTitleBarOverlay !== 'function'
+        ) {
+          return;
         }
+
+        const next = {};
+        if (overlay && typeof overlay === 'object') {
+          if (typeof overlay.color === 'string' && overlay.color.trim()) {
+            next.color = overlay.color.trim();
+          }
+          if (
+            typeof overlay.symbolColor === 'string' &&
+            overlay.symbolColor.trim()
+          ) {
+            next.symbolColor = overlay.symbolColor.trim();
+          }
+          if (Number.isFinite(overlay.height)) {
+            // Clamp to a sensible range.
+            next.height = Math.max(24, Math.min(80, Math.round(overlay.height)));
+          }
+        }
+
+        if (Object.keys(next).length > 0) {
+          mainWindow.setTitleBarOverlay(next);
+        }
+      } catch {
+        // ignore
       }
     });
 
-    ipcMain.on('window:close', () => {
-      if (mainWindow) {
-        mainWindow.close();
+    // Window control handlers for custom title bar (Windows)
+    // Use the sender's BrowserWindow instead of the captured `mainWindow` reference.
+    // This avoids "click does nothing" issues if the reference is stale or if multiple windows exist.
+    ipcMain.on('window:minimize', (event) => {
+      try {
+        const win = BrowserWindow.fromWebContents(event.sender);
+        win && win.minimize();
+      } catch {
+        // ignore
       }
     });
 
-    ipcMain.handle('window:isMaximized', () => {
-      return mainWindow ? mainWindow.isMaximized() : false;
+    ipcMain.on('window:maximize', (event) => {
+      try {
+        const win = BrowserWindow.fromWebContents(event.sender);
+        if (!win) return;
+        if (win.isMaximized()) {
+          win.unmaximize();
+        } else {
+          win.maximize();
+        }
+      } catch {
+        // ignore
+      }
+    });
+
+    ipcMain.on('window:close', (event) => {
+      try {
+        const win = BrowserWindow.fromWebContents(event.sender);
+        win && win.close();
+      } catch {
+        // ignore
+      }
+    });
+
+    ipcMain.handle('window:isMaximized', (event) => {
+      try {
+        const win = BrowserWindow.fromWebContents(event.sender);
+        return win ? win.isMaximized() : false;
+      } catch {
+        return false;
+      }
     });
 
     // Notify renderer when window maximize state changes
@@ -231,6 +294,23 @@ module.exports = function main() {
       });
       mainWindow.on('unmaximize', () => {
         mainWindow.webContents.send('window:maximized', false);
+      });
+    }
+
+    // Update titleBarOverlay when system theme changes (Windows only)
+    if (isWindows) {
+      nativeTheme.on('updated', () => {
+        if (mainWindow && typeof mainWindow.setTitleBarOverlay === 'function') {
+          try {
+            const isDark = nativeTheme.shouldUseDarkColors;
+            mainWindow.setTitleBarOverlay({
+              color: isDark ? '#1c1c1e' : '#ffffff',
+              symbolColor: isDark ? '#ffffff' : '#1c1c1e',
+            });
+          } catch {
+            // ignore
+          }
+        }
       });
     }
 

@@ -23,6 +23,22 @@ type DispatchProps = {
 type Props = StateProps & DispatchProps;
 
 export class WindowsTitleBar extends Component<Props> {
+  private isElectronRuntime = () => {
+    try {
+      return /Electron/i.test(navigator.userAgent);
+    } catch {
+      return false;
+    }
+  };
+
+  onDoubleClick = () => {
+    try {
+      window.electron.windowMaximize();
+    } catch {
+      // ignore
+    }
+  };
+
   render() {
     const {
       collection,
@@ -32,12 +48,12 @@ export class WindowsTitleBar extends Component<Props> {
       toggleNavigation,
     } = this.props;
 
-    // Check electron availability
-    const hasElectron = !!window?.electron;
-    const isWindows = !!window?.electron?.isWindows;
+    // We render based on runtime (UA) so the title bar still shows even if preload fails.
+    const isElectronRuntime = this.isElectronRuntime();
+    const isWindows = /Win/i.test(navigator.appVersion);
 
-    // Only render on Windows Electron (where we have a frameless window)
-    if (!hasElectron || !isWindows) {
+    // Only render on Windows Electron (where we have a custom title bar)
+    if (!isElectronRuntime || !isWindows) {
       return null;
     }
 
@@ -57,11 +73,12 @@ export class WindowsTitleBar extends Component<Props> {
         break;
     }
 
-    // Using titleBarOverlay, native window controls are visible
-    // We just add our custom content (menu toggle, title, new note button)
     return (
       <div className="windows-title-bar">
-        <div className="windows-title-bar__drag-region">
+        <div
+          className="windows-title-bar__drag-region"
+          onDoubleClick={this.onDoubleClick}
+        >
           <div className="windows-title-bar__left">
             <IconButton
               icon={<MenuIcon />}
@@ -81,6 +98,7 @@ export class WindowsTitleBar extends Component<Props> {
             title="New Note • Ctrl+Shift+I"
           />
         </div>
+        {/* Native window controls (minimize/maximize/close) are provided by titleBarOverlay */}
       </div>
     );
   }

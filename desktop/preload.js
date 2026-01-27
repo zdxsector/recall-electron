@@ -177,6 +177,7 @@ const validChannels = [
   'tokenLogin',
   'wpLogin',
   'window:maximized',
+  'window:setTitleBarOverlay',
 ];
 
 const electronAPI = {
@@ -672,6 +673,8 @@ const electronAPI = {
   windowMaximize: () => ipcRenderer.send('window:maximize'),
   windowClose: () => ipcRenderer.send('window:close'),
   windowIsMaximized: () => ipcRenderer.invoke('window:isMaximized'),
+  setTitleBarOverlay: (overlay) =>
+    ipcRenderer.send('window:setTitleBarOverlay', overlay),
   onWindowMaximized: (callback) => {
     const handler = (_, isMaximized) => callback(isMaximized);
     ipcRenderer.on('window:maximized', handler);

@@ -1,24 +1,30 @@
 @use '../../scss/variables' as *;
 
-$title-bar-height: 32px;
-// Width of native Windows controls (minimize, maximize, close)
-$native-controls-width: 138px;
+$title-bar-height: 40px;
+// Windows native caption buttons (min/max/close) are typically ~138px combined.
+// We need to reserve space for them on the right side.
+$caption-controls-width: 138px;
 
 .windows-title-bar {
   display: flex;
   align-items: center;
   justify-content: space-between;
   height: $title-bar-height;
-  background-color: var(--background-color);
-  border-bottom: 1px solid var(--secondary-color);
+  width: 100%;
+  box-sizing: border-box;
+  background: color-mix(in srgb, var(--background-color) 92%, transparent);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-bottom: 1px solid color-mix(in srgb, var(--secondary-color) 65%, transparent);
   flex-shrink: 0;
   user-select: none;
   position: relative;
   z-index: 1000;
-  // The entire title bar is draggable by default
+  // Title bar style 'hidden' with overlay: our bar is the drag region (except interactive children).
   -webkit-app-region: drag;
-  // Reserve space for native window controls on the right
-  padding-right: $native-controls-width;
+  padding: 0 8px;
+  // Reserve space on the right for the native window controls (titleBarOverlay).
+  padding-right: $caption-controls-width;
 }
 
 .windows-title-bar__drag-region {
@@ -26,20 +32,20 @@ $native-controls-width: 138px;
   align-items: center;
   flex: 1;
   height: 100%;
-  padding-left: 8px;
+  gap: 10px;
 }
 
 .windows-title-bar__left {
   display: flex;
   align-items: center;
   gap: 8px;
-  // Buttons should not be draggable
-  -webkit-app-region: no-drag;
 
   .icon-button {
     width: 28px;
     height: 28px;
     padding: 4px;
+    // Buttons should not be draggable (keep the rest of the bar draggable like Cursor).
+    -webkit-app-region: no-drag;
   }
 }
 
@@ -50,8 +56,7 @@ $native-controls-width: 138px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 150px;
-  margin-left: 8px;
+  max-width: 240px;
 }
 
 .windows-title-bar__center {
@@ -72,13 +77,16 @@ $native-controls-width: 138px;
   display: flex;
   align-items: center;
   height: 100%;
-  // Buttons should not be draggable
-  -webkit-app-region: no-drag;
 
   .icon-button {
     width: 28px;
     height: 28px;
     padding: 4px;
-    margin-right: 8px;
+    // Buttons should not be draggable (keep the rest of the bar draggable like Cursor).
+    -webkit-app-region: no-drag;
   }
+}
+
+.windows-title-bar__spacer {
+  flex: 1;
 }

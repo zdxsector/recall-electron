@@ -8,6 +8,7 @@ import Modal from 'react-modal';
 import classNames from 'classnames';
 import AboutDialog from './dialogs/about';
 import ErrorBoundary from './error-boundary';
+import FramelessTitleBar from './windows-title-bar/frameless';
 
 import '../scss/style.scss';
 
@@ -225,6 +226,7 @@ class AppWithoutAuth extends Component<Props, State> {
   render() {
     return (
       <div className="app">
+        <FramelessTitleBar />
         <ErrorBoundary>
           <AuthApp
             accountCreationRequested={
