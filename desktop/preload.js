@@ -176,6 +176,7 @@ const validChannels = [
   'setAutoHideMenuBar',
   'tokenLogin',
   'wpLogin',
+  'window:maximized',
 ];
 
 const electronAPI = {
@@ -665,6 +666,17 @@ const electronAPI = {
   },
   isMac: process.platform === 'darwin',
   isLinux: process.platform === 'linux',
+  isWindows: process.platform === 'win32',
+  // Window control functions for custom title bar (Windows)
+  windowMinimize: () => ipcRenderer.send('window:minimize'),
+  windowMaximize: () => ipcRenderer.send('window:maximize'),
+  windowClose: () => ipcRenderer.send('window:close'),
+  windowIsMaximized: () => ipcRenderer.invoke('window:isMaximized'),
+  onWindowMaximized: (callback) => {
+    const handler = (_, isMaximized) => callback(isMaximized);
+    ipcRenderer.on('window:maximized', handler);
+    return () => ipcRenderer.removeListener('window:maximized', handler);
+  },
 };
 
 contextBridge.exposeInMainWorld('electron', electronAPI);

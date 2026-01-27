@@ -47,8 +47,7 @@
     ]
   },
   "win": {
-    "icon": "resources/images/recall.ico",
-    "certificateSubjectName": "Automattic, Inc.",
+    "icon": "resources/images/curnote.ico",
     "artifactName": "Recall-win-${version}-${arch}.${ext}",
     "target": [
       {

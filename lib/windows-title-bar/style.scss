@@ -1,0 +1,84 @@
+@use '../../scss/variables' as *;
+
+$title-bar-height: 32px;
+// Width of native Windows controls (minimize, maximize, close)
+$native-controls-width: 138px;
+
+.windows-title-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: $title-bar-height;
+  background-color: var(--background-color);
+  border-bottom: 1px solid var(--secondary-color);
+  flex-shrink: 0;
+  user-select: none;
+  position: relative;
+  z-index: 1000;
+  // The entire title bar is draggable by default
+  -webkit-app-region: drag;
+  // Reserve space for native window controls on the right
+  padding-right: $native-controls-width;
+}
+
+.windows-title-bar__drag-region {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  height: 100%;
+  padding-left: 8px;
+}
+
+.windows-title-bar__left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  // Buttons should not be draggable
+  -webkit-app-region: no-drag;
+
+  .icon-button {
+    width: 28px;
+    height: 28px;
+    padding: 4px;
+  }
+}
+
+.windows-title-bar__title {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--foreground-color);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 150px;
+  margin-left: 8px;
+}
+
+.windows-title-bar__center {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.windows-title-bar__app-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--primary-color);
+  letter-spacing: 0.5px;
+}
+
+.windows-title-bar__right {
+  display: flex;
+  align-items: center;
+  height: 100%;
+  // Buttons should not be draggable
+  -webkit-app-region: no-drag;
+
+  .icon-button {
+    width: 28px;
+    height: 28px;
+    padding: 4px;
+    margin-right: 8px;
+  }
+}

@@ -5,6 +5,10 @@ export const isMac = isElectron
   ? window?.electron?.isMac
   : navigator.appVersion.indexOf('Mac') !== -1;
 
+export const isWindows = isElectron
+  ? window?.electron?.isWindows
+  : navigator.appVersion.indexOf('Win') !== -1;
+
 export const CmdOrCtrl = isElectron && isMac ? 'Cmd' : 'Ctrl';
 
 export const isSafari = /^((?!chrome|android).)*safari/i.test(

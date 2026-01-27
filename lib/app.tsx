@@ -7,8 +7,14 @@ import DevBadge from './components/dev-badge';
 import DialogRenderer from './dialog-renderer';
 import EmailVerification from './email-verification';
 import AlternateLoginPrompt from './alternate-login-prompt';
+import WindowsTitleBar from './windows-title-bar';
 import { isElectron, isMac } from './utils/platform';
 import classNames from 'classnames';
+
+// Check platform at runtime rather than module load time
+const getIsWindowsElectron = () => {
+  return !!window?.electron && !!window?.electron?.isWindows;
+};
 import {
   createNote,
   closeNote,
@@ -199,12 +205,17 @@ class AppComponent extends Component<Props> {
       'touch-enabled': 'ontouchstart' in document.body,
     });
 
+    const isWindowsElectron = getIsWindowsElectron();
+    
     const mainClasses = classNames('recall-app', {
       'is-electron': isElectron,
+      'is-windows': isWindowsElectron,
     });
 
+    // Always render WindowsTitleBar on Windows Electron - it handles its own visibility
     return (
       <div className={appClasses}>
+        <WindowsTitleBar />
         {showEmailVerification && <EmailVerification />}
         {showAlternateLoginPrompt && <AlternateLoginPrompt />}
         {isDevConfig && (

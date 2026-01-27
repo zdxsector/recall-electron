@@ -9,6 +9,7 @@ const {
   Menu,
   session,
   nativeTheme,
+  screen,
 } = require('electron');
 
 const path = require('path');
@@ -97,8 +98,12 @@ module.exports = function main() {
       defaultHeight: 768,
     });
 
+    const isWindows = process.platform === 'win32';
+    // Check if system prefers dark mode for initial title bar colors
+    const prefersDark = nativeTheme.shouldUseDarkColors;
+    
     mainWindow = new BrowserWindow({
-      backgroundColor: '#fff',
+      backgroundColor: prefersDark ? '#1c1c1e' : '#fff',
       x: mainWindowState.x,
       y: mainWindowState.y,
       width: mainWindowState.width,
@@ -106,6 +111,15 @@ module.exports = function main() {
       minWidth: 370,
       minHeight: 520,
       show: false,
+      // Custom title bar overlay for Windows (keeps native frame but hides title bar content)
+      ...(isWindows && {
+        titleBarStyle: 'hidden',
+        titleBarOverlay: {
+          color: prefersDark ? '#1c1c1e' : '#ffffff',
+          symbolColor: prefersDark ? '#f2f2f7' : '#1d1d1f',
+          height: 32,
+        },
+      }),
       webPreferences: {
         contextIsolation: true,
         nodeIntegration: false,
@@ -144,6 +158,15 @@ module.exports = function main() {
       );
       if ('theme' in settings) {
         nativeTheme.themeSource = settings.theme;
+        // Update title bar overlay colors on Windows when theme changes
+        if (process.platform === 'win32' && mainWindow) {
+          const isDark = settings.theme === 'dark';
+          mainWindow.setTitleBarOverlay({
+            color: isDark ? '#1c1c1e' : '#ffffff',
+            symbolColor: isDark ? '#f2f2f7' : '#1d1d1f',
+            height: 32,
+          });
+        }
       }
     });
 
@@ -173,6 +196,43 @@ module.exports = function main() {
       mainWindow.setAutoHideMenuBar(autoHideMenuBar || false);
       mainWindow.setMenuBarVisibility(!autoHideMenuBar);
     });
+
+    // Window control handlers for custom title bar (Windows)
+    ipcMain.on('window:minimize', () => {
+      if (mainWindow) {
+        mainWindow.minimize();
+      }
+    });
+
+    ipcMain.on('window:maximize', () => {
+      if (mainWindow) {
+        if (mainWindow.isMaximized()) {
+          mainWindow.unmaximize();
+        } else {
+          mainWindow.maximize();
+        }
+      }
+    });
+
+    ipcMain.on('window:close', () => {
+      if (mainWindow) {
+        mainWindow.close();
+      }
+    });
+
+    ipcMain.handle('window:isMaximized', () => {
+      return mainWindow ? mainWindow.isMaximized() : false;
+    });
+
+    // Notify renderer when window maximize state changes
+    if (mainWindow) {
+      mainWindow.on('maximize', () => {
+        mainWindow.webContents.send('window:maximized', true);
+      });
+      mainWindow.on('unmaximize', () => {
+        mainWindow.webContents.send('window:maximized', false);
+      });
+    }
 
     ipcMain.on('wpLogin', function (event, wpLoginUrl) {
       shell.openExternal(wpLoginUrl);
