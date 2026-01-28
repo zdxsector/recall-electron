@@ -27,6 +27,9 @@ type ElectronBridge = {
   saveNoteAssetFromDataUrl: (
     args: any
   ) => Promise<{ rel: string; fileUrl: string } | null>;
+  saveNoteAssetFromBuffer: (
+    args: any
+  ) => Promise<{ rel: string; fileUrl: string } | null>;
   saveNoteAssetFromUrl: (
     args: any
   ) => Promise<{ rel: string; fileUrl: string } | null>;

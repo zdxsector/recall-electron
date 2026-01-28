@@ -470,7 +470,75 @@ const electronAPI = {
         );
       })();
 
-      // Decode using Electron-native image pipeline (more robust than manual base64 parsing).
+      // Choose output format: keep JPEGs as JPEG; everything else as PNG.
+      const outputIsJpeg = mimeType === 'image/jpeg';
+      const ext = outputIsJpeg ? 'jpg' : 'png';
+
+      // --- PERFORMANCE OPTIMIZATION ---
+      // Try to decode base64 directly and write to disk without nativeImage re-encoding.
+      // This avoids the expensive synchronous nativeImage.createFromDataURL() + toPNG()/toJPEG()
+      // pipeline which can block the UI for large images.
+      const commaIdx = normalizedDataUrl.indexOf(',');
+      if (commaIdx > 0) {
+        const base64Data = normalizedDataUrl.slice(commaIdx + 1);
+        const rawBuffer = Buffer.from(base64Data, 'base64');
+
+        // For small images (< 100KB), skip nativeImage entirely and write directly.
+        // For larger images, use nativeImage to resize if needed, but yield to event loop.
+        const MAX_DIRECT_WRITE_SIZE = 100 * 1024; // 100KB
+        const MAX_IMAGE_DIMENSION = 2048; // Resize if larger than this
+
+        if (rawBuffer.length < MAX_DIRECT_WRITE_SIZE) {
+          // Small image: write directly without re-encoding
+          const fileName = `pasted-${Date.now()}.${ext}`;
+          const filePath = path.join(assetsDir, fileName);
+          await fs.promises.writeFile(filePath, rawBuffer);
+          const rel = `assets/${fileName}`;
+          const fileUrl = pathToFileURL(filePath).toString();
+          return { rel, fileUrl };
+        }
+
+        // For larger images, yield to event loop before heavy processing
+        await new Promise((resolve) => setImmediate(resolve));
+
+        // Decode using Electron-native image pipeline
+        const img = nativeImage.createFromDataURL(normalizedDataUrl);
+        if (!img || (typeof img.isEmpty === 'function' && img.isEmpty())) {
+          // eslint-disable-next-line no-console
+          console.error('Failed to save note asset: nativeImage is empty', {
+            noteId,
+            mimeType,
+          });
+          return null;
+        }
+
+        // Resize large images to improve performance and reduce storage
+        const size = img.getSize();
+        let finalImg = img;
+        if (size.width > MAX_IMAGE_DIMENSION || size.height > MAX_IMAGE_DIMENSION) {
+          const scale = Math.min(
+            MAX_IMAGE_DIMENSION / size.width,
+            MAX_IMAGE_DIMENSION / size.height
+          );
+          const newWidth = Math.round(size.width * scale);
+          const newHeight = Math.round(size.height * scale);
+          finalImg = img.resize({ width: newWidth, height: newHeight, quality: 'good' });
+        }
+
+        // Yield again before encoding
+        await new Promise((resolve) => setImmediate(resolve));
+
+        const buffer = outputIsJpeg ? finalImg.toJPEG(85) : finalImg.toPNG();
+        const fileName = `pasted-${Date.now()}.${ext}`;
+        const filePath = path.join(assetsDir, fileName);
+        await fs.promises.writeFile(filePath, buffer);
+
+        const rel = `assets/${fileName}`;
+        const fileUrl = pathToFileURL(filePath).toString();
+        return { rel, fileUrl };
+      }
+
+      // Fallback: original path for edge cases
       const img = nativeImage.createFromDataURL(normalizedDataUrl);
       if (!img || (typeof img.isEmpty === 'function' && img.isEmpty())) {
         // eslint-disable-next-line no-console
@@ -481,10 +549,7 @@ const electronAPI = {
         return null;
       }
 
-      // Choose output format: keep JPEGs as JPEG; everything else as PNG.
-      const outputIsJpeg = mimeType === 'image/jpeg';
-      const ext = outputIsJpeg ? 'jpg' : 'png';
-      const buffer = outputIsJpeg ? img.toJPEG(90) : img.toPNG();
+      const buffer = outputIsJpeg ? img.toJPEG(85) : img.toPNG();
 
       const fileName = `pasted-${Date.now()}.${ext}`;
       const filePath = path.join(assetsDir, fileName);
@@ -496,6 +561,116 @@ const electronAPI = {
     } catch (e) {
       // eslint-disable-next-line no-console
       console.error('Failed to save note asset:', e, {
+        noteId,
+        mimeType,
+      });
+      return null;
+    }
+  },
+  // PERFORMANCE: New optimized API that accepts raw binary data directly,
+  // completely bypassing base64 encoding/decoding overhead.
+  saveNoteAssetFromBuffer: async ({
+    noteId,
+    note,
+    mimeType,
+    buffer, // ArrayBuffer or Uint8Array from File.arrayBuffer()
+    folders,
+    notebooks,
+  }) => {
+    try {
+      const root = getNotesRoot();
+      ensureDir(root);
+      const metaPath = path.join(root, META_DIR_NAME, META_FILE_NAME);
+      const rawMeta = readJsonFile(metaPath) ?? {};
+      const notePaths = rawMeta.notePaths ?? {};
+      const existingDirRel = notePaths?.[noteId]?.dirRel;
+      const notebooksArray = notebooks ?? rawMeta.notebooks ?? [];
+      const noteDir = existingDirRel
+        ? path.join(root, existingDirRel)
+        : getOrCreateNoteDir(root, folders ?? [], notebooksArray, noteId, note)
+            .noteDir;
+
+      if (!existingDirRel) {
+        try {
+          const nextNotePaths = {
+            ...notePaths,
+            [noteId]: {
+              ...(notePaths?.[noteId] ?? {}),
+              dirRel: path.relative(root, noteDir),
+            },
+          };
+          writeJsonFile(metaPath, { ...rawMeta, notePaths: nextNotePaths });
+        } catch {
+          // best-effort
+        }
+      }
+
+      const assetsDir = path.join(noteDir, 'assets');
+      ensureDir(assetsDir);
+
+      const outputIsJpeg = mimeType === 'image/jpeg';
+      const ext = outputIsJpeg ? 'jpg' : 'png';
+
+      // Convert ArrayBuffer/Uint8Array to Node Buffer
+      const nodeBuffer = Buffer.from(buffer);
+
+      // For small images (< 200KB), write directly without any processing
+      const MAX_DIRECT_WRITE_SIZE = 200 * 1024;
+      const MAX_IMAGE_DIMENSION = 2048;
+
+      if (nodeBuffer.length < MAX_DIRECT_WRITE_SIZE) {
+        // Small image: write directly without re-encoding for maximum speed
+        const fileName = `pasted-${Date.now()}.${ext}`;
+        const filePath = path.join(assetsDir, fileName);
+        await fs.promises.writeFile(filePath, nodeBuffer);
+        const rel = `assets/${fileName}`;
+        const fileUrl = pathToFileURL(filePath).toString();
+        return { rel, fileUrl };
+      }
+
+      // For larger images, check if resizing is needed
+      // Yield to event loop first
+      await new Promise((resolve) => setImmediate(resolve));
+
+      const img = nativeImage.createFromBuffer(nodeBuffer);
+      if (!img || (typeof img.isEmpty === 'function' && img.isEmpty())) {
+        // If nativeImage can't decode, try writing raw buffer anyway
+        const fileName = `pasted-${Date.now()}.${ext}`;
+        const filePath = path.join(assetsDir, fileName);
+        await fs.promises.writeFile(filePath, nodeBuffer);
+        const rel = `assets/${fileName}`;
+        const fileUrl = pathToFileURL(filePath).toString();
+        return { rel, fileUrl };
+      }
+
+      // Resize if too large
+      const size = img.getSize();
+      let finalBuffer = nodeBuffer;
+      if (size.width > MAX_IMAGE_DIMENSION || size.height > MAX_IMAGE_DIMENSION) {
+        const scale = Math.min(
+          MAX_IMAGE_DIMENSION / size.width,
+          MAX_IMAGE_DIMENSION / size.height
+        );
+        const newWidth = Math.round(size.width * scale);
+        const newHeight = Math.round(size.height * scale);
+        const resized = img.resize({ width: newWidth, height: newHeight, quality: 'good' });
+
+        // Yield before encoding
+        await new Promise((resolve) => setImmediate(resolve));
+
+        finalBuffer = outputIsJpeg ? resized.toJPEG(85) : resized.toPNG();
+      }
+
+      const fileName = `pasted-${Date.now()}.${ext}`;
+      const filePath = path.join(assetsDir, fileName);
+      await fs.promises.writeFile(filePath, finalBuffer);
+
+      const rel = `assets/${fileName}`;
+      const fileUrl = pathToFileURL(filePath).toString();
+      return { rel, fileUrl };
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.error('Failed to save note asset from buffer:', e, {
         noteId,
         mimeType,
       });

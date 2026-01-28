@@ -296,6 +296,10 @@ const MuyaEditor = forwardRef<MuyaEditorHandle, Props>(
           reader.readAsDataURL(file);
         });
 
+      // PERFORMANCE: Read file as ArrayBuffer (faster than base64 for binary transfer)
+      const readAsArrayBuffer = (file: File): Promise<ArrayBuffer> =>
+        file.arrayBuffer();
+
       const insertTextAtCursor = (text: string) => {
         focus();
         // Prefer execCommand because it triggers the same input pipeline Muya listens to.
@@ -333,6 +337,25 @@ const MuyaEditor = forwardRef<MuyaEditorHandle, Props>(
           notebooks,
           mimeType,
           dataUrl,
+        })) as { rel: string; fileUrl: string } | null;
+      };
+
+      // PERFORMANCE: Save from raw ArrayBuffer, bypassing base64 encoding entirely
+      const saveBufferToAssets = async (
+        mimeType: string,
+        buffer: ArrayBuffer
+      ) => {
+        const saveFn = window.electron?.saveNoteAssetFromBuffer;
+        if (typeof saveFn !== 'function') {
+          return null;
+        }
+        return (await saveFn({
+          noteId,
+          note,
+          folders,
+          notebooks,
+          mimeType,
+          buffer: new Uint8Array(buffer),
         })) as { rel: string; fileUrl: string } | null;
       };
 
@@ -432,8 +455,18 @@ const MuyaEditor = forwardRef<MuyaEditorHandle, Props>(
             if (!canSaveAssets) return;
             // Take over synchronously before any async work so Muya never sees this paste.
             takeOverPasteEvent(e);
-            const dataUrl = await readAsDataUrl(file);
-            const saved = await saveDataUrlToAssets(mimeType, dataUrl);
+            // PERFORMANCE: Use ArrayBuffer API to skip base64 encoding entirely
+            const canSaveBuffer =
+              typeof window.electron?.saveNoteAssetFromBuffer === 'function';
+            let saved: { rel: string; fileUrl: string } | null = null;
+            if (canSaveBuffer) {
+              const buffer = await readAsArrayBuffer(file);
+              saved = await saveBufferToAssets(mimeType, buffer);
+            } else {
+              // Fallback to data URL if buffer API not available
+              const dataUrl = await readAsDataUrl(file);
+              saved = await saveDataUrlToAssets(mimeType, dataUrl);
+            }
             if (saved?.fileUrl) {
               insertTextAtCursor(`![pasted-image](${saved.fileUrl})`);
             } else {
@@ -460,8 +493,17 @@ const MuyaEditor = forwardRef<MuyaEditorHandle, Props>(
                       : 'image/png');
             if (!canSaveAssets) return;
             takeOverPasteEvent(e);
-            const dataUrl = await readAsDataUrl(fileOnlyImage);
-            const saved = await saveDataUrlToAssets(mimeType, dataUrl);
+            // PERFORMANCE: Use ArrayBuffer API to skip base64 encoding entirely
+            const canSaveBuffer =
+              typeof window.electron?.saveNoteAssetFromBuffer === 'function';
+            let saved: { rel: string; fileUrl: string } | null = null;
+            if (canSaveBuffer) {
+              const buffer = await readAsArrayBuffer(fileOnlyImage);
+              saved = await saveBufferToAssets(mimeType, buffer);
+            } else {
+              const dataUrl = await readAsDataUrl(fileOnlyImage);
+              saved = await saveDataUrlToAssets(mimeType, dataUrl);
+            }
             if (saved?.fileUrl) {
               insertTextAtCursor(`![pasted-image](${saved.fileUrl})`);
             } else {
