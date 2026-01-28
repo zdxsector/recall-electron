@@ -13,7 +13,15 @@ import classNames from 'classnames';
 
 // Check platform at runtime rather than module load time
 const getIsWindowsElectron = () => {
-  return !!window?.electron && !!window?.electron?.isWindows;
+  try {
+    // Prefer preload-provided flag, but fall back to UA checks (preload can fail).
+    if (!!window?.electron?.isWindows) {
+      return true;
+    }
+    return /Electron/i.test(navigator.userAgent) && /Win/i.test(navigator.appVersion);
+  } catch {
+    return false;
+  }
 };
 import {
   createNote,

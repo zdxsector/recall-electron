@@ -26,8 +26,7 @@ type OwnProps = {
 };
 
 type StateProps = {
-  collection: T.Collection;
-  openedTag: T.TagName | null;
+  collectionTitle: string;
   searchQuery: string;
 };
 
@@ -39,26 +38,17 @@ type DispatchProps = {
 type Props = OwnProps & StateProps & DispatchProps;
 
 export const MenuBar: FunctionComponent<Props> = ({
-  collection,
-  openedTag,
+  collectionTitle,
   onNewNote,
   searchQuery,
   toggleNavigation,
 }) => {
-  let placeholder;
-  switch (collection.type) {
-    case 'tag':
-      placeholder = openedTag;
-      break;
-    case 'trash':
-      placeholder = 'Trash';
-      break;
-    case 'untagged':
-      placeholder = 'Untagged Notes';
-      break;
-    default:
-      placeholder = 'All Notes';
-      break;
+  // On Windows Electron we use a custom title bar that already includes
+  // the navigation toggle + collection title.
+  const isWindowsElectron =
+    /Electron/i.test(navigator.userAgent) && /Win/i.test(navigator.appVersion);
+  if (isWindowsElectron) {
+    return null;
   }
 
   const CmdOrCtrl = isMac ? 'Cmd' : 'Ctrl';
@@ -71,7 +61,7 @@ export const MenuBar: FunctionComponent<Props> = ({
         title={`Menu • ${CmdOrCtrl}+Shift+U`}
       />
       <div id="notes-title" className="notes-title" aria-hidden="true">
-        {placeholder}
+        {collectionTitle}
       </div>
       <IconButton
         icon={<NewNoteIcon />}
@@ -83,8 +73,7 @@ export const MenuBar: FunctionComponent<Props> = ({
 };
 
 const mapStateToProps: S.MapState<StateProps> = (state) => ({
-  collection: state.ui.collection,
-  openedTag: selectors.openedTag(state),
+  collectionTitle: selectors.collectionTitle(state),
   searchQuery: state.ui.searchQuery,
 });
 

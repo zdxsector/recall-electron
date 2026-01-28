@@ -21,6 +21,7 @@ import * as T from '../types';
 
 type StateProps = {
   collection: T.Collection;
+  collectionTitle: string;
   filteredNotes: T.EntityId[];
   isSmallScreen: boolean;
   keyboardShortcuts: boolean;
@@ -152,24 +153,6 @@ const createCompositeNoteList = (
   ];
 };
 
-const sidebarTitle = (
-  collection: T.Collection,
-  openedTag: T.TagName | null
-) => {
-  switch (collection.type) {
-    case 'tag':
-      return openedTag;
-    case 'folder':
-      return 'Folder';
-    case 'trash':
-      return 'Trash';
-    case 'untagged':
-      return 'Untagged Notes';
-    default:
-      return 'All Notes';
-  }
-};
-
 export class NoteList extends Component<Props> {
   static displayName = 'NoteList';
 
@@ -289,11 +272,11 @@ export class NoteList extends Component<Props> {
   render() {
     const {
       collection,
+      collectionTitle,
       filteredNotes,
       noteDisplay,
       onEmptyTrash,
       openedNote,
-      openedTag,
       searchQuery,
       showTrash,
       tagResultsFound,
@@ -339,7 +322,7 @@ export class NoteList extends Component<Props> {
                     // reference the existing #notes-title element instead of
                     // computing the label, but is not currently possible due to
                     // a limitation with react-virtualized. https://git.io/JqLvR
-                    aria-label={sidebarTitle(collection, openedTag)}
+                    aria-label={collectionTitle}
                     ref={this.list}
                     estimatedRowSize={24 + 18 + 21 * 4}
                     height={height}
@@ -366,6 +349,7 @@ export class NoteList extends Component<Props> {
 const mapStateToProps: S.MapState<StateProps> = (state) => {
   return {
     collection: state.ui.collection,
+    collectionTitle: selectors.collectionTitle(state),
     isSmallScreen: selectors.isSmallScreen(state),
     keyboardShortcuts: state.settings.keyboardShortcuts,
     noteDisplay: state.settings.noteDisplay,

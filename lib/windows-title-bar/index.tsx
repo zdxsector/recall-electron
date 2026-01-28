@@ -10,8 +10,7 @@ import * as S from '../state';
 import type * as T from '../types';
 
 type StateProps = {
-  collection: T.Collection;
-  openedTag: T.TagName | null;
+  collectionTitle: string;
   searchQuery: string;
 };
 
@@ -41,8 +40,7 @@ export class WindowsTitleBar extends Component<Props> {
 
   render() {
     const {
-      collection,
-      openedTag,
+      collectionTitle,
       onNewNote,
       searchQuery,
       toggleNavigation,
@@ -57,22 +55,6 @@ export class WindowsTitleBar extends Component<Props> {
       return null;
     }
 
-    let placeholder;
-    switch (collection.type) {
-      case 'tag':
-        placeholder = openedTag;
-        break;
-      case 'trash':
-        placeholder = 'Trash';
-        break;
-      case 'untagged':
-        placeholder = 'Untagged Notes';
-        break;
-      default:
-        placeholder = 'All Notes';
-        break;
-    }
-
     return (
       <div className="windows-title-bar">
         <div
@@ -85,7 +67,7 @@ export class WindowsTitleBar extends Component<Props> {
               onClick={toggleNavigation}
               title="Menu • Ctrl+Shift+U"
             />
-            <span className="windows-title-bar__title">{placeholder}</span>
+            <span className="windows-title-bar__title">{collectionTitle}</span>
           </div>
           <div className="windows-title-bar__center">
             <span className="windows-title-bar__app-name">Recall</span>
@@ -105,8 +87,7 @@ export class WindowsTitleBar extends Component<Props> {
 }
 
 const mapStateToProps: S.MapState<StateProps> = (state) => ({
-  collection: state.ui.collection,
-  openedTag: selectors.openedTag(state),
+  collectionTitle: selectors.collectionTitle(state),
   searchQuery: state.ui.searchQuery,
 });
 

@@ -5,9 +5,17 @@ export const isMac = isElectron
   ? window?.electron?.isMac
   : navigator.appVersion.indexOf('Mac') !== -1;
 
-export const isWindows = isElectron
-  ? window?.electron?.isWindows
-  : navigator.appVersion.indexOf('Win') !== -1;
+export const isWindows = (() => {
+  try {
+    // Preload may fail or not provide platform flags; fall back to UA detection.
+    if (!!window?.electron) {
+      return !!window?.electron?.isWindows || /Win/i.test(navigator.appVersion);
+    }
+    return /Win/i.test(navigator.appVersion);
+  } catch {
+    return false;
+  }
+})();
 
 export const CmdOrCtrl = isElectron && isMac ? 'Cmd' : 'Ctrl';
 
