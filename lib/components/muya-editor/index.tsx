@@ -237,6 +237,13 @@ const MuyaEditor = forwardRef<MuyaEditorHandle, Props>(
         // to prevent interference with selection or unintended side effects
         const modifierOnlyKeys = ['control', 'meta', 'shift', 'alt'];
         if (modifierOnlyKeys.includes(e.key?.toLowerCase?.())) {
+          // Important: stop propagation so Muya (and any other editor handlers)
+          // don't run any selection/caret normalization on modifier-only presses.
+          // This avoids cases where pressing Ctrl alone can unexpectedly clear or
+          // replace the current selection in some Electron/Chromium builds.
+          e.stopPropagation();
+          // stopImmediatePropagation is supported in browsers/Electron; guard for safety.
+          (e as any).stopImmediatePropagation?.();
           return;
         }
 
@@ -295,6 +302,17 @@ const MuyaEditor = forwardRef<MuyaEditorHandle, Props>(
         // Schedule flush for keys that typically modify content
         if (['Backspace', 'Delete', 'Enter', 'Tab'].includes(e.key)) {
           scheduleFlush();
+        }
+      };
+
+      const onKeyUpCapture = (e: KeyboardEvent) => {
+        if (!wrapperRef.current?.contains(e.target as Node)) {
+          return;
+        }
+        const modifierOnlyKeys = ['control', 'meta', 'shift', 'alt'];
+        if (modifierOnlyKeys.includes(e.key?.toLowerCase?.())) {
+          e.stopPropagation();
+          (e as any).stopImmediatePropagation?.();
         }
       };
 
@@ -742,6 +760,7 @@ const MuyaEditor = forwardRef<MuyaEditorHandle, Props>(
       document.addEventListener('input', onInputCapture, true);
       document.addEventListener('paste', onPasteCapture, true);
       document.addEventListener('keydown', onKeyDownCapture, true);
+      document.addEventListener('keyup', onKeyUpCapture, true);
 
       // Support Electron menu/context-menu editor commands (Undo/Redo/Select All/etc).
       // Menu accelerators may not reach the editor as key events, so we must handle IPC.
@@ -785,6 +804,7 @@ const MuyaEditor = forwardRef<MuyaEditorHandle, Props>(
         document.removeEventListener('input', onInputCapture, true);
         document.removeEventListener('paste', onPasteCapture, true);
         document.removeEventListener('keydown', onKeyDownCapture, true);
+        document.removeEventListener('keyup', onKeyUpCapture, true);
 
         // Clear any pending debounced updates
         if (inputTimerRef.current) {
