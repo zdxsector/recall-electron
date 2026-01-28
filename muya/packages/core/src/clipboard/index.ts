@@ -52,7 +52,7 @@ class Clipboard {
     };
 
     const keydownHandler = (event: Event) => {
-      const { key, metaKey } = event as KeyboardEvent;
+      const { key, metaKey, ctrlKey, altKey } = event as KeyboardEvent;
 
       const { isSelectionInSameBlock } = this.selection.getSelection() ?? {};
       if (isSelectionInSameBlock) return;
@@ -66,7 +66,12 @@ class Clipboard {
         return;
       }
 
-      if (metaKey) return;
+      // Guard: never treat Cmd/Ctrl shortcuts as a signal to delete multi-block selections.
+      // Without this, sequences like Ctrl+A then Ctrl+<letter> can trigger `cutHandler()`
+      // and erase the entire editor content on Windows/Linux.
+      if (metaKey || ctrlKey) return;
+      // Extra guard: if Alt is held, don't interpret as content-editing intent.
+      if (altKey) return;
 
       if (key === 'Backspace' || key === 'Delete') event.preventDefault();
 

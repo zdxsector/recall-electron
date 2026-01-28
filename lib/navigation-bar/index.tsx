@@ -55,7 +55,7 @@ export class NavigationBar extends Component<Props> {
     }
   };
 
-  onHelpClicked = () => viewExternalUrl('http://recall.com/help');
+  onHelpClicked = () => viewExternalUrl('https://slybalso.me');
 
   onSelectTrash = () => {
     this.props.selectTrash();
@@ -134,7 +134,7 @@ export class NavigationBar extends Component<Props> {
             className="navigation-bar__footer-item"
             onClick={this.onHelpClicked}
           >
-            Help &amp; Support
+            slybacalso.me
           </button>
           <button
             type="button"

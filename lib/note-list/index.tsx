@@ -186,6 +186,10 @@ export class NoteList extends Component<Props> {
     }),
     lastNoteDisplay: null,
     windowWidth: null,
+    lastFilteredNotes: null as T.EntityId[] | null,
+    lastSearchQuery: null as string | null,
+    lastTagResultsFound: null as number | null,
+    shouldRecomputeHeights: false,
   };
 
   list = createRef<List>();
@@ -194,15 +198,28 @@ export class NoteList extends Component<Props> {
     state.heightCache.clear(0);
     state.heightCache.clear(1);
     state.heightCache.clear(2);
+
+    const filteredNotesChanged = props.filteredNotes !== state.lastFilteredNotes;
+    const searchQueryChanged = props.searchQuery !== state.lastSearchQuery;
+    const tagResultsFoundChanged =
+      props.tagResultsFound !== state.lastTagResultsFound;
+
     if (
       props.noteDisplay !== state.lastNoteDisplay ||
-      props.windowWidth !== state.windowWidth
+      props.windowWidth !== state.windowWidth ||
+      filteredNotesChanged ||
+      searchQueryChanged ||
+      tagResultsFoundChanged
     ) {
       state.heightCache.clearAll();
 
       return {
         lastNoteDisplay: props.noteDisplay,
         windowWidth: props.windowWidth,
+        lastFilteredNotes: props.filteredNotes,
+        lastSearchQuery: props.searchQuery,
+        lastTagResultsFound: props.tagResultsFound,
+        shouldRecomputeHeights: true,
       };
     }
 
@@ -215,6 +232,20 @@ export class NoteList extends Component<Props> {
 
   componentWillUnmount() {
     this.toggleShortcuts(false);
+  }
+
+  componentDidUpdate() {
+    if (this.state.shouldRecomputeHeights) {
+      try {
+        this.list.current?.recomputeRowHeights?.();
+        this.list.current?.forceUpdateGrid?.();
+      } catch {
+        // ignore
+      } finally {
+        // eslint-disable-next-line react/no-did-update-set-state
+        this.setState({ shouldRecomputeHeights: false });
+      }
+    }
   }
 
   handleShortcut = (event: KeyboardEvent) => {

@@ -250,11 +250,27 @@ const MuyaEditor = forwardRef<MuyaEditorHandle, Props>(
         const cmdOrCtrl = e.ctrlKey || e.metaKey;
         const key = e.key?.toLowerCase?.() ?? '';
 
-        // Allow native browser shortcuts (copy, cut, paste, select all) to pass through
+        // Keep Ctrl/Cmd+A consistent: prefer Muya's selection (includes non-editable widgets).
+        // Electron menu accelerators / browser selectAll can conflict with Muya selection,
+        // so handle this early in capture-phase.
+        if (cmdOrCtrl && !e.altKey && key === 'a') {
+          try {
+            focus();
+            canCall(muyaRef.current, 'selectAll') &&
+              muyaRef.current.selectAll();
+          } finally {
+            e.preventDefault();
+            e.stopPropagation();
+            (e as any).stopImmediatePropagation?.();
+          }
+          return;
+        }
+
+        // Allow native browser shortcuts (copy, cut, paste) to pass through
         // without any interference - these should work natively without our intervention
         if (cmdOrCtrl && !e.altKey) {
           // Native clipboard/selection shortcuts - let browser handle them
-          if (['c', 'x', 'v', 'a'].includes(key)) {
+          if (['c', 'x', 'v'].includes(key)) {
             // Schedule flush after cut/paste to capture changes
             if (key === 'x' || key === 'v') {
               scheduleFlush();
@@ -784,6 +800,7 @@ const MuyaEditor = forwardRef<MuyaEditorHandle, Props>(
             scheduleFlush();
             return;
           case 'selectAll':
+            focus();
             canCall(muyaRef.current, 'selectAll') &&
               muyaRef.current.selectAll();
             return;

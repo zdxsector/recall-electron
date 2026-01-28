@@ -179,8 +179,15 @@ const getPreview = (content: string, searchQuery?: string) => {
   return preview.trim();
 };
 
-const formatPreview = (stripMarkdown: boolean, s: string): string =>
-  stripMarkdown ? removeMarkdownWithFix(s) || s : s;
+const formatPreview = (stripMarkdown: boolean, s: string): string => {
+  const raw = String(s ?? '');
+  if (!stripMarkdown) {
+    return raw.trim();
+  }
+  // `remove-markdown` can preserve trailing whitespace/newlines depending on input.
+  // Trim so list previews don't gain an extra blank line when re-rendering.
+  return String(removeMarkdownWithFix(raw) || raw).trim();
+};
 
 const previewCache = new WeakMap<T.Note, [TitleAndPreview, boolean, string?]>();
 

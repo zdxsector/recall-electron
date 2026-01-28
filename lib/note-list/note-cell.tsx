@@ -25,6 +25,9 @@ const MAX_TITLE_THUMBNAIL_LINES = 4;
 const MAX_RENDERED_PREVIEW_LINES = 30;
 const MAX_RENDERED_PREVIEW_CHARS = 2500;
 
+const FENCE_RE = /^(\s*)(`{3,}|~{3,})(.*)$/;
+const isFenceLine = (line: string) => FENCE_RE.test(String(line ?? ''));
+
 const findTitleLineIndex = (content: string): number => {
   const lines = String(content ?? '').split(/\r?\n/);
   let firstImageIdx: number | null = null;
@@ -64,12 +67,46 @@ const getRenderedPreviewSource = (content: string): string => {
 
   let chars = 0;
   const slice: string[] = [];
+  // If we enter a fenced code block, keep including lines until we close it,
+  // otherwise previews can show raw/unrendered block tokens (e.g. mermaid/math).
+  let openFence: { marker: string } | null = null;
   for (let i = startIdx; i < allLines.length; i++) {
     const line = String(allLines[i] ?? '');
     slice.push(line);
     chars += line.length + 1;
+
+    // Track fenced code blocks to avoid cutting mid-block.
+    const fenceMatch = FENCE_RE.exec(line);
+    if (fenceMatch) {
+      const marker = fenceMatch[2] ?? '';
+      if (!openFence) {
+        openFence = { marker };
+      } else if (openFence.marker === marker) {
+        openFence = null;
+      }
+    }
+
     if (slice.length >= MAX_RENDERED_PREVIEW_LINES) break;
     if (chars >= MAX_RENDERED_PREVIEW_CHARS) break;
+  }
+
+  // If we cut off while still inside a fence, continue until we close it,
+  // with a hard safety cap to prevent huge previews.
+  if (openFence) {
+    const safetyMaxExtraLines = 40;
+    for (
+      let i = startIdx + slice.length;
+      i < allLines.length && safetyMaxExtraLines > 0;
+      i++
+    ) {
+      const line = String(allLines[i] ?? '');
+      slice.push(line);
+      const fenceMatch = FENCE_RE.exec(line);
+      if (fenceMatch && (fenceMatch[2] ?? '') === openFence.marker) {
+        openFence = null;
+        break;
+      }
+    }
   }
 
   return slice.join('\n').trim();
@@ -139,6 +176,22 @@ export class NoteCell extends Component<Props> {
   }
 
   componentDidUpdate(prevProps: Props) {
+    const prevNote = prevProps.note;
+    const nextNote = this.props.note;
+
+    // react-virtualized can reuse row components; ensure we refresh previews when
+    // the identity/context of the note changes (not only its content).
+    const noteIdentityChanged =
+      prevProps.noteId !== this.props.noteId || prevNote !== nextNote;
+    const folderContextChanged = prevNote?.folderId !== nextNote?.folderId;
+    const markdownFlagChanged =
+      !!prevNote?.systemTags?.includes('markdown') !==
+      !!nextNote?.systemTags?.includes('markdown');
+
+    if (noteIdentityChanged || folderContextChanged || markdownFlagChanged) {
+      this.props.invalidateHeight();
+    }
+
     if (prevProps.note?.content !== this.props.note?.content) {
       this.props.invalidateHeight();
     }
@@ -152,11 +205,21 @@ export class NoteCell extends Component<Props> {
     }
 
     if (
+      noteIdentityChanged ||
+      folderContextChanged ||
+      markdownFlagChanged ||
       prevProps.note?.content !== this.props.note?.content ||
       prevProps.isOpened !== this.props.isOpened ||
       prevProps.displayMode !== this.props.displayMode ||
       prevProps.searchQuery !== this.props.searchQuery
     ) {
+      // Prevent stale rendered HTML from briefly showing for another note.
+      if (noteIdentityChanged || folderContextChanged) {
+        const node = this.renderedPreviewRef.current;
+        if (node) node.innerHTML = '';
+        // Bump seq so any in-flight async preview work is ignored.
+        this.renderedPreviewSeq++;
+      }
       this.scheduleRenderedPreview();
     }
 
@@ -187,11 +250,12 @@ export class NoteCell extends Component<Props> {
     // (to persist preview with syntax highlighting even when the note is not opened)
     if (hasImages || hasCodeBlock) return true;
 
-    // For notes without images/code, only show rendered markdown preview when opened
-    if (!isOpened) return false;
-
-    // Show rendered preview when Markdown is enabled
+    // Show rendered preview for markdown notes (persist even when not opened,
+    // so the preview doesn't flicker/change when clicking between notes)
     if (note.systemTags.includes('markdown')) return true;
+
+    // For non-markdown notes without special blocks, only show rendered preview when opened
+    if (!isOpened) return false;
 
     return false;
   }
