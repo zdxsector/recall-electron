@@ -269,10 +269,15 @@ export class NoteCell extends Component<Props> {
         });
       }
 
-      // Keep previews lightweight.
+      // Keep previews lightweight and fixed-size thumbnails.
       node.querySelectorAll('img').forEach((img) => {
         img.setAttribute('loading', 'lazy');
         img.setAttribute('draggable', 'false');
+        // Remove any width/height attributes from the editor so CSS controls sizing
+        img.removeAttribute('width');
+        img.removeAttribute('height');
+        img.style.removeProperty('width');
+        img.style.removeProperty('height');
       });
 
       // Apply syntax highlighting to code blocks
