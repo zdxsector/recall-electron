@@ -283,6 +283,22 @@
 
     ul,
     ol {
+      // Keep list text aligned like the editor, but ensure the marker isn't clipped
+      // by our `overflow: hidden` container by reserving space on the left.
+      padding-left: 20px;
+      list-style-position: outside;
+    }
+
+    li {
+      margin: 0;
+      padding-left: 0;
+    }
+
+    // Re-add indentation for nested lists.
+    ul ul,
+    ol ol,
+    ul ol,
+    ol ul {
       padding-left: 16px;
     }
 

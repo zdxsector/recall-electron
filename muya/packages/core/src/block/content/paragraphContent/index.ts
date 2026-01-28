@@ -424,7 +424,32 @@ class ParagraphContent extends Format {
   }
 
   private _handleBackspaceInParagraph(this: ParagraphContent) {
-    const previousContentBlock = this.previousContentInContext();
+    let previousContentBlock = this.previousContentInContext();
+
+    // Fallback: in some edge cases (notably right after leaving a list),
+    // the tree linkage can temporarily fail to resolve a previous content block,
+    // which makes Backspace at the start of a paragraph a no-op. If that happens,
+    // fall back to DOM order within the scroll container.
+    if (!previousContentBlock) {
+      try {
+        const container = this.scrollPage?.domNode;
+        const cur = this.domNode;
+        if (container && cur) {
+          const all = Array.from(
+            container.querySelectorAll('.mu-content')
+          ) as HTMLElement[];
+          const idx = all.indexOf(cur);
+          const prevEl = idx > 0 ? all[idx - 1] : null;
+          const prevBlock = (prevEl as any)?.__MUYA_BLOCK__;
+          if (prevBlock && typeof prevBlock.text === 'string') {
+            previousContentBlock = prevBlock as any;
+          }
+        }
+      } catch {
+        // ignore fallback errors
+      }
+    }
+
     // Handle no previous content block, the first paragraph in document.
     if (!previousContentBlock) return;
 
