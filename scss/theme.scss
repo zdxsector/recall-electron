@@ -185,6 +185,9 @@ body[data-theme='dark'] {
 .muya-editor-root {
   height: 100%;
   width: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
 
   .mu-container {
     max-width: none;
@@ -199,8 +202,10 @@ body[data-theme='dark'] {
   }
 }
 
+// Full width mode: add extra left padding to prevent content from
+// overflowing into the left side navigation area
 .is-line-length-full .muya-editor-root .mu-container {
-  padding: 0 25px 100px;
+  padding: 0 40px 100px;
 }
 
 // Placeholder styling (Muya uses contenteditable placeholders rather than <input> placeholders)

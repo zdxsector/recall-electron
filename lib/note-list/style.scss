@@ -264,6 +264,9 @@
   // visually compact for list performance and accessibility.
   .note-list-item-excerpt.note-list-item-excerpt-rendered {
     pointer-events: none;
+    overflow: hidden;
+    word-break: break-word;
+    overflow-wrap: anywhere;
 
     // Keep block elements from adding vertical padding/margins in the list.
     p,
@@ -274,6 +277,8 @@
     table,
     hr {
       margin: 0;
+      max-width: 100%;
+      overflow: hidden;
     }
 
     ul,
@@ -290,6 +295,8 @@
       margin: 0;
       font-size: inherit;
       font-weight: 600;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
 
     img {
@@ -307,6 +314,7 @@
 
     code {
       font-size: 0.95em;
+      word-break: break-all;
     }
 
     // Syntax highlighting styles for code blocks
@@ -316,11 +324,21 @@
       padding: 4px 6px;
       overflow: hidden;
       max-height: 60px;
+      max-width: 100%;
+      white-space: pre-wrap;
 
       code {
         background: transparent;
         padding: 0;
+        white-space: pre-wrap;
+        word-break: break-all;
       }
+    }
+
+    // Prevent tables from overflowing
+    table {
+      table-layout: fixed;
+      width: 100%;
     }
   }
 

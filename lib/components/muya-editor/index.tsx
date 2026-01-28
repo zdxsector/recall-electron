@@ -232,13 +232,32 @@ const MuyaEditor = forwardRef<MuyaEditorHandle, Props>(
         if (!wrapperRef.current?.contains(e.target as Node)) {
           return;
         }
+
+        // Ignore modifier-only key presses (Control, Meta, Shift, Alt)
+        // to prevent interference with selection or unintended side effects
+        const modifierOnlyKeys = ['control', 'meta', 'shift', 'alt'];
+        if (modifierOnlyKeys.includes(e.key?.toLowerCase?.())) {
+          return;
+        }
+
         const cmdOrCtrl = e.ctrlKey || e.metaKey;
         const key = e.key?.toLowerCase?.() ?? '';
 
-        // Muya performs some structural edits (notably with images) via its own JSON ops,
-        // which won't participate in the browser's native undo stack. Route undo/redo
-        // through Muya's history to make Ctrl/Cmd+Z reliable.
+        // Allow native browser shortcuts (copy, cut, paste, select all) to pass through
+        // without any interference - these should work natively without our intervention
         if (cmdOrCtrl && !e.altKey) {
+          // Native clipboard/selection shortcuts - let browser handle them
+          if (['c', 'x', 'v', 'a'].includes(key)) {
+            // Schedule flush after cut/paste to capture changes
+            if (key === 'x' || key === 'v') {
+              scheduleFlush();
+            }
+            return;
+          }
+
+          // Muya performs some structural edits (notably with images) via its own JSON ops,
+          // which won't participate in the browser's native undo stack. Route undo/redo
+          // through Muya's history to make Ctrl/Cmd+Z reliable.
           if (key === 'z') {
             try {
               // Ensure the editor is focused before undo/redo so Muya can resolve selection.

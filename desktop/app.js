@@ -169,7 +169,17 @@ module.exports = function main() {
           typeof mainWindow.setTitleBarOverlay === 'function'
         ) {
           try {
-            const isDark = nativeTheme.shouldUseDarkColors;
+            // Determine isDark based on theme setting directly, since
+            // nativeTheme.shouldUseDarkColors may not update immediately
+            let isDark;
+            if (settings.theme === 'light') {
+              isDark = false;
+            } else if (settings.theme === 'dark') {
+              isDark = true;
+            } else {
+              // 'system' - follow system preference
+              isDark = nativeTheme.shouldUseDarkColors;
+            }
             mainWindow.setTitleBarOverlay({
               symbolColor: isDark ? '#ffffff' : '#1c1c1e',
             });

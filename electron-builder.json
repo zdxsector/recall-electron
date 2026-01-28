@@ -47,7 +47,7 @@
     ]
   },
   "win": {
-    "icon": "resources/images/curnote.ico",
+    "icon": "resources/images/icon_512x512.png",
     "artifactName": "Recall-win-${version}-${arch}.${ext}",
     "target": [
       {
