@@ -113,11 +113,12 @@ module.exports = function main() {
       minHeight: 520,
       show: false,
       // Custom title bar on Windows: use native overlay controls (minimize/maximize/close)
-      // while allowing custom content in the title bar area.
+      // with transparent background so the custom title bar shows through.
       ...(isWindows && {
         titleBarStyle: 'hidden',
         titleBarOverlay: {
-          color: prefersDark ? '#1c1c1e' : '#ffffff',
+          // Transparent background - the custom title bar CSS provides the actual background
+          color: '#00000000',
           symbolColor: prefersDark ? '#ffffff' : '#1c1c1e',
           height: 40,
         },
@@ -160,7 +161,8 @@ module.exports = function main() {
       );
       if ('theme' in settings) {
         nativeTheme.themeSource = settings.theme;
-        // Update titleBarOverlay colors when theme changes (Windows only)
+        // Update titleBarOverlay symbol color when theme changes (Windows only)
+        // Background is transparent, so only symbol color needs updating
         if (
           isWindows &&
           mainWindow &&
@@ -169,7 +171,6 @@ module.exports = function main() {
           try {
             const isDark = nativeTheme.shouldUseDarkColors;
             mainWindow.setTitleBarOverlay({
-              color: isDark ? '#1c1c1e' : '#ffffff',
               symbolColor: isDark ? '#ffffff' : '#1c1c1e',
             });
           } catch {
@@ -297,14 +298,14 @@ module.exports = function main() {
       });
     }
 
-    // Update titleBarOverlay when system theme changes (Windows only)
+    // Update titleBarOverlay symbol color when system theme changes (Windows only)
+    // Background is transparent, so only symbol color needs updating
     if (isWindows) {
       nativeTheme.on('updated', () => {
         if (mainWindow && typeof mainWindow.setTitleBarOverlay === 'function') {
           try {
             const isDark = nativeTheme.shouldUseDarkColors;
             mainWindow.setTitleBarOverlay({
-              color: isDark ? '#1c1c1e' : '#ffffff',
               symbolColor: isDark ? '#ffffff' : '#1c1c1e',
             });
           } catch {
