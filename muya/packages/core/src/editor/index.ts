@@ -71,8 +71,9 @@ export class Editor {
     const { domNode } = this.muya;
 
     const eventHandler = (event: Event) => {
-      // Handle Ctrl/Cmd + A (select all) ourselves so non-editable inline widgets
-      // like images are included in the selection.
+      // Handle Ctrl/Cmd + A (select all) with two-stage behavior:
+      // 1. First Ctrl+A: Select all text in current block (useful for code blocks)
+      // 2. Second Ctrl+A: Select all content across all blocks
       if (event.type === 'keydown' && isKeyboardEvent(event)) {
         const { key, ctrlKey, metaKey } = event;
         if ((ctrlKey || metaKey) && (key === 'a' || key === 'A')) {

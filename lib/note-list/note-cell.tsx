@@ -184,11 +184,8 @@ export class NoteCell extends Component<Props> {
     const noteIdentityChanged =
       prevProps.noteId !== this.props.noteId || prevNote !== nextNote;
     const folderContextChanged = prevNote?.folderId !== nextNote?.folderId;
-    const markdownFlagChanged =
-      !!prevNote?.systemTags?.includes('markdown') !==
-      !!nextNote?.systemTags?.includes('markdown');
 
-    if (noteIdentityChanged || folderContextChanged || markdownFlagChanged) {
+    if (noteIdentityChanged || folderContextChanged) {
       this.props.invalidateHeight();
     }
 
@@ -207,19 +204,21 @@ export class NoteCell extends Component<Props> {
     if (
       noteIdentityChanged ||
       folderContextChanged ||
-      markdownFlagChanged ||
       prevProps.note?.content !== this.props.note?.content ||
       prevProps.isOpened !== this.props.isOpened ||
       prevProps.displayMode !== this.props.displayMode ||
       prevProps.searchQuery !== this.props.searchQuery
     ) {
       // Prevent stale rendered HTML from briefly showing for another note.
+      // Only clear when switching notes, not when content changes to avoid flashing.
       if (noteIdentityChanged || folderContextChanged) {
         const node = this.renderedPreviewRef.current;
         if (node) node.innerHTML = '';
         // Bump seq so any in-flight async preview work is ignored.
         this.renderedPreviewSeq++;
       }
+      // When only content changes (not note identity), don't clear the preview
+      // to avoid flashing. The new content will smoothly replace the old content.
       this.scheduleRenderedPreview();
     }
 
@@ -236,28 +235,14 @@ export class NoteCell extends Component<Props> {
   }
 
   shouldShowRenderedPreview() {
-    const { displayMode, isOpened, searchQuery, note } = this.props;
+    const { displayMode, searchQuery, note } = this.props;
     if (!note) return false;
     if ('condensed' === displayMode) return false;
     if ((searchQuery ?? '').trim()) return false;
 
-    // Check if note has images or code blocks near the top
-    const top = String(note.content ?? '').slice(0, 2000);
-    const hasImages = /!\[[^\]]*\]\(|<img\b/i.test(top);
-    const hasCodeBlock = /```[\s\S]*?```|^( {4}|\t)[^\s]/m.test(top);
-
-    // Always show rendered preview for notes with images or code blocks
-    // (to persist preview with syntax highlighting even when the note is not opened)
-    if (hasImages || hasCodeBlock) return true;
-
-    // Show rendered preview for markdown notes (persist even when not opened,
-    // so the preview doesn't flicker/change when clicking between notes)
-    if (note.systemTags.includes('markdown')) return true;
-
-    // For non-markdown notes without special blocks, only show rendered preview when opened
-    if (!isOpened) return false;
-
-    return false;
+    // Always show rendered preview for all notes since Muya is a markdown editor.
+    // This provides consistent behavior and avoids flickering between modes.
+    return true;
   }
 
   scheduleRenderedPreview() {

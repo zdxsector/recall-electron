@@ -250,19 +250,12 @@ const MuyaEditor = forwardRef<MuyaEditorHandle, Props>(
         const cmdOrCtrl = e.ctrlKey || e.metaKey;
         const key = e.key?.toLowerCase?.() ?? '';
 
-        // Keep Ctrl/Cmd+A consistent: prefer Muya's selection (includes non-editable widgets).
-        // Electron menu accelerators / browser selectAll can conflict with Muya selection,
-        // so handle this early in capture-phase.
+        // Let Muya handle Ctrl/Cmd+A with its two-stage selectAll behavior:
+        // 1. First Ctrl+A: Select all text in current block (useful for code blocks)
+        // 2. Second Ctrl+A: Select all content across all blocks
+        // This integrates properly with Muya's editing model so Backspace works.
         if (cmdOrCtrl && !e.altKey && key === 'a') {
-          try {
-            focus();
-            canCall(muyaRef.current, 'selectAll') &&
-              muyaRef.current.selectAll();
-          } finally {
-            e.preventDefault();
-            e.stopPropagation();
-            (e as any).stopImmediatePropagation?.();
-          }
+          // Don't intercept - let the event bubble to Muya's handler
           return;
         }
 
@@ -316,7 +309,24 @@ const MuyaEditor = forwardRef<MuyaEditorHandle, Props>(
         }
 
         // Schedule flush for keys that typically modify content
-        if (['Backspace', 'Delete', 'Enter', 'Tab'].includes(e.key)) {
+        // For Backspace and Delete in lists, flush immediately to avoid state desync
+        if (['Backspace', 'Delete'].includes(e.key)) {
+          // Check if we're in a list context by looking at the DOM
+          const activeElement = document.activeElement;
+          const isInList = activeElement?.closest?.(
+            '.mu-bullet-list, .mu-order-list, .mu-task-list, .mu-list-item'
+          );
+          
+          if (isInList) {
+            // Immediate flush for list operations to prevent state desync
+            // that can cause "cannot erase next bullet item" issues
+            if (inputTimerRef.current) clearTimeout(inputTimerRef.current);
+            // Use a very short delay to allow Muya to complete its internal operations
+            inputTimerRef.current = setTimeout(flushFromMuya, 10);
+          } else {
+            scheduleFlush();
+          }
+        } else if (['Enter', 'Tab'].includes(e.key)) {
           scheduleFlush();
         }
       };
@@ -335,7 +345,11 @@ const MuyaEditor = forwardRef<MuyaEditorHandle, Props>(
       // Muya emits internal change events even when it prevents default DOM input
       // (e.g., some backspace/delete behaviors). Listen to these so Redux stays
       // in sync and the note list title updates correctly.
-      const onMuyaChange = () => scheduleFlush();
+      // Use a shorter delay for better responsiveness, especially for list operations.
+      const onMuyaChange = () => {
+        if (inputTimerRef.current) clearTimeout(inputTimerRef.current);
+        inputTimerRef.current = setTimeout(flushFromMuya, 30);
+      };
       if (canCall(muya, 'on')) {
         muya.on('json-change', onMuyaChange);
         muya.on('content-change', onMuyaChange);
@@ -800,9 +814,11 @@ const MuyaEditor = forwardRef<MuyaEditorHandle, Props>(
             scheduleFlush();
             return;
           case 'selectAll':
+            // Use Muya's selectAll for proper integration with editing model
             focus();
-            canCall(muyaRef.current, 'selectAll') &&
+            if (canCall(muyaRef.current, 'selectAll')) {
               muyaRef.current.selectAll();
+            }
             return;
           default:
             return;

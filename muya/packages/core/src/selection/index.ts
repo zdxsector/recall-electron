@@ -195,9 +195,8 @@ class Selection {
     };
 
     this.setSelection(cursor);
-    const activeEle = this.doc.activeElement;
-    if (activeEle && activeEle.classList.contains('mu-content'))
-      (activeEle as HTMLElement).blur();
+    // NOTE: Removed blur() call that was here - it caused the editor to lose focus
+    // which prevented Backspace from working after selecting all content.
   }
 
   /**
