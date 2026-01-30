@@ -13,6 +13,150 @@ const NOTES_ROOT_NAME = 'CurNotes';
 const META_DIR_NAME = '.recall';
 const META_FILE_NAME = 'store.json';
 const REVISIONS_FILE_NAME = 'revisions.json';
+const DEBUG_PERSIST = process.env.RECALL_DEBUG_PERSIST === '1';
+
+const summarizeNewlines = (value) => {
+  const text = String(value ?? '');
+  const total = (text.match(/\n/g) || []).length;
+  const leadingMatch = text.match(/^\n+/);
+  const trailingMatch = text.match(/\n+$/);
+  let maxRun = 0;
+  let current = 0;
+  for (const ch of text) {
+    if (ch === '\n') {
+      current += 1;
+      if (current > maxRun) {
+        maxRun = current;
+      }
+    } else {
+      current = 0;
+    }
+  }
+  return {
+    length: text.length,
+    totalNewlines: total,
+    leadingNewlines: leadingMatch ? leadingMatch[0].length : 0,
+    trailingNewlines: trailingMatch ? trailingMatch[0].length : 0,
+    maxConsecutiveNewlines: maxRun,
+  };
+};
+
+// Legacy migration helper:
+// Older versions persisted notes primarily as HTML and converted back to markdown on load.
+// That conversion path can lose soft line breaks (`\n` inside text nodes). To keep
+// newlines stable across restarts, we prefer loading `.md` files, and for legacy `.html`
+// files we perform a best-effort HTML->Markdown conversion with a soft-break workaround,
+// then write a sibling `.md` file so future loads are markdown-first.
+let _turndown = undefined;
+const getTurndown = () => {
+  if (_turndown !== undefined) return _turndown;
+  try {
+    const TurndownService = require('turndown');
+    _turndown = new TurndownService({
+      headingStyle: 'atx',
+      hr: '---',
+      bulletListMarker: '-',
+      codeBlockStyle: 'fenced',
+      emDelimiter: '*',
+      strongDelimiter: '**',
+      blankReplacement: (_content, node) => {
+        // turndown sets `isBlock` on nodes it considers blocks.
+        return node && node.isBlock ? '\n\n' : '';
+      },
+    });
+    // Explicit rules so empty markers always survive conversion.
+    _turndown.addRule('muSoftLineBreak', {
+      filter: (node) =>
+        node &&
+        node.nodeName === 'SPAN' &&
+        node.classList &&
+        node.classList.contains('mu-soft-line-break'),
+      replacement: () => '\n',
+    });
+    _turndown.addRule('muHardLineBreak', {
+      filter: (node) =>
+        node &&
+        node.nodeName === 'SPAN' &&
+        node.classList &&
+        node.classList.contains('mu-hard-line-break'),
+      replacement: () => '  \n',
+    });
+  } catch {
+    _turndown = null;
+  }
+  return _turndown;
+};
+
+const turnSoftBreakToSpan = (html) => {
+  try {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(
+      `<x-mt id="turn-root">${String(html ?? '')}</x-mt>`,
+      'text/html'
+    );
+    const root = doc.querySelector('#turn-root');
+    if (!root) return String(html ?? '');
+
+    const travel = (childNodes) => {
+      for (const node of Array.from(childNodes)) {
+        if (
+          node.nodeType === Node.TEXT_NODE &&
+          node.parentElement?.tagName !== 'CODE'
+        ) {
+          let startLen = 0;
+          let endLen = 0;
+          const original = String(node.nodeValue ?? '');
+          const text = original
+            .replace(/^(\n+)/, (_m, p) => {
+              startLen = p.length;
+              return '';
+            })
+            .replace(/(\n+)$/, (_m, p) => {
+              endLen = p.length;
+              return '';
+            });
+
+          if (/\n/.test(text)) {
+            const tokens = text.split('\n');
+            const params = [];
+            const len = tokens.length;
+            for (let i = 0; i < len; i++) {
+              let piece = tokens[i];
+              if (i === 0 && startLen) piece = '\n'.repeat(startLen) + piece;
+              else if (i === len - 1 && endLen)
+                piece = piece + '\n'.repeat(endLen);
+
+              params.push(document.createTextNode(piece));
+              if (i !== len - 1) {
+                const softBreak = document.createElement('span');
+                softBreak.classList.add('mu-soft-line-break');
+                params.push(softBreak);
+              }
+            }
+            node.replaceWith(...params);
+          }
+        } else if (node.nodeType === Node.ELEMENT_NODE) {
+          travel(node.childNodes);
+        }
+      }
+    };
+    travel(root.childNodes);
+    return root.innerHTML;
+  } catch {
+    return String(html ?? '');
+  }
+};
+
+const legacyHtmlToMarkdown = (html) => {
+  const turndown = getTurndown();
+  if (!turndown) return null;
+  try {
+    const prepared = turnSoftBreakToSpan(String(html ?? ''));
+    return turndown.turndown(prepared);
+  } catch {
+    return null;
+  }
+};
 
 const getNotesRoot = () => {
   const documents = ipcRenderer.sendSync('recall:getPath', 'documents');
@@ -160,7 +304,8 @@ const getOrCreateNoteDir = (
   ensureDir(path.join(noteDir, 'assets'));
 
   const htmlFile = path.join(noteDir, `${noteDirName}.html`);
-  return { noteDir, htmlFile, folderDir, noteDirName, folderParts };
+  const mdFile = path.join(noteDir, `${noteDirName}.md`);
+  return { noteDir, htmlFile, mdFile, folderDir, noteDirName, folderParts };
 };
 
 const validChannels = [
@@ -238,29 +383,74 @@ const electronAPI = {
       // Rehydrate notes content from on-disk HTML files.
       // `rawMeta` is expected to be the same shape as the old persisted payload,
       // except that note contents may be omitted or stale.
-      const rootFolders = rawMeta.folders ?? [];
       const notesArray = rawMeta.notes ?? [];
       const notePaths = rawMeta.notePaths ?? {};
-      const TurndownService = (() => {
-        try {
-          return require('turndown');
-        } catch {
-          return null;
-        }
-      })();
-      const turndown = TurndownService ? new TurndownService() : null;
-
+      let didUpdateNotePaths = false;
       const hydratedNotes = notesArray.map(([noteId, note]) => {
         try {
-          // Prefer HTML, but support legacy mdRel for backward compatibility.
+          // Prefer markdown, but support legacy htmlRel for backward compatibility.
           const htmlRel = notePaths?.[noteId]?.htmlRel;
           const mdRel = notePaths?.[noteId]?.mdRel;
-          const fileRel = htmlRel || mdRel;
-          const filePath = fileRel ? path.join(root, fileRel) : null;
+          // Robust fallback: mdRel might exist but file can be missing (e.g. partial migration).
+          const relCandidates = [mdRel, htmlRel].filter(Boolean);
+          let fileRel = null;
+          let filePath = null;
+          for (const rel of relCandidates) {
+            const candidatePath = path.join(root, rel);
+            if (fs.existsSync(candidatePath)) {
+              fileRel = rel;
+              filePath = candidatePath;
+              break;
+            }
+          }
           if (filePath && fs.existsSync(filePath)) {
             const raw = fs.readFileSync(filePath, 'utf8');
-            // If the stored file is HTML, convert back to markdown for the editor.
-            const content = htmlRel && turndown ? turndown.turndown(raw) : raw;
+            const content = (() => {
+              // Markdown-first: prefer loading `.md` directly.
+              if (mdRel && fileRel === mdRel) return raw;
+
+              // Legacy: if we're reading an `.html` note, convert to markdown so the
+              // editor sees stable newlines/blocks.
+              if (htmlRel && fileRel === htmlRel) {
+                const converted = legacyHtmlToMarkdown(raw);
+                if (typeof converted === 'string' && converted.length > 0) {
+                  // Best-effort: write a sibling `.md` so future loads don't need conversion.
+                  if (!mdRel && /\.html$/i.test(htmlRel)) {
+                    const mdRelCandidate = htmlRel.replace(/\.html$/i, '.md');
+                    const mdAbs = path.join(root, mdRelCandidate);
+                    try {
+                      if (!fs.existsSync(mdAbs)) {
+                        ensureDir(path.dirname(mdAbs));
+                        fs.writeFileSync(mdAbs, converted, 'utf8');
+                      }
+                      notePaths[noteId] = {
+                        ...(notePaths?.[noteId] ?? {}),
+                        mdRel: mdRelCandidate,
+                      };
+                      didUpdateNotePaths = true;
+                    } catch {
+                      // best-effort; still return converted content
+                    }
+                  }
+                  return converted;
+                }
+                // Fallback: if conversion fails, keep raw (better than crashing).
+                return raw;
+              }
+
+              return raw;
+            })();
+            if (DEBUG_PERSIST) {
+              // eslint-disable-next-line no-console
+              console.log('[persist:load]', {
+                noteId,
+                fileRel,
+                htmlRel,
+                mdRel,
+                rawStats: summarizeNewlines(raw),
+                contentStats: summarizeNewlines(content),
+              });
+            }
             return [noteId, { ...note, content }];
           }
         } catch (e) {
@@ -268,6 +458,16 @@ const electronAPI = {
         }
         return [noteId, note];
       });
+
+      // If we added mdRel entries during a legacy migration pass, persist them immediately
+      // so the app doesn't need to reconvert on every startup.
+      if (didUpdateNotePaths) {
+        try {
+          writeJsonFile(metaPath, { ...rawMeta, notePaths });
+        } catch {
+          // best-effort
+        }
+      }
 
       return { ...rawMeta, notes: hydratedNotes };
     } catch (e) {
@@ -338,10 +538,14 @@ const electronAPI = {
         const prevDirRel = prevNotePaths?.[noteId]?.dirRel;
         const prevDir = prevDirRel ? path.join(root, prevDirRel) : null;
 
-        const { htmlFile: desiredHtmlFile, noteDir: desiredNoteDir } =
-          getOrCreateNoteDir(root, foldersArray, notebooksArray, noteId, note);
+        const {
+          htmlFile: desiredHtmlFile,
+          mdFile: desiredMdFile,
+          noteDir: desiredNoteDir,
+        } = getOrCreateNoteDir(root, foldersArray, notebooksArray, noteId, note);
         let finalNoteDir = desiredNoteDir;
         let finalHtmlFile = desiredHtmlFile;
+        let finalMdFile = desiredMdFile;
 
         if (
           prevDir &&
@@ -355,6 +559,7 @@ const electronAPI = {
           finalNoteDir = uniqueTarget;
           const newDirName = path.basename(uniqueTarget);
           finalHtmlFile = path.join(uniqueTarget, `${newDirName}.html`);
+          finalMdFile = path.join(uniqueTarget, `${newDirName}.md`);
         }
 
         ensureDir(finalNoteDir);
@@ -364,11 +569,23 @@ const electronAPI = {
         const html = markdownConverter
           ? markdownConverter.makeHtml(markdown)
           : markdown;
+        if (DEBUG_PERSIST) {
+          // eslint-disable-next-line no-console
+          console.log('[persist:save]', {
+            noteId,
+            htmlRel: path.relative(root, finalHtmlFile),
+            mdRel: path.relative(root, finalMdFile),
+            markdownStats: summarizeNewlines(markdown),
+            htmlStats: summarizeNewlines(html),
+          });
+        }
+        fs.writeFileSync(finalMdFile, markdown, 'utf8');
         fs.writeFileSync(finalHtmlFile, html, 'utf8');
 
         nextNotePaths[noteId] = {
           dirRel: path.relative(root, finalNoteDir),
           htmlRel: path.relative(root, finalHtmlFile),
+          mdRel: path.relative(root, finalMdFile),
         };
       });
 

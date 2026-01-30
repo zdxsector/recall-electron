@@ -181,8 +181,11 @@ export class NoteCell extends Component<Props> {
 
     // react-virtualized can reuse row components; ensure we refresh previews when
     // the identity/context of the note changes (not only its content).
-    const noteIdentityChanged =
-      prevProps.noteId !== this.props.noteId || prevNote !== nextNote;
+    // IMPORTANT: Redux updates note objects immutably, so `prevNote !== nextNote`
+    // will be true on every content edit. Treating that as an identity change
+    // causes us to clear the preview DOM on every keystroke (visible "flash").
+    // Only consider the row "identity" changed when the note id changes.
+    const noteIdentityChanged = prevProps.noteId !== this.props.noteId;
     const folderContextChanged = prevNote?.folderId !== nextNote?.folderId;
 
     if (noteIdentityChanged || folderContextChanged) {

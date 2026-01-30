@@ -1,8 +1,21 @@
 import htmlTags from 'html-tags';
-import voidHtmlTags from 'html-tags/void';
 import { en } from '../locales/en';
 
-export const VOID_HTML_TAGS = voidHtmlTags;
+export const VOID_HTML_TAGS = [
+  'area',
+  'base',
+  'br',
+  'col',
+  'embed',
+  'hr',
+  'img',
+  'input',
+  'link',
+  'meta',
+  'source',
+  'track',
+  'wbr',
+];
 export const HTML_TAGS = htmlTags;
 export const BLOCK_DOM_PROPERTY = '__MUYA_BLOCK__';
 
