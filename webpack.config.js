@@ -136,7 +136,7 @@ module.exports = () => {
       modules: ['node_modules'],
       alias: {
         // Use the local vendored Muya source for full customization.
-        '@muyajs/core': path.resolve(__dirname, 'muya/packages/core/src'),
+        '@muyajs/core': path.resolve(__dirname, 'lib/muya/packages/core/src'),
       },
     },
     plugins: [

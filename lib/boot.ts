@@ -14,7 +14,7 @@ import { makeStore } from './state';
 import isDevConfig from './utils/is-dev-config';
 
 import '../scss/style.scss';
-// Muya styles (using local `muya/` source via webpack alias).
+// Muya styles (using local `lib/muya/` source via webpack alias).
 // Import the source CSS entrypoints directly (the old `@muyajs/core/lib/*.css`
 // paths only exist in the published build artifacts).
 import '@muyajs/core/assets/styles/blockSyntax.css';
