@@ -19,6 +19,7 @@ const IMAGE_LINE_ONLY_RE = /^\s*!\[[^\]]*\]\([^)]+\)\s*$/;
 const HTML_IMAGE_LINE_ONLY_RE = /^\s*<img\b[^>]*>\s*$/i;
 const HTML_IMAGE_ALT_RE = /\balt\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/i;
 const HEADING_RE = /^\s*#{1,6}\s+(.*)$/;
+const TASK_LINE_RE = /^\s*-\s*\[(?: |x|X)\]\s*(.*)$/;
 
 const extractHtmlAttribute = (re: RegExp, s: string): string | null => {
   const m = re.exec(String(s ?? ''));
@@ -84,6 +85,15 @@ export const getTitle = (content) => {
     if (headingMatch && headingMatch[1]) {
       const title = headingMatch[1].trim();
       if (title) return title.slice(0, maxTitleChars);
+    }
+
+    // If the first meaningful line is a task list item, prefer the task text.
+    // Skip "empty" tasks like `- [ ]` so the title doesn't become the checkbox syntax.
+    const taskMatch = TASK_LINE_RE.exec(trimmed);
+    if (taskMatch) {
+      const taskText = String(taskMatch[1] ?? '').trim();
+      if (!taskText) continue;
+      return taskText.slice(0, maxTitleChars);
     }
 
     const imgMatch = IMAGE_LINE_RE.exec(trimmed);
@@ -168,8 +178,14 @@ const getPreview = (content: string, searchQuery?: string) => {
   // Build preview from up to 3 non-empty lines after the title line.
   for (let i = Math.max(0, titleIndex + 1); i < allLines.length; i++) {
     if (lines >= 3) break;
-    const line = allLines[i].trim();
-    if (!line) continue;
+    const rawLine = allLines[i];
+    const trimmed = String(rawLine ?? '').trim();
+    if (!trimmed) continue;
+    // Skip empty task list items (`- [ ]` with no text) so the preview
+    // doesn’t show a dangling checkbox row.
+    const taskMatch = TASK_LINE_RE.exec(trimmed);
+    if (taskMatch && !String(taskMatch[1] ?? '').trim()) continue;
+    const line = trimmed;
     if (IMAGE_LINE_ONLY_RE.test(line) || HTML_IMAGE_LINE_ONLY_RE.test(line))
       continue;
     preview += line + '\n';

@@ -41,28 +41,10 @@
   }
 }
 
-/* Monaco adds the dir='ltr' attribute to rtl languages.
-   This does the opposite of what you think it should do.
-*/
-span[dir='ltr'] {
-  float: right;
-  margin-right: calc(100% - 768px);
-}
-
 .is-line-length-full {
   .note-detail-preview,
   .note-content-plaintext.visible {
     padding: 0 25px;
-  }
-
-  span[dir='ltr'] {
-    margin-right: 20px;
-  }
-}
-
-@media only screen and (width <= 1400px) {
-  span[dir='ltr'] {
-    margin-right: 14%;
   }
 }
 
@@ -192,13 +174,69 @@ body[data-theme='dark'] {
   // Muya's bundled CSS sets `html, body { line-height: 1.6; }`, which makes
   // the editor feel overly loose compared to the rest of the app. Override the
   // line height *only* for the editor subtree.
-  line-height: 1;
+  line-height: 1.4;
 
   .mu-container {
     max-width: none;
     margin: 0;
     padding: 0 calc((100% - 768px) / 2) 100px;
   }
+}
+
+// Muya's `MarkdownToHtml` output is wrapped in `article.markdown-body`.
+// Style task list checkboxes to match the editor's circular UI (Muya editor
+// uses `.mu-task-list-item`, while export output uses `.task-list-item`).
+.markdown-body .task-list-item > input[type='checkbox'] {
+  position: relative;
+  top: 0.1em;
+  width: 12px;
+  height: 12px;
+  margin: 0 0.55em 0 -1.3em;
+  transform-origin: center;
+  cursor: default;
+  transition: all 0.2s ease;
+  appearance: none;
+}
+
+.markdown-body .task-list-item > input[type='checkbox']::before {
+  position: absolute;
+  top: -2px;
+  left: -2px;
+  display: inline-block;
+  box-sizing: border-box;
+  width: 18px;
+  height: 18px;
+  background-color: var(--editor-bg-color);
+  border: 2px solid var(--editor-color-50);
+  border-radius: 50%;
+  transition: all 0.2s ease;
+  content: '';
+}
+
+.markdown-body .task-list-item > input[type='checkbox']::after {
+  position: absolute;
+  top: 1px;
+  left: 4px;
+  display: inline-block;
+  width: 8px;
+  height: 4px;
+  border: 2px solid var(--editor-bg-color);
+  border-top: none;
+  border-right: none;
+  transform: rotate(-45deg) scale(0);
+  transform-origin: bottom;
+  transition: all 0.2s ease;
+  box-sizing: content-box;
+  content: '';
+}
+
+.markdown-body .task-list-item > input[type='checkbox']:checked::after {
+  transform: rotate(-45deg) scale(1);
+}
+
+.markdown-body .task-list-item > input[type='checkbox']:checked::before {
+  background: var(--icon-color);
+  border-color: var(--icon-color);
 }
 
 @media only screen and (width <= 1400px) {

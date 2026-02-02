@@ -1,6 +1,7 @@
 import React, { Component, CSSProperties, createRef } from 'react';
 import { connect } from 'react-redux';
 import classNames from 'classnames';
+import { escapeRegExp } from 'lodash';
 
 import PublishIcon from '../icons/published-small';
 import SmallPinnedIcon from '../icons/pinned-small';
@@ -21,6 +22,7 @@ const IMAGE_LINE_ONLY_RE = /^\s*!\[([^\]]*)\]\(\s*([^)]+?)\s*\)\s*$/;
 const HTML_IMAGE_LINE_ONLY_RE = /^\s*<img\b[^>]*>\s*$/i;
 const HTML_IMAGE_SRC_RE = /\bsrc\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/i;
 const HTML_IMAGE_ALT_RE = /\balt\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/i;
+const TASK_LINE_RE = /^\s*-\s*\[(?: |x|X)\]\s*(.*)$/;
 const MAX_TITLE_THUMBNAIL_LINES = 4;
 const MAX_RENDERED_PREVIEW_LINES = 30;
 const MAX_RENDERED_PREVIEW_CHARS = 2500;
@@ -39,12 +41,116 @@ const findTitleLineIndex = (content: string): number => {
       if (firstImageIdx === null) firstImageIdx = i;
       continue;
     }
+    // Skip empty checklist items (e.g. `- [ ]`) so we don't treat them as the
+    // note title line. This avoids showing `- [ ]` as the title and keeps the
+    // list preview aligned with the editor's content.
+    const taskMatch = TASK_LINE_RE.exec(trimmed);
+    if (taskMatch && !String(taskMatch[1] ?? '').trim()) {
+      continue;
+    }
     return i;
   }
   return firstImageIdx ?? -1;
 };
 
-const getRenderedPreviewSource = (content: string): string => {
+const unwrapSearchMatchSpans = (root: HTMLElement) => {
+  root.querySelectorAll('span.search-match').forEach((el) => {
+    const parent = el.parentNode;
+    if (!parent) return;
+    parent.replaceChild(document.createTextNode(el.textContent ?? ''), el);
+    parent.normalize();
+  });
+};
+
+const applySearchHighlights = (root: HTMLElement, searchQuery: string) => {
+  const q = String(searchQuery ?? '').trim();
+  if (!q) return;
+
+  // Remove any prior highlights so we can re-apply cleanly.
+  unwrapSearchMatchSpans(root);
+
+  const terms = getTerms(q).map((t) => String(t ?? '').trim()).filter(Boolean);
+  if (terms.length === 0) return;
+
+  // Larger terms first to reduce "partial highlight" when alternatives overlap.
+  terms.sort((a, b) => b.length - a.length);
+  const pattern = new RegExp(terms.map(escapeRegExp).join('|'), 'gi');
+
+  const shouldSkipTextNode = (node: Text) => {
+    const parent = node.parentElement;
+    if (!parent) return true;
+    // Keep code/math/diagrams readable and avoid disturbing syntax highlighting DOM.
+    if (
+      parent.closest(
+        'pre, code, svg, math, .katex, .mermaid, .vega, .plantuml, .token'
+      )
+    ) {
+      return true;
+    }
+    // Avoid highlighting inside UI controls (shouldn't exist, but be defensive).
+    if (parent.closest('button, input, textarea, select')) return true;
+    return false;
+  };
+
+  const walker = document.createTreeWalker(
+    root,
+    NodeFilter.SHOW_TEXT,
+    {
+      acceptNode: (n) => {
+        const node = n as Text;
+        const value = node.nodeValue ?? '';
+        if (!value || !value.trim()) return NodeFilter.FILTER_REJECT;
+        if (shouldSkipTextNode(node)) return NodeFilter.FILTER_REJECT;
+        pattern.lastIndex = 0;
+        return pattern.test(value)
+          ? NodeFilter.FILTER_ACCEPT
+          : NodeFilter.FILTER_REJECT;
+      },
+    } as unknown as NodeFilter
+  );
+
+  const nodes: Text[] = [];
+  while (walker.nextNode()) {
+    nodes.push(walker.currentNode as Text);
+  }
+
+  for (const textNode of nodes) {
+    const text = textNode.nodeValue ?? '';
+    pattern.lastIndex = 0;
+    let lastIdx = 0;
+    let match: RegExpExecArray | null;
+    const frag = document.createDocumentFragment();
+
+    while ((match = pattern.exec(text)) !== null) {
+      const start = match.index ?? 0;
+      const matched = match[0] ?? '';
+      if (!matched) break;
+
+      if (start > lastIdx) {
+        frag.appendChild(document.createTextNode(text.slice(lastIdx, start)));
+      }
+
+      const span = document.createElement('span');
+      span.className = 'search-match';
+      span.textContent = matched;
+      frag.appendChild(span);
+
+      lastIdx = start + matched.length;
+      if (pattern.lastIndex === start) {
+        // Safety: avoid infinite loops in unexpected regex edge cases.
+        pattern.lastIndex++;
+      }
+    }
+
+    if (lastIdx < text.length) {
+      frag.appendChild(document.createTextNode(text.slice(lastIdx)));
+    }
+
+    textNode.parentNode?.replaceChild(frag, textNode);
+  }
+};
+
+const getRenderedPreviewSource = (content: string, searchQuery?: string): string => {
   const allLines = String(content ?? '').split(/\r?\n/);
   if (allLines.length === 0) return '';
 
@@ -60,7 +166,27 @@ const getRenderedPreviewSource = (content: string): string => {
 
   let startIdx = titleIsImageOnly ? titleIdx : titleIdx + 1;
 
-  // Skip leading blank lines after the title.
+  // If we're searching, try to center the preview around the first match so the
+  // user sees relevant context rather than always the top of the note.
+  const term = (getTerms(String(searchQuery ?? ''))[0] ?? '').trim();
+  if (term) {
+    const needle = term.toLowerCase();
+    // Prefer matches after the title (more likely to be "content preview"),
+    // but fall back to anywhere if needed.
+    const findMatchFrom = (from: number): number | null => {
+      for (let i = Math.max(0, from); i < allLines.length; i++) {
+        if (String(allLines[i] ?? '').toLowerCase().includes(needle)) return i;
+      }
+      return null;
+    };
+    const matchIdx = findMatchFrom(startIdx) ?? findMatchFrom(0);
+    if (matchIdx !== null) {
+      // Show one line of context above the match when possible.
+      startIdx = Math.max(startIdx, Math.max(0, matchIdx - 1));
+    }
+  }
+
+  // Skip leading blank lines at the preview start.
   while (startIdx < allLines.length && !String(allLines[startIdx]).trim()) {
     startIdx++;
   }
@@ -72,6 +198,13 @@ const getRenderedPreviewSource = (content: string): string => {
   let openFence: { marker: string } | null = null;
   for (let i = startIdx; i < allLines.length; i++) {
     const line = String(allLines[i] ?? '');
+    const trimmed = line.trim();
+    // Skip empty task list items (e.g. trailing "- [ ]" with no text) so the
+    // list preview doesn’t show an extra blank checkbox row.
+    const taskMatch = TASK_LINE_RE.exec(trimmed);
+    if (taskMatch && !String(taskMatch[1] ?? '').trim()) {
+      continue;
+    }
     slice.push(line);
     chars += line.length + 1;
 
@@ -238,13 +371,12 @@ export class NoteCell extends Component<Props> {
   }
 
   shouldShowRenderedPreview() {
-    const { displayMode, searchQuery, note } = this.props;
+    const { displayMode, note } = this.props;
     if (!note) return false;
     if ('condensed' === displayMode) return false;
-    if ((searchQuery ?? '').trim()) return false;
-
-    // Always show rendered preview for all notes since Muya is a markdown editor.
-    // This provides consistent behavior and avoids flickering between modes.
+    // Prefer a Muya-rendered preview so the list matches what the editor displays.
+    // When searching we still render, and we apply search-term highlights to the
+    // rendered HTML so results remain scannable.
     return true;
   }
 
@@ -266,7 +398,10 @@ export class NoteCell extends Component<Props> {
     }
 
     const { note, noteId, folders, notebooks } = this.props;
-    const source = getRenderedPreviewSource(note?.content ?? '');
+    const source = getRenderedPreviewSource(
+      note?.content ?? '',
+      this.props.searchQuery
+    );
     if (!source) {
       node.innerHTML = '';
       return;
@@ -331,6 +466,16 @@ export class NoteCell extends Component<Props> {
         img.style.removeProperty('width');
         img.style.removeProperty('height');
       });
+
+      // Highlight search terms inside rendered HTML (matches list UX expectations).
+      const q = (this.props.searchQuery ?? '').trim();
+      if (q) {
+        try {
+          applySearchHighlights(node, q);
+        } catch {
+          // ignore highlight errors
+        }
+      }
 
       // Apply syntax highlighting to code blocks
       const codeElements = node.querySelectorAll('pre code');

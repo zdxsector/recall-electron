@@ -3,7 +3,6 @@ const webpack = require('webpack');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 const spawnSync = require('child_process').spawnSync;
 const MiniCssExtractPlugin = require('mini-css-extract-plugin');
-const MonacoWebpackPlugin = require('monaco-editor-webpack-plugin');
 const NodePolyfillPlugin = require('node-polyfill-webpack-plugin');
 const fs = require('fs');
 const path = require('path');
@@ -161,39 +160,6 @@ module.exports = () => {
       new MiniCssExtractPlugin({
         filename: isDevMode ? '[name].css' : '[name].[fullhash].css',
         chunkFilename: isDevMode ? '[id].css' : '[id].[fullhash].css',
-      }),
-      new MonacoWebpackPlugin({
-        languages: [],
-        // don't include features we disable. these generally correspond to the options
-        // passed to editor initialization in note-content-editor.tsx
-        // @see https://github.com/microsoft/monaco-editor/blob/main/webpack-plugin/README.md#options
-        features: [
-          '!bracketMatching',
-          '!codeAction',
-          '!codelens',
-          '!colorPicker',
-          '!comment',
-          '!diffEditor',
-          '!diffEditorBreadcrumbs',
-          '!folding',
-          '!gotoError',
-          '!gotoLine',
-          '!gotoSymbol',
-          '!gotoZoom',
-          '!inspectTokens',
-          '!multicursor',
-          '!parameterHints',
-          '!quickCommand',
-          '!quickHelp',
-          '!quickOutline',
-          '!referenceSearch',
-          '!rename',
-          '!snippet',
-          '!stickyScroll',
-          '!suggest',
-          '!toggleHighContrast',
-          '!unicodeHighlighter',
-        ],
       }),
       new webpack.DefinePlugin({
         __TEST__: JSON.stringify(process.env.NODE_ENV === 'test'),

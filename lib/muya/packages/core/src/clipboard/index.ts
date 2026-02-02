@@ -378,15 +378,27 @@ class Clipboard {
         const offset = outBlock.offset(listItem);
         outBlock.forEach((item, index) => {
           if (position === 'start' && index === offset) {
-            const state = {
-              name: listItemBlockName,
-              children: [
-                {
-                  name: 'paragraph',
-                  text: '',
-                },
-              ],
-            };
+            const state =
+              listItemBlockName === 'task-list-item'
+                ? {
+                    name: 'task-list-item',
+                    meta: { checked: false },
+                    children: [
+                      {
+                        name: 'paragraph',
+                        text: '',
+                      },
+                    ],
+                  }
+                : {
+                    name: 'list-item',
+                    children: [
+                      {
+                        name: 'paragraph',
+                        text: '',
+                      },
+                    ],
+                  };
             const newListItem = ScrollPage.loadBlock(state.name).create(
               this.muya,
               state
@@ -454,15 +466,27 @@ class Clipboard {
         const maxOffset = Math.max(anchorOffset, focusOffset);
         anchorOutMostBlock?.forEach((item, index) => {
           if (index === minOffset) {
-            const state = {
-              name: listItemBlockName,
-              children: [
-                {
-                  name: 'paragraph',
-                  text: '',
-                },
-              ],
-            };
+            const state =
+              listItemBlockName === 'task-list-item'
+                ? {
+                    name: 'task-list-item',
+                    meta: { checked: false },
+                    children: [
+                      {
+                        name: 'paragraph',
+                        text: '',
+                      },
+                    ],
+                  }
+                : {
+                    name: 'list-item',
+                    children: [
+                      {
+                        name: 'paragraph',
+                        text: '',
+                      },
+                    ],
+                  };
             const newListItem = ScrollPage.loadBlock(state.name).create(
               this.muya,
               state

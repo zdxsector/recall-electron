@@ -1,5 +1,18 @@
 import { sanitizeHtml } from './sanitize-html';
 
+const enableCheckboxInputsInHtml = (html: string): string =>
+  String(html ?? '').replace(/<input\b[^>]*>/gi, (tag) => {
+    // Only touch checkbox inputs. We want rendered task-list checkboxes to be
+    // clickable in the note preview (we toggle them by rewriting markdown).
+    if (!/\btype=(?:"checkbox"|'checkbox')/i.test(tag)) {
+      return tag;
+    }
+    return tag.replace(
+      /\sdisabled(?:=(?:"[^"]*"|'[^']*'|[^\s>]+))?/gi,
+      ''
+    );
+  });
+
 const enableCheckboxes = {
   type: 'output',
   regex: '<input type="checkbox" disabled',
@@ -21,7 +34,9 @@ export const renderNoteToHtml = (content: string) => {
   // Prefer Muya's markdown renderer so advanced blocks (diagram/math/mermaid) can render.
   return import(/* webpackChunkName: 'muya-render' */ '@muyajs/core')
     .then(({ MarkdownToHtml }) =>
-      new MarkdownToHtml(transformedContent).renderHtml()
+      new MarkdownToHtml(transformedContent)
+        .renderHtml()
+        .then(enableCheckboxInputsInHtml)
     )
     .catch(() =>
       // Fallback to showdown + app sanitizer for robustness.
@@ -41,7 +56,11 @@ export const renderNoteToHtml = (content: string) => {
           markdownConverter.setOption('strikethrough', true); // ~~strikethrough~~
           markdownConverter.setOption('tables', true); // table syntax
 
-          return sanitizeHtml(markdownConverter.makeHtml(transformedContent));
+          return sanitizeHtml(
+            enableCheckboxInputsInHtml(
+              markdownConverter.makeHtml(transformedContent)
+            )
+          );
         }
       )
     );

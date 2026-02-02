@@ -10,7 +10,7 @@ A Recall [React](https://reactjs.org/) client packaged in [Electron](https://ele
 
 1. Clone the repo: `git clone https://github.com/Automattic/recall-electron.git`
 2. `cd recall-electron`
-3. `npm install --legacy-peer-deps` (This flag is necessary because `react-monaco-editor` is pinned to a specific `monaco-editor` dependency, but `npm` [considers minor versions to be breaking changes for sub-1.0.0 apps](https://stackoverflow.com/questions/62629878/why-doesnt-npm-upgrade-install-my-0-0-1-dep-with-a-dependency-on-0-0-0))
+3. `npm install`
 4. Decrypt the config file using `make decrypt_conf`.
 5. `npm run dev`
 6. The dev server will start on [http://localhost:4000](http://localhost:4000), and the Electron app will launch automatically.

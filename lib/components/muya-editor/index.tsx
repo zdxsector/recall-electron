@@ -35,6 +35,7 @@ type Props = {
 export type MuyaEditorHandle = {
   focus: () => void;
   hasFocus: () => boolean;
+  insertText: (text: string) => void;
 };
 
 let muyaPluginsRegistered = false;
@@ -125,11 +126,37 @@ const MuyaEditor = forwardRef<MuyaEditorHandle, Props>(
       return !!active && root.contains(active);
     };
 
+    const insertText = (text: string) => {
+      focus();
+      // Prefer execCommand because it triggers the same input pipeline Muya listens to.
+      // (Deprecated but still widely supported in Electron.)
+      try {
+        if (document.queryCommandSupported?.('insertText')) {
+          document.execCommand('insertText', false, text);
+          return;
+        }
+      } catch {
+        // ignore and fall back
+      }
+
+      const sel = window.getSelection();
+      if (!sel || sel.rangeCount === 0) {
+        return;
+      }
+      const range = sel.getRangeAt(0);
+      range.deleteContents();
+      range.insertNode(document.createTextNode(text));
+      range.collapse(false);
+      sel.removeAllRanges();
+      sel.addRange(range);
+    };
+
     useImperativeHandle(
       ref,
       () => ({
         focus,
         hasFocus,
+        insertText,
       }),
       []
     );

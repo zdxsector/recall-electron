@@ -18,6 +18,7 @@ import '../scss/style.scss';
 // Import the source CSS entrypoints directly (the old `@muyajs/core/lib/*.css`
 // paths only exist in the published build artifacts).
 import '@muyajs/core/assets/styles/blockSyntax.css';
+import '@muyajs/core/assets/styles/exportStyle.css';
 import '@muyajs/core/assets/styles/index.css';
 import '@muyajs/core/assets/styles/inlineSyntax.css';
 import '@muyajs/core/assets/styles/prismjs/light.theme.css';
