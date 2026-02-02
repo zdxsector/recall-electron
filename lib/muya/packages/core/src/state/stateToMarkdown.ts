@@ -243,7 +243,35 @@ export default class ExportMarkdown {
     indent: string
   ) {
     const { text } = state;
-    const lines = text.split('\n');
+    // Preserve user-entered whitespace across Markdown round-trips.
+    //
+    // Markdown parsers normalize:
+    // - multiple blank lines (extra empty paragraphs get dropped)
+    // - leading indentation (up to 3 spaces)
+    // - trailing spaces
+    //
+    // To make whitespace persistent when switching notes, we encode:
+    // - empty lines as a zero-width space (U+200B)
+    // - leading/trailing spaces as NBSP (U+00A0)
+    //
+    // On import, `MarkdownToState` decodes these back to normal spaces/empties.
+    const ZWSP = '\u200B';
+    const NBSP = '\u00A0';
+    const encodeLine = (line: string): string => {
+      if (line === '') return ZWSP;
+      const leading = (line.match(/^ +/)?.[0] ?? '').length;
+      const trailing = (line.match(/ +$/)?.[0] ?? '').length;
+      let out = line;
+      if (leading) {
+        out = NBSP.repeat(leading) + out.slice(leading);
+      }
+      if (trailing) {
+        out = out.slice(0, out.length - trailing) + NBSP.repeat(trailing);
+      }
+      return out;
+    };
+
+    const lines = text.split('\n').map(encodeLine);
 
     return `${lines.map((line) => `${indent}${line}`).join('\n')}\n`;
   }

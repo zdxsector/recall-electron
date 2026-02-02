@@ -228,10 +228,16 @@ export class MarkdownToState {
         }
 
         case 'text': {
-          value = token.text;
+          // Decode whitespace-preservation markers produced by `StateToMarkdown`.
+          // - NBSP (U+00A0) -> normal space
+          // - ZWSP (U+200B) -> empty (used to keep "blank paragraphs" alive)
+          const decodeText = (s: string) =>
+            String(s ?? '').replace(/\u00A0/g, ' ').replace(/\u200B/g, '');
+
+          value = decodeText(token.text);
           while (tokens[0].type === 'text') {
             token = tokens.shift() as any;
-            value += `\n${token.text}`;
+            value += `\n${decodeText(token.text)}`;
           }
           state = {
             name: 'paragraph',
@@ -242,7 +248,10 @@ export class MarkdownToState {
         }
 
         case 'paragraph': {
-          value = token.text;
+          const decodeText = (s: string) =>
+            String(s ?? '').replace(/\u00A0/g, ' ').replace(/\u200B/g, '');
+
+          value = decodeText(token.text);
           state = {
             name: 'paragraph' as const,
             text: value,
