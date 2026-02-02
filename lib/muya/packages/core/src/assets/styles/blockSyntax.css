@@ -285,12 +285,15 @@ li.mu-task-list-item {
   display: flex;
   align-items: flex-start;
   gap: 0.55em;
+  line-height: 1.6;
+  padding: 0.15em 0;
 }
 
 li.mu-task-list-item > p,
 li.mu-task-list-item > .mu-content {
-  padding: 0.25em 0;
+  padding: 0;
   margin: 0;
+  line-height: inherit;
 }
 
 li.mu-task-list-item > input.mu-checkbox-checked ~ *,
@@ -300,7 +303,7 @@ li.mu-task-list-item > span.mu-checkbox-checked ~ * {
 
 /* Use native (default) checkbox UI: no custom appearance/pseudos. */
 li.mu-task-list-item > input[type='checkbox'] {
-  margin: 0.1em 0 0;
+  margin: 0.15em 0 0;
   transform-origin: center;
   cursor: pointer;
   appearance: auto;
@@ -312,7 +315,7 @@ li.mu-task-list-item > span.mu-task-list-checkbox {
   display: inline-block;
   width: 0.95em;
   height: 0.95em;
-  margin: 0.12em 0 0;
+  margin: 0.17em 0 0;
   border: 1px solid var(--editor-color-50);
   border-radius: 2px;
   background: var(--editor-bg-color);

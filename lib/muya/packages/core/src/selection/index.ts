@@ -615,7 +615,31 @@ class Selection {
 
   private setFocus(focusNode: Node, focusOffset: number) {
     const selection = this.doc.getSelection();
-    if (selection) selection.extend(focusNode, focusOffset);
+    if (!selection) return;
+
+    let safeOffset = focusOffset;
+    try {
+      if (focusNode.nodeType === Node.TEXT_NODE) {
+        const textLength = (focusNode as Text).data.length;
+        safeOffset = Math.min(Math.max(focusOffset, 0), textLength);
+      } else {
+        const childCount = focusNode.childNodes.length;
+        safeOffset = Math.min(Math.max(focusOffset, 0), childCount);
+      }
+    } catch {
+      safeOffset = Math.max(focusOffset, 0);
+    }
+
+    try {
+      selection.extend(focusNode, safeOffset);
+    } catch {
+      // Fallback: keep a valid selection even if extend fails on invalid offsets.
+      try {
+        selection.collapse(focusNode, safeOffset);
+      } catch {
+        // ignore
+      }
+    }
   }
 
   private setCursor() {

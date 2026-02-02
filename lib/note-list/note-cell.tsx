@@ -416,7 +416,10 @@ export class NoteCell extends Component<Props> {
       const htmlWithSafeCheckboxes = String(html ?? '').replace(
         /<input\b[^>]*type=(?:"checkbox"|'checkbox'|checkbox)[^>]*>/gi,
         (tag) => {
-          const isChecked = /\bchecked\b/i.test(tag);
+          const isChecked =
+            /\bchecked\b/i.test(tag) ||
+            /\bdata-checked\s*=\s*(?:"true"|'true'|true)/i.test(tag) ||
+            /\baria-checked\s*=\s*(?:"true"|'true'|true)/i.test(tag);
           return `<span class="note-list-task-checkbox${
             isChecked ? ' is-checked' : ''
           }" aria-hidden="true"></span>`;

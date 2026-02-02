@@ -22,6 +22,7 @@ import {
   TableDragBar,
   TableRowColumMenu,
 } from '@muyajs/core';
+import { replaceBlockByLabel } from '@muyajs/core/ui/paragraphQuickInsertMenu/config';
 
 type Props = {
   noteId: string;
@@ -36,6 +37,7 @@ export type MuyaEditorHandle = {
   focus: () => void;
   hasFocus: () => boolean;
   insertText: (text: string) => void;
+  insertChecklist: () => void;
 };
 
 let muyaPluginsRegistered = false;
@@ -75,6 +77,7 @@ const MuyaEditor = forwardRef<MuyaEditorHandle, Props>(
     const inputTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const isMountedRef = useRef<boolean>(true);
     const lastUndoRedoShortcutAtRef = useRef<number>(0);
+    const lastSelectionRangeRef = useRef<Range | null>(null);
 
     const materializeForEditor = (markdown: string): string => {
       try {
@@ -119,6 +122,30 @@ const MuyaEditor = forwardRef<MuyaEditorHandle, Props>(
       el?.focus();
     };
 
+    const focusPreservingSelection = () => {
+      const root = wrapperRef.current;
+      if (!root) return;
+      const el = root.querySelector('[contenteditable="true"]') as
+        | HTMLElement
+        | null;
+      const selection = document.getSelection();
+      const lastRange = lastSelectionRangeRef.current;
+      if (
+        selection &&
+        lastRange &&
+        root.contains(lastRange.startContainer) &&
+        root.contains(lastRange.endContainer)
+      ) {
+        try {
+          selection.removeAllRanges();
+          selection.addRange(lastRange);
+        } catch {
+          // ignore and fallback to focus only
+        }
+      }
+      el?.focus();
+    };
+
     const hasFocus = () => {
       const root = wrapperRef.current;
       if (!root) return false;
@@ -127,7 +154,7 @@ const MuyaEditor = forwardRef<MuyaEditorHandle, Props>(
     };
 
     const insertText = (text: string) => {
-      focus();
+      focusPreservingSelection();
       // Prefer execCommand because it triggers the same input pipeline Muya listens to.
       // (Deprecated but still widely supported in Electron.)
       try {
@@ -151,15 +178,68 @@ const MuyaEditor = forwardRef<MuyaEditorHandle, Props>(
       sel.addRange(range);
     };
 
+    const insertChecklist = () => {
+      focusPreservingSelection();
+      const muya = muyaRef.current;
+      const selection = muya?.editor?.selection?.getSelection?.();
+      const anchorBlock = selection?.anchorBlock as any;
+      const parentBlock = anchorBlock?.parent;
+
+      // If we can, convert the current paragraph to a task list item so it renders
+      // as a checkbox rather than raw "- [ ]" text.
+      if (
+        muya &&
+        parentBlock &&
+        typeof parentBlock.blockName === 'string' &&
+        parentBlock.blockName === 'paragraph'
+      ) {
+        try {
+          replaceBlockByLabel({
+            block: parentBlock,
+            muya,
+            label: 'task-list',
+            text: anchorBlock?.text ?? '',
+          });
+          return;
+        } catch {
+          // fall back to inserting markdown
+        }
+      }
+
+      insertText('- [ ] ');
+    };
+
     useImperativeHandle(
       ref,
       () => ({
         focus,
         hasFocus,
         insertText,
+        insertChecklist,
       }),
       []
     );
+
+    // Track last selection inside the editor so toolbar insertions can
+    // restore caret position even after focus moves away.
+    useEffect(() => {
+      const handleSelectionChange = () => {
+        const root = wrapperRef.current;
+        if (!root) return;
+        const selection = document.getSelection();
+        if (!selection || selection.rangeCount === 0) return;
+        const range = selection.getRangeAt(0);
+        if (
+          root.contains(range.startContainer) &&
+          root.contains(range.endContainer)
+        ) {
+          lastSelectionRangeRef.current = range.cloneRange();
+        }
+      };
+      document.addEventListener('selectionchange', handleSelectionChange);
+      return () =>
+        document.removeEventListener('selectionchange', handleSelectionChange);
+    }, []);
 
     // Mount/recreate Muya when switching notes.
     useEffect(() => {

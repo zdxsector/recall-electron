@@ -83,11 +83,17 @@ class NoteContentEditor extends Component<Props> {
       return;
     }
 
+    const insertChecklist = this.muyaRef.current?.insertChecklist;
+    if (typeof insertChecklist === 'function') {
+      insertChecklist();
+      this.props.insertTask();
+      return;
+    }
+
     const current = note.content ?? '';
     const insertViaEditor = this.muyaRef.current?.insertText;
     if (typeof insertViaEditor === 'function') {
-      const prefix = current.length > 0 ? '\n' : '';
-      insertViaEditor(`${prefix}- [ ] `);
+      insertViaEditor('- [ ] ');
       this.props.insertTask();
       return;
     }
