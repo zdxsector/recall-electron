@@ -282,15 +282,18 @@ ul.mu-task-list {
 li.mu-task-list-item {
   list-style-type: none;
   padding-left: 0;
-  display: flex;
-  align-items: flex-start;
-  gap: 0.85em;
+  /* Use grid so nested lists align under the text column (not as a "third flex item"). */
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  column-gap: 0.85em;
+  align-items: start;
   line-height: 1.6;
   padding: 0.40em 0;
 }
 
 li.mu-task-list-item > p,
 li.mu-task-list-item > .mu-content {
+  grid-column: 2;
   padding: 0;
   margin: 0;
   line-height: inherit;
@@ -303,6 +306,7 @@ li.mu-task-list-item > span.mu-checkbox-checked ~ * {
 
 /* Use native (default) checkbox UI: no custom appearance/pseudos. */
 li.mu-task-list-item > input[type='checkbox'] {
+  grid-column: 1;
   margin: 0.40em 0 0;
   transform-origin: center;
   cursor: pointer;
@@ -312,6 +316,7 @@ li.mu-task-list-item > input[type='checkbox'] {
 
 /* Firefox fallback (Muya may use a <span> instead of <input> in contenteditable). */
 li.mu-task-list-item > span.mu-task-list-checkbox {
+  grid-column: 1;
   display: inline-block;
   width: 0.95em;
   height: 0.95em;
@@ -325,6 +330,12 @@ li.mu-task-list-item > span.mu-task-list-checkbox {
 li.mu-task-list-item > span.mu-task-list-checkbox.mu-checkbox-checked {
   background: var(--icon-color);
   border-color: var(--icon-color);
+}
+
+/* If a task item contains nested lists, keep them in the content column. */
+li.mu-task-list-item > ul,
+li.mu-task-list-item > ol {
+  grid-column: 2;
 }
 
 /* table */
