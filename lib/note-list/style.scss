@@ -273,9 +273,12 @@
     .markdown-body {
       padding: 0;
       margin: 0;
+      min-width: 0;
+      max-width: none;
+      width: 100%;
       line-height: 1.4;
-      font-family:
-        'Open Sans', 'Clear Sans', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+      font-family: inherit;
+      color: inherit;
     }
 
     // Keep block elements from adding vertical padding/margins in the list.
@@ -291,17 +294,72 @@
       overflow: hidden;
     }
 
+    // Show "extra new lines" as subtle vertical spacing like the editor.
+    p {
+      padding: 0.25em 0;
+      margin: 0 0 0.35em;
+    }
+
+    p:last-child {
+      margin-bottom: 0;
+    }
+
     ul,
     ol {
       // Keep list text aligned like the editor, but ensure the marker isn't clipped
       // by our `overflow: hidden` container by reserving space on the left.
       padding-left: 20px;
       list-style-position: outside;
+      margin: 0 0 0.35em;
+    }
+
+    ul:last-child,
+    ol:last-child {
+      margin-bottom: 0;
     }
 
     li {
       margin: 0;
       padding-left: 0;
+    }
+
+    // Task list items: remove bullet marker and align checkbox with text.
+    li.task-list-item {
+      list-style-type: none;
+      padding-left: 0;
+      display: flex;
+      align-items: flex-start;
+      gap: 0.55em;
+    }
+
+    .note-list-task-checkbox {
+      display: inline-block;
+      width: 0.95em;
+      height: 0.95em;
+      margin-top: 0.2em;
+      border: 1px solid var(--editor-color-50, var(--secondary-color));
+      border-radius: 2px;
+      background: var(--background-color);
+      box-sizing: border-box;
+      flex: 0 0 auto;
+    }
+
+    .note-list-task-checkbox.is-checked {
+      background: var(--icon-color, var(--accent-color));
+      border-color: var(--icon-color, var(--accent-color));
+    }
+
+    blockquote {
+      margin: 0;
+      padding: 0 0 0 0.75em;
+      border-left: 3px solid var(--secondary-color);
+      font-style: italic;
+      opacity: 0.9;
+    }
+
+    hr {
+      border: 0;
+      border-top: 1px solid var(--secondary-color);
     }
 
     // Re-add indentation for nested lists.
@@ -341,6 +399,9 @@
     code {
       font-size: 0.95em;
       word-break: break-all;
+      background-color: var(--secondary-highlight-color);
+      border-radius: 2px;
+      padding: 0 3px;
     }
 
     // Syntax highlighting styles for code blocks

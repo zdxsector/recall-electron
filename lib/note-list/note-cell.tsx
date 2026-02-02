@@ -413,7 +413,17 @@ export class NoteCell extends Component<Props> {
       const html = await renderNoteToHtml(source);
       if (seq !== this.renderedPreviewSeq) return;
 
-      node.innerHTML = html;
+      const htmlWithSafeCheckboxes = String(html ?? '').replace(
+        /<input\b[^>]*type=(?:"checkbox"|'checkbox'|checkbox)[^>]*>/gi,
+        (tag) => {
+          const isChecked = /\bchecked\b/i.test(tag);
+          return `<span class="note-list-task-checkbox${
+            isChecked ? ' is-checked' : ''
+          }" aria-hidden="true"></span>`;
+        }
+      );
+
+      node.innerHTML = htmlWithSafeCheckboxes;
 
       // Ensure preview content isn't interactive inside the list item button.
       node.querySelectorAll('a').forEach((a) => {
@@ -423,9 +433,26 @@ export class NoteCell extends Component<Props> {
       });
       node.querySelectorAll('input').forEach((input) => {
         try {
-          (input as HTMLInputElement).disabled = true;
-          (input as HTMLInputElement).readOnly = true;
-          (input as HTMLInputElement).tabIndex = -1;
+          const el = input as HTMLInputElement;
+          const type = (el.getAttribute('type') ?? '').toLowerCase();
+
+          // IMPORTANT: Inputs inside a <button> are invalid HTML and Chromium can
+          // drop/ignore them, which makes task lists render as bullet lists.
+          // Replace checkbox inputs with a non-interactive span that we can style.
+          if (type === 'checkbox') {
+            const span = document.createElement('span');
+            span.className = `note-list-task-checkbox${
+              el.checked ? ' is-checked' : ''
+            }`;
+            span.setAttribute('aria-hidden', 'true');
+            el.replaceWith(span);
+            return;
+          }
+
+          // Any other inputs should be inert in the list.
+          el.disabled = true;
+          el.readOnly = true;
+          el.tabIndex = -1;
         } catch {
           // ignore
         }
