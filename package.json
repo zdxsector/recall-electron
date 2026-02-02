@@ -35,8 +35,8 @@
     "url": "git://github.com/Automattic/recall-electron.git"
   },
   "engines": {
-    "node": ">= 12.14.1",
-    "npm": ">= 6.13.7"
+    "node": ">= 24.13.0",
+    "npm": ">= 11.6.2"
   },
   "browserslist": [
     "> 1%",
@@ -57,7 +57,7 @@
     "@babel/preset-env": "7.26.8",
     "@babel/preset-react": "7.26.3",
     "@babel/preset-typescript": "7.26.0",
-    "@electron/notarize": "2.5.0",
+    "@electron/notarize": "3.1.1",
     "@eslint/compat": "1.2.6",
     "@eslint/eslintrc": "3.2.0",
     "@eslint/js": "9.20.0",
@@ -92,8 +92,8 @@
     "cross-env": "^10.1.0",
     "css-loader": "7.1.2",
     "debug": "4.4.0",
-    "electron": "34.1.1",
-    "electron-builder": "24.13.3",
+    "electron": "40.1.0",
+    "electron-builder": "26.7.0",
     "eslint": "9.20.1",
     "eslint-config-prettier": "10.0.1",
     "eslint-plugin-jest": "28.11.0",
@@ -141,7 +141,7 @@
     "date-fns": "4.1.0",
     "electron-fetch": "1.9.1",
     "electron-progressbar": "2.2.1",
-    "electron-updater": "6.3.9",
+    "electron-updater": "6.7.3",
     "electron-window-state": "5.0.3",
     "file-saver": "2.0.5",
     "focus-trap-react": "10.2.3",
