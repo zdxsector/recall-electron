@@ -189,6 +189,11 @@ body[data-theme='dark'] {
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
 
+  // Muya's bundled CSS sets `html, body { line-height: 1.6; }`, which makes
+  // the editor feel overly loose compared to the rest of the app. Override the
+  // line height *only* for the editor subtree.
+  line-height: 1;
+
   .mu-container {
     max-width: none;
     margin: 0;
