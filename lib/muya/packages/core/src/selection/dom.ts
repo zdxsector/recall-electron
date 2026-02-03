@@ -142,6 +142,11 @@ export function getNodeAndOffset(
   let i;
   let count = 0;
 
+  // Empty element: clamp to 0 to keep Range APIs happy.
+  if (len === 0) {
+    return { node, offset: 0 };
+  }
+
   for (i = 0; i < len; i++) {
     const child = childNodes[i];
     const textContent = getTextContent(child, [
@@ -187,5 +192,31 @@ export function getNodeAndOffset(
     }
   }
 
-  return { node, offset };
+  // If the requested offset is beyond the total text length in this node,
+  // place the caret at the end of the last representable child. Returning
+  // `{ node: element, offset: hugeNumber }` will crash `Range.setStart`.
+  const lastChild = childNodes[len - 1];
+  const lastText = getTextContent(lastChild, [
+    CLASS_NAMES.MU_MATH_RENDER,
+    CLASS_NAMES.MU_RUBY_RENDER,
+  ]);
+  const total = count; // count now equals total text length across children
+
+  if (offset >= total) {
+    // Inline images are atomic; place caret after the image wrapper.
+    if (
+      isElement(lastChild) &&
+      lastChild.classList &&
+      lastChild.classList.contains(`${CLASS_NAMES.MU_INLINE_IMAGE}`)
+    ) {
+      return { node, offset: len };
+    }
+
+    // Otherwise, descend into the last child and put the caret at its end.
+    return getNodeAndOffset(lastChild, lastText.length);
+  }
+
+  // Offset is within bounds but we didn't hit a return inside the loop due to
+  // edge cases; clamp to the closest valid DOM boundary.
+  return { node, offset: Math.min(Math.max(0, offset), len) };
 }

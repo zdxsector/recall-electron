@@ -602,11 +602,65 @@ class Selection {
     endNode?: Node,
     endOffset?: number
   ) {
+    const normalizeNodeOffset = (
+      node: Node,
+      offset: number
+    ): { node: Node; offset: number } => {
+      const safeBase = Number.isFinite(offset) ? offset : 0;
+      try {
+        if (node.nodeType === Node.TEXT_NODE) {
+          const len = (node as Text).data.length;
+          return { node, offset: Math.min(Math.max(0, safeBase), len) };
+        }
+        const el = node as Element;
+        const childCount = el.childNodes?.length ?? 0;
+
+        // Common Muya pattern: wrapper element contains a single Text node.
+        // In that case, treat `offset` as a character offset into the text.
+        if (childCount === 1 && el.firstChild?.nodeType === Node.TEXT_NODE) {
+          const text = el.firstChild as Text;
+          const len = text.data.length;
+          return { node: text, offset: Math.min(Math.max(0, safeBase), len) };
+        }
+
+        // Otherwise, for element nodes `Range` expects a child index.
+        return { node, offset: Math.min(Math.max(0, safeBase), childCount) };
+      } catch {
+        return { node, offset: Math.max(0, safeBase) };
+      }
+    };
+
+    const start = normalizeNodeOffset(startNode, startOffset);
+    const end =
+      endNode && typeof endOffset === 'number'
+        ? normalizeNodeOffset(endNode, endOffset)
+        : null;
+
     const range = this.doc.createRange();
-    range.setStart(startNode, startOffset);
-    if (endNode && typeof endOffset === 'number')
-      range.setEnd(endNode, endOffset);
-    else range.collapse(true);
+    try {
+      range.setStart(start.node, start.offset);
+    } catch {
+      // Final fallback: collapse at start node 0.
+      try {
+        range.setStart(start.node, 0);
+      } catch {
+        // ignore
+      }
+    }
+    if (end) {
+      try {
+        range.setEnd(end.node, end.offset);
+      } catch {
+        // If end is invalid, fall back to collapsed selection.
+        try {
+          range.collapse(true);
+        } catch {
+          // ignore
+        }
+      }
+    } else {
+      range.collapse(true);
+    }
 
     this.selectRange(range);
 

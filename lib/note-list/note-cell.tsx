@@ -26,31 +26,63 @@ const TASK_LINE_RE = /^\s*-\s*\[(?: |x|X)\]\s*(.*)$/;
 const MAX_TITLE_THUMBNAIL_LINES = 4;
 const MAX_RENDERED_PREVIEW_LINES = 30;
 const MAX_RENDERED_PREVIEW_CHARS = 2500;
+const LARGE_RENDERED_PREVIEW_DOC_THRESHOLD = 200_000;
 
 const FENCE_RE = /^(\s*)(`{3,}|~{3,})(.*)$/;
 const isFenceLine = (line: string) => FENCE_RE.test(String(line ?? ''));
 
-const findTitleLineIndex = (content: string): number => {
-  const lines = String(content ?? '').split(/\r?\n/);
-  let firstImageIdx: number | null = null;
-  for (let i = 0; i < lines.length; i++) {
-    const trimmed = String(lines[i]).trim();
-    if (!trimmed) continue;
-    const imgMatch = IMAGE_LINE_ONLY_RE.exec(trimmed);
-    if (imgMatch || HTML_IMAGE_LINE_ONLY_RE.test(trimmed)) {
-      if (firstImageIdx === null) firstImageIdx = i;
-      continue;
-    }
-    // Skip empty checklist items (e.g. `- [ ]`) so we don't treat them as the
-    // note title line. This avoids showing `- [ ]` as the title and keeps the
-    // list preview aligned with the editor's content.
-    const taskMatch = TASK_LINE_RE.exec(trimmed);
-    if (taskMatch && !String(taskMatch[1] ?? '').trim()) {
-      continue;
-    }
-    return i;
+type ReadLineResult = { line: string; nextOffset: number; done: boolean };
+const readNextLine = (content: string, offset: number): ReadLineResult => {
+  const s = String(content ?? '');
+  if (offset >= s.length) {
+    return { line: '', nextOffset: s.length, done: true };
   }
-  return firstImageIdx ?? -1;
+  const nl = s.indexOf('\n', offset);
+  const end = nl === -1 ? s.length : nl;
+  let line = s.slice(offset, end);
+  if (line.endsWith('\r')) line = line.slice(0, -1);
+  return {
+    line,
+    nextOffset: nl === -1 ? s.length : end + 1,
+    done: nl === -1,
+  };
+};
+
+const findTitleLine = (
+  content: string
+): { idx: number; trimmedLine: string } => {
+  let firstImageIdx: number | null = null;
+  let firstImageLine = '';
+  let offset = 0;
+  let idx = 0;
+  while (true) {
+    const { line, nextOffset, done } = readNextLine(content, offset);
+    offset = nextOffset;
+    const trimmed = String(line ?? '').trim();
+    if (trimmed) {
+      const imgMatch = IMAGE_LINE_ONLY_RE.exec(trimmed);
+      if (imgMatch || HTML_IMAGE_LINE_ONLY_RE.test(trimmed)) {
+        if (firstImageIdx === null) {
+          firstImageIdx = idx;
+          firstImageLine = trimmed;
+        }
+      } else {
+        // Skip empty checklist items (e.g. `- [ ]`) so we don't treat them as the
+        // note title line. This avoids showing `- [ ]` as the title and keeps the
+        // list preview aligned with the editor's content.
+        const taskMatch = TASK_LINE_RE.exec(trimmed);
+        if (!(taskMatch && !String(taskMatch[1] ?? '').trim())) {
+          return { idx, trimmedLine: trimmed };
+        }
+      }
+    }
+
+    if (done) break;
+    idx++;
+  }
+  return firstImageIdx === null
+    ? { idx: -1, trimmedLine: '' }
+    : { idx: firstImageIdx, trimmedLine: firstImageLine };
 };
 
 const unwrapSearchMatchSpans = (root: HTMLElement) => {
@@ -150,13 +182,15 @@ const applySearchHighlights = (root: HTMLElement, searchQuery: string) => {
   }
 };
 
-const getRenderedPreviewSource = (content: string, searchQuery?: string): string => {
-  const allLines = String(content ?? '').split(/\r?\n/);
-  if (allLines.length === 0) return '';
+const getRenderedPreviewSource = (
+  content: string,
+  searchQuery?: string
+): string => {
+  const raw = String(content ?? '');
+  if (!raw) return '';
 
-  const titleIdx = findTitleLineIndex(content);
+  const { idx: titleIdx, trimmedLine: titleLine } = findTitleLine(raw);
   if (titleIdx < 0) return '';
-  const titleLine = String(allLines[titleIdx] ?? '').trim();
 
   // If the "title line" is image-only (e.g. note is only images),
   // include it in the preview so users can still see the image.
@@ -169,26 +203,26 @@ const getRenderedPreviewSource = (content: string, searchQuery?: string): string
   // If we're searching, try to center the preview around the first match so the
   // user sees relevant context rather than always the top of the note.
   const term = (getTerms(String(searchQuery ?? ''))[0] ?? '').trim();
-  if (term) {
+  // For huge documents, scanning the entire note just to "center the preview"
+  // can be very expensive and is not worth impacting typing performance.
+  if (term && raw.length < LARGE_RENDERED_PREVIEW_DOC_THRESHOLD) {
     const needle = term.toLowerCase();
-    // Prefer matches after the title (more likely to be "content preview"),
-    // but fall back to anywhere if needed.
-    const findMatchFrom = (from: number): number | null => {
-      for (let i = Math.max(0, from); i < allLines.length; i++) {
-        if (String(allLines[i] ?? '').toLowerCase().includes(needle)) return i;
+    const findMatchFrom = (fromIdx: number): number | null => {
+      let offset = 0;
+      let idx = 0;
+      while (true) {
+        const { line, nextOffset, done } = readNextLine(raw, offset);
+        offset = nextOffset;
+        if (idx >= Math.max(0, fromIdx)) {
+          if (String(line ?? '').toLowerCase().includes(needle)) return idx;
+        }
+        if (done) break;
+        idx++;
       }
       return null;
     };
     const matchIdx = findMatchFrom(startIdx) ?? findMatchFrom(0);
-    if (matchIdx !== null) {
-      // Show one line of context above the match when possible.
-      startIdx = Math.max(startIdx, Math.max(0, matchIdx - 1));
-    }
-  }
-
-  // Skip leading blank lines at the preview start.
-  while (startIdx < allLines.length && !String(allLines[startIdx]).trim()) {
-    startIdx++;
+    if (matchIdx !== null) startIdx = Math.max(startIdx, Math.max(0, matchIdx - 1));
   }
 
   let chars = 0;
@@ -196,13 +230,38 @@ const getRenderedPreviewSource = (content: string, searchQuery?: string): string
   // If we enter a fenced code block, keep including lines until we close it,
   // otherwise previews can show raw/unrendered block tokens (e.g. mermaid/math).
   let openFence: { marker: string } | null = null;
-  for (let i = startIdx; i < allLines.length; i++) {
-    const line = String(allLines[i] ?? '');
+
+  // Seek to startIdx without allocating a full lines array.
+  let offset = 0;
+  let idx = 0;
+  while (idx < startIdx) {
+    const r = readNextLine(raw, offset);
+    offset = r.nextOffset;
+    if (r.done) return '';
+    idx++;
+  }
+
+  // Skip leading blank lines at the preview start.
+  while (true) {
+    const probe = readNextLine(raw, offset);
+    if (probe.done) return '';
+    if (String(probe.line ?? '').trim()) break;
+    offset = probe.nextOffset;
+    idx++;
+  }
+
+  // Collect preview lines with caps.
+  while (true) {
+    const r = readNextLine(raw, offset);
+    offset = r.nextOffset;
+    const line = String(r.line ?? '');
     const trimmed = line.trim();
     // Skip empty task list items (e.g. trailing "- [ ]" with no text) so the
     // list preview doesn’t show an extra blank checkbox row.
     const taskMatch = TASK_LINE_RE.exec(trimmed);
     if (taskMatch && !String(taskMatch[1] ?? '').trim()) {
+      if (r.done) break;
+      idx++;
       continue;
     }
     slice.push(line);
@@ -221,24 +280,27 @@ const getRenderedPreviewSource = (content: string, searchQuery?: string): string
 
     if (slice.length >= MAX_RENDERED_PREVIEW_LINES) break;
     if (chars >= MAX_RENDERED_PREVIEW_CHARS) break;
+    if (r.done) break;
+    idx++;
   }
 
   // If we cut off while still inside a fence, continue until we close it,
   // with a hard safety cap to prevent huge previews.
   if (openFence) {
     const safetyMaxExtraLines = 40;
-    for (
-      let i = startIdx + slice.length;
-      i < allLines.length && safetyMaxExtraLines > 0;
-      i++
-    ) {
-      const line = String(allLines[i] ?? '');
+    let remaining = safetyMaxExtraLines;
+    while (remaining > 0) {
+      const r = readNextLine(raw, offset);
+      offset = r.nextOffset;
+      const line = String(r.line ?? '');
       slice.push(line);
+      remaining--;
       const fenceMatch = FENCE_RE.exec(line);
       if (fenceMatch && (fenceMatch[2] ?? '') === openFence.marker) {
         openFence = null;
         break;
       }
+      if (r.done) break;
     }
   }
 

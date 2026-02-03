@@ -67,6 +67,45 @@ const canCall = (obj: any, methodName: string) =>
 // Configurable debounce delay for content changes (ms)
 const CONTENT_CHANGE_DEBOUNCE_MS = 60;
 
+// Large-document performance controls. These only kick in for very large notes
+// to preserve the current "live update while typing" feel for normal notes.
+const LARGE_DOC_THRESHOLD_CHARS = 200_000;
+const HUGE_DOC_THRESHOLD_CHARS = 1_000_000;
+
+type FlushReason =
+  | 'input'
+  | 'muya-change'
+  | 'keydown'
+  | 'paste'
+  | 'blur'
+  | 'unmount'
+  | 'note-switch'
+  | 'external-value';
+
+const isLargeDoc = (len: number) => len >= LARGE_DOC_THRESHOLD_CHARS;
+const isHugeDoc = (len: number) => len >= HUGE_DOC_THRESHOLD_CHARS;
+
+const getDebounceMsForDoc = (len: number): number => {
+  if (len < LARGE_DOC_THRESHOLD_CHARS) return CONTENT_CHANGE_DEBOUNCE_MS;
+  if (len < HUGE_DOC_THRESHOLD_CHARS) return 350;
+  // Multi-megabyte notes: keep editor responsive by flushing only on idle.
+  return 1200;
+};
+
+// For very large docs, avoid exporting markdown more frequently than this.
+const getMinEmitIntervalMsForDoc = (len: number): number => {
+  if (len < LARGE_DOC_THRESHOLD_CHARS) return 0;
+  if (len < HUGE_DOC_THRESHOLD_CHARS) return 500;
+  return 1500;
+};
+
+// Ensure state doesn't get stale forever if the user types continuously in a huge doc.
+const getMaxUnflushedMsForDoc = (len: number): number => {
+  if (len < LARGE_DOC_THRESHOLD_CHARS) return 0;
+  if (len < HUGE_DOC_THRESHOLD_CHARS) return 6000;
+  return 10_000;
+};
+
 const MuyaEditor = forwardRef<MuyaEditorHandle, Props>(
   ({ noteId, value, onChange, note, folders, notebooks }, ref) => {
     const wrapperRef = useRef<HTMLDivElement | null>(null);
@@ -75,6 +114,11 @@ const MuyaEditor = forwardRef<MuyaEditorHandle, Props>(
     const lastKnownValueRef = useRef<string>(value);
     const lastEmittedValueRef = useRef<string | null>(null);
     const inputTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const maxFlushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const idleFlushHandleRef = useRef<number | null>(null);
+    const lastEmittedAtRef = useRef<number>(0);
+    const lastInputAtRef = useRef<number>(0);
+    const pendingFlushReasonRef = useRef<FlushReason | null>(null);
     const isMountedRef = useRef<boolean>(true);
     const lastUndoRedoShortcutAtRef = useRef<number>(0);
     const lastSelectionRangeRef = useRef<Range | null>(null);
@@ -300,24 +344,107 @@ const MuyaEditor = forwardRef<MuyaEditorHandle, Props>(
         return (editable as HTMLElement | null)?.innerText ?? '';
       };
 
-      const flushFromMuya = () => {
+      const cancelIdleFlush = () => {
+        const h = idleFlushHandleRef.current;
+        if (h == null) return;
+        try {
+          (window as any).cancelIdleCallback?.(h);
+        } catch {
+          // ignore
+        }
+        try {
+          // Safe even if `h` came from requestIdleCallback.
+          clearTimeout(h as any);
+        } catch {
+          // ignore
+        }
+        idleFlushHandleRef.current = null;
+      };
+
+      const scheduleIdleFlush = (fn: () => void, timeoutMs: number) => {
+        cancelIdleFlush();
+        const ric = (window as any).requestIdleCallback as
+          | ((cb: (deadline: any) => void, opts?: any) => number)
+          | undefined;
+        if (typeof ric === 'function') {
+          idleFlushHandleRef.current = ric(
+            () => {
+              idleFlushHandleRef.current = null;
+              fn();
+            },
+            { timeout: timeoutMs }
+          );
+          return;
+        }
+        // Fallback when requestIdleCallback isn't available.
+        idleFlushHandleRef.current = window.setTimeout(() => {
+          idleFlushHandleRef.current = null;
+          fn();
+        }, Math.min(250, timeoutMs)) as unknown as number;
+      };
+
+      const flushFromMuya = (reason: FlushReason = 'input') => {
         // Safety check: don't emit changes if component is unmounted
-        if (!isMountedRef.current) return;
+        if (
+          !isMountedRef.current &&
+          reason !== 'unmount' &&
+          reason !== 'note-switch'
+        ) {
+          return;
+        }
+
+        pendingFlushReasonRef.current = null;
 
         const raw = String(exportMarkdown() ?? '');
         const nextValue = normalizeForStorage(raw);
         if (nextValue === lastKnownValueRef.current) return;
         lastKnownValueRef.current = nextValue;
         lastEmittedValueRef.current = nextValue;
+        lastEmittedAtRef.current = Date.now();
         onChange(nextValue);
       };
 
-      const scheduleFlush = () => {
+      const scheduleFlush = (reason: FlushReason = 'input') => {
+        if (!isMountedRef.current) return;
+
+        pendingFlushReasonRef.current = reason;
+        lastInputAtRef.current = Date.now();
+
+        const knownLen = (lastKnownValueRef.current ?? '').length;
+        const debounceMs = getDebounceMsForDoc(knownLen);
+        const minEmitMs = getMinEmitIntervalMsForDoc(knownLen);
+        const maxUnflushedMs = getMaxUnflushedMsForDoc(knownLen);
+
+        // For huge documents, prefer running the expensive export on idle time.
+        const useIdle = isHugeDoc(knownLen);
+
+        const now = Date.now();
+        const sinceEmit = now - (lastEmittedAtRef.current || 0);
+        const earliestIn = Math.max(0, minEmitMs - sinceEmit);
+        const delay = Math.max(debounceMs, earliestIn);
+
         if (inputTimerRef.current) clearTimeout(inputTimerRef.current);
-        inputTimerRef.current = setTimeout(
-          flushFromMuya,
-          CONTENT_CHANGE_DEBOUNCE_MS
-        );
+        inputTimerRef.current = setTimeout(() => {
+          const r = pendingFlushReasonRef.current ?? reason;
+          if (useIdle) {
+            // Give the main thread a chance to stay responsive while typing.
+            scheduleIdleFlush(() => flushFromMuya(r), Math.max(1000, delay));
+          } else {
+            flushFromMuya(r);
+          }
+        }, delay);
+
+        // Safety: if user keeps typing forever, still flush occasionally so
+        // titles/previews/sync don't lag behind indefinitely.
+        if (maxUnflushedMs > 0) {
+          if (maxFlushTimerRef.current) clearTimeout(maxFlushTimerRef.current);
+          maxFlushTimerRef.current = setTimeout(() => {
+            // If user typed recently, attempt an idle flush.
+            if (!isMountedRef.current) return;
+            const r = pendingFlushReasonRef.current ?? reason;
+            scheduleIdleFlush(() => flushFromMuya(r), 2000);
+          }, maxUnflushedMs);
+        }
       };
 
       const onInputCapture = (e: Event) => {
@@ -330,7 +457,7 @@ const MuyaEditor = forwardRef<MuyaEditorHandle, Props>(
             return;
           }
         }
-        scheduleFlush();
+        scheduleFlush('input');
       };
 
       // Handle keyboard events for special keys (Backspace, Delete, Enter)
@@ -373,7 +500,7 @@ const MuyaEditor = forwardRef<MuyaEditorHandle, Props>(
           if (['c', 'x', 'v'].includes(key)) {
             // Schedule flush after cut/paste to capture changes
             if (key === 'x' || key === 'v') {
-              scheduleFlush();
+              scheduleFlush('keydown');
             }
             return;
           }
@@ -395,7 +522,7 @@ const MuyaEditor = forwardRef<MuyaEditorHandle, Props>(
               // Prevent Electron menu/browser undo from running in parallel.
               e.preventDefault();
               e.stopPropagation();
-              scheduleFlush();
+              scheduleFlush('keydown');
             }
             return;
           }
@@ -409,7 +536,7 @@ const MuyaEditor = forwardRef<MuyaEditorHandle, Props>(
             } finally {
               e.preventDefault();
               e.stopPropagation();
-              scheduleFlush();
+              scheduleFlush('keydown');
             }
             return;
           }
@@ -429,12 +556,15 @@ const MuyaEditor = forwardRef<MuyaEditorHandle, Props>(
             // that can cause "cannot erase next bullet item" issues
             if (inputTimerRef.current) clearTimeout(inputTimerRef.current);
             // Use a very short delay to allow Muya to complete its internal operations
-            inputTimerRef.current = setTimeout(flushFromMuya, 10);
+            inputTimerRef.current = setTimeout(
+              () => flushFromMuya('keydown'),
+              10
+            );
           } else {
-            scheduleFlush();
+            scheduleFlush('keydown');
           }
         } else if (['Enter', 'Tab'].includes(e.key)) {
-          scheduleFlush();
+          scheduleFlush('keydown');
         }
       };
 
@@ -455,7 +585,10 @@ const MuyaEditor = forwardRef<MuyaEditorHandle, Props>(
       // Use a shorter delay for better responsiveness, especially for list operations.
       const onMuyaChange = () => {
         if (inputTimerRef.current) clearTimeout(inputTimerRef.current);
-        inputTimerRef.current = setTimeout(flushFromMuya, 30);
+        inputTimerRef.current = setTimeout(
+          () => scheduleFlush('muya-change'),
+          30
+        );
       };
       if (canCall(muya, 'on')) {
         muya.on('json-change', onMuyaChange);
@@ -899,6 +1032,16 @@ const MuyaEditor = forwardRef<MuyaEditorHandle, Props>(
       document.addEventListener('keydown', onKeyDownCapture, true);
       document.addEventListener('keyup', onKeyUpCapture, true);
 
+      // Flush on blur so edits are committed promptly when the user leaves the editor.
+      const onBlurCapture = (e: FocusEvent) => {
+        if (!wrapperRef.current?.contains(e.target as Node)) return;
+        // For large docs, commit immediately on blur (no idle delay).
+        if (inputTimerRef.current) clearTimeout(inputTimerRef.current);
+        cancelIdleFlush();
+        flushFromMuya('blur');
+      };
+      document.addEventListener('blur', onBlurCapture, true);
+
       // Support Electron menu/context-menu editor commands (Undo/Redo/Select All/etc).
       // Menu accelerators may not reach the editor as key events, so we must handle IPC.
       const onEditorCommand = (command: any) => {
@@ -945,16 +1088,28 @@ const MuyaEditor = forwardRef<MuyaEditorHandle, Props>(
         document.removeEventListener('paste', onPasteCapture, true);
         document.removeEventListener('keydown', onKeyDownCapture, true);
         document.removeEventListener('keyup', onKeyUpCapture, true);
+        document.removeEventListener('blur', onBlurCapture, true);
 
         // Clear any pending debounced updates
         if (inputTimerRef.current) {
           clearTimeout(inputTimerRef.current);
           inputTimerRef.current = null;
         }
+        if (maxFlushTimerRef.current) {
+          clearTimeout(maxFlushTimerRef.current);
+          maxFlushTimerRef.current = null;
+        }
+        cancelIdleFlush();
 
         if (canCall(muya, 'off')) {
           muya.off('json-change', onMuyaChange);
           muya.off('content-change', onMuyaChange);
+        }
+        // Ensure we commit any pending edits before destroying the editor.
+        try {
+          flushFromMuya('unmount');
+        } catch {
+          // ignore
         }
         if (canCall(muyaRef.current, 'destroy')) {
           muyaRef.current.destroy();
@@ -984,12 +1139,14 @@ const MuyaEditor = forwardRef<MuyaEditorHandle, Props>(
       if (canCall(muya, 'setContent')) {
         muya.setContent(materializeForEditor(nextValue));
         lastKnownValueRef.current = nextValue;
+        lastEmittedValueRef.current = null;
         return;
       }
 
       if (canCall(muya, 'setMarkdown')) {
         muya.setMarkdown(materializeForEditor(nextValue));
         lastKnownValueRef.current = nextValue;
+        lastEmittedValueRef.current = null;
         return;
       }
 

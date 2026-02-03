@@ -21,6 +21,24 @@ const HTML_IMAGE_ALT_RE = /\balt\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/i;
 const HEADING_RE = /^\s*#{1,6}\s+(.*)$/;
 const TASK_LINE_RE = /^\s*-\s*\[(?: |x|X)\]\s*(.*)$/;
 
+type ReadLineResult = { line: string; nextOffset: number; done: boolean };
+const readNextLine = (content: string, offset: number): ReadLineResult => {
+  const s = String(content ?? '');
+  if (offset >= s.length) {
+    return { line: '', nextOffset: s.length, done: true };
+  }
+  const nl = s.indexOf('\n', offset);
+  const end = nl === -1 ? s.length : nl;
+  let line = s.slice(offset, end);
+  // Handle Windows line endings without allocating a split array.
+  if (line.endsWith('\r')) line = line.slice(0, -1);
+  return {
+    line,
+    nextOffset: nl === -1 ? s.length : end + 1,
+    done: nl === -1,
+  };
+};
+
 const extractHtmlAttribute = (re: RegExp, s: string): string | null => {
   const m = re.exec(String(s ?? ''));
   const value = (m?.[1] ?? m?.[2] ?? m?.[3] ?? '').trim();
@@ -37,18 +55,27 @@ const normalizeTitleCandidate = (line: string): string => {
 };
 
 const findTitleLineIndex = (content: string): number => {
-  const lines = String(content ?? '').split(/\r?\n/);
   let firstImageIdx: number | null = null;
-  for (let i = 0; i < lines.length; i++) {
-    const trimmed = String(lines[i]).trim();
-    if (!trimmed) continue;
-    const imgMatch = IMAGE_LINE_RE.exec(trimmed);
-    if (imgMatch || HTML_IMAGE_LINE_ONLY_RE.test(trimmed)) {
-      if (firstImageIdx === null) firstImageIdx = i;
-      continue;
+  let i = 0;
+  let offset = 0;
+  while (true) {
+    const { line, nextOffset, done } = readNextLine(content, offset);
+    offset = nextOffset;
+
+    const trimmed = String(line).trim();
+    if (trimmed) {
+      const imgMatch = IMAGE_LINE_RE.exec(trimmed);
+      if (imgMatch || HTML_IMAGE_LINE_ONLY_RE.test(trimmed)) {
+        if (firstImageIdx === null) firstImageIdx = i;
+      } else {
+        return i;
+      }
     }
-    return i;
+
+    if (done) break;
+    i++;
   }
+
   return firstImageIdx ?? -1;
 };
 
@@ -71,15 +98,19 @@ export const getTitle = (content) => {
     return 'New Note…';
   }
 
-  const lines = String(content).split(/\r?\n/);
-
   // Title is the first meaningful (non-empty, non-image-only) line.
   // If the first content is an image, prefer the next text line; otherwise fall back
   // to the image alt text.
   let pendingImageAlt: string | null = null;
-  for (const line of lines) {
+  let offset = 0;
+  while (true) {
+    const { line, nextOffset, done } = readNextLine(content, offset);
+    offset = nextOffset;
     const trimmed = String(line).trim();
-    if (!trimmed) continue;
+    if (!trimmed) {
+      if (done) break;
+      continue;
+    }
 
     const headingMatch = HEADING_RE.exec(trimmed);
     if (headingMatch && headingMatch[1]) {
@@ -101,6 +132,7 @@ export const getTitle = (content) => {
       const alt = (imgMatch[1] ?? '').trim();
       if (!pendingImageAlt && alt) pendingImageAlt = alt;
       // Keep looking for real text.
+      if (done) break;
       continue;
     }
 
@@ -108,6 +140,7 @@ export const getTitle = (content) => {
       const alt = extractHtmlAttribute(HTML_IMAGE_ALT_RE, trimmed);
       if (!pendingImageAlt && alt) pendingImageAlt = alt;
       // Keep looking for real text.
+      if (done) break;
       continue;
     }
 
@@ -172,24 +205,44 @@ const getPreview = (content: string, searchQuery?: string) => {
   }
 
   // implicit else: if the query didn't match, fall back to first three lines
-  const allLines = String(content).split(/\r?\n/);
   const titleIndex = findTitleLineIndex(content);
-
-  // Build preview from up to 3 non-empty lines after the title line.
-  for (let i = Math.max(0, titleIndex + 1); i < allLines.length; i++) {
+  // Build preview from up to 3 non-empty lines after the title line, scanning
+  // without splitting the entire document into an array (important for huge notes).
+  let offset = 0;
+  let idx = 0;
+  while (true) {
+    const { line: rawLine, nextOffset, done } = readNextLine(content, offset);
+    offset = nextOffset;
+    if (idx < Math.max(0, titleIndex + 1)) {
+      idx++;
+      if (done) break;
+      continue;
+    }
     if (lines >= 3) break;
-    const rawLine = allLines[i];
     const trimmed = String(rawLine ?? '').trim();
-    if (!trimmed) continue;
+    if (!trimmed) {
+      idx++;
+      if (done) break;
+      continue;
+    }
     // Skip empty task list items (`- [ ]` with no text) so the preview
     // doesn’t show a dangling checkbox row.
     const taskMatch = TASK_LINE_RE.exec(trimmed);
-    if (taskMatch && !String(taskMatch[1] ?? '').trim()) continue;
-    const line = trimmed;
-    if (IMAGE_LINE_ONLY_RE.test(line) || HTML_IMAGE_LINE_ONLY_RE.test(line))
+    if (taskMatch && !String(taskMatch[1] ?? '').trim()) {
+      idx++;
+      if (done) break;
       continue;
+    }
+    const line = trimmed;
+    if (IMAGE_LINE_ONLY_RE.test(line) || HTML_IMAGE_LINE_ONLY_RE.test(line)) {
+      idx++;
+      if (done) break;
+      continue;
+    }
     preview += line + '\n';
     lines++;
+    idx++;
+    if (done) break;
   }
 
   return preview.trim();
