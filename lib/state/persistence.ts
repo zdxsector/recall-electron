@@ -264,13 +264,13 @@ const saveStateToIndexedDB = (state: S.State) => {
 };
 
 // ----------------------------------------
-// SQLite backend (Electron)
+// Electron persistence backend (filesystem bridge via preload)
 // ----------------------------------------
 
-const hasSQLiteBackend = (): boolean =>
+const hasElectronPersistenceBackend = (): boolean =>
   isElectron && typeof window.electron?.loadPersistentState === 'function';
 
-const loadStateFromSQLite = async (
+const loadStateFromElectronPersistence = async (
   accountName: string | null
 ): Promise<[T.RecursivePartial<S.State>, S.Middleware | null]> => {
   try {
@@ -346,12 +346,12 @@ const loadStateFromSQLite = async (
   }
 };
 
-const persistRevisionsSQLite = (
+const persistRevisionsElectronPersistence = (
   noteId: T.EntityId,
   revisions: [number, T.Note][]
 ) => window.electron.saveNoteRevisions(noteId, revisions);
 
-const saveStateToSQLite = (state: S.State) => {
+const saveStateToElectronPersistence = (state: S.State) => {
   const notes = Array.from(state.data.notes);
   const noteTags = Array.from(state.data.noteTags).map(([tagHash, noteIds]) => [
     tagHash,
@@ -392,20 +392,22 @@ const saveStateToSQLite = (state: S.State) => {
 export const loadState = (
   accountName: string | null
 ): Promise<[T.RecursivePartial<S.State>, S.Middleware | null]> =>
-  hasSQLiteBackend()
-    ? loadStateFromSQLite(accountName)
+  hasElectronPersistenceBackend()
+    ? loadStateFromElectronPersistence(accountName)
     : loadStateFromIndexedDB(accountName);
 
 const persistRevisions = async (
   noteId: T.EntityId,
   revisions: [number, T.Note][]
 ) =>
-  hasSQLiteBackend()
-    ? persistRevisionsSQLite(noteId, revisions)
+  hasElectronPersistenceBackend()
+    ? persistRevisionsElectronPersistence(noteId, revisions)
     : persistRevisionsIndexedDB(noteId, revisions);
 
 export const saveState = (state: S.State) =>
-  hasSQLiteBackend() ? saveStateToSQLite(state) : saveStateToIndexedDB(state);
+  hasElectronPersistenceBackend()
+    ? saveStateToElectronPersistence(state)
+    : saveStateToIndexedDB(state);
 
 export const middleware: S.Middleware =
   ({ dispatch, getState }) =>
