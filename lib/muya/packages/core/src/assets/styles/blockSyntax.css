@@ -304,6 +304,20 @@ li.mu-task-list-item > span.mu-checkbox-checked ~ * {
   color: var(--editor-color-50);
 }
 
+/* Strike through the text of checked task list items. */
+li.mu-task-list-item > input.mu-checkbox-checked ~ p,
+li.mu-task-list-item > input.mu-checkbox-checked ~ .mu-content,
+li.mu-task-list-item > input.mu-checkbox-checked ~ .mu-content .mu-paragraph-content,
+li.mu-task-list-item > input[type='checkbox']:checked ~ p,
+li.mu-task-list-item > input[type='checkbox']:checked ~ .mu-content,
+li.mu-task-list-item > input[type='checkbox']:checked ~ .mu-content .mu-paragraph-content,
+li.mu-task-list-item > span.mu-checkbox-checked ~ p,
+li.mu-task-list-item > span.mu-checkbox-checked ~ .mu-content,
+li.mu-task-list-item > span.mu-checkbox-checked ~ .mu-content .mu-paragraph-content {
+  text-decoration: line-through;
+  text-decoration-thickness: from-font;
+}
+
 /* Use native (default) checkbox UI: no custom appearance/pseudos. */
 li.mu-task-list-item > input[type='checkbox'] {
   grid-column: 1;
