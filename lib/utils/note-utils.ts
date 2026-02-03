@@ -11,8 +11,20 @@ export interface TitleAndPreview {
 
 export const maxTitleChars = 64;
 export const maxPreviewChars = 200;
+export const untitledNoteTitle = 'No Title';
 
 const isLowSurrogate = (c: number) => 0xdc00 <= c && c <= 0xdfff;
+
+// Muya uses zero-width spaces for empty lines/blocks when serializing to markdown.
+// Treat these as "invisible" so they don't produce an empty-looking title.
+const INVISIBLE_CHARS_RE = /[\u200B-\u200D\u2060\uFEFF\u00AD]/g;
+const stripInvisibleChars = (value: string): string =>
+  String(value ?? '').replace(INVISIBLE_CHARS_RE, '');
+
+export const normalizeNoteTitleForDisplay = (value: unknown): string => {
+  const normalized = stripInvisibleChars(String(value ?? '')).trim();
+  return normalized || untitledNoteTitle;
+};
 
 const IMAGE_LINE_RE = /^!\[([^\]]*)\]\(([^)]+)\)/;
 const IMAGE_LINE_ONLY_RE = /^\s*!\[[^\]]*\]\([^)]+\)\s*$/;
@@ -46,12 +58,12 @@ const extractHtmlAttribute = (re: RegExp, s: string): string | null => {
 };
 
 const normalizeTitleCandidate = (line: string): string => {
-  const trimmed = String(line ?? '').trim();
-  const headingMatch = HEADING_RE.exec(trimmed);
+  const rawTrimmed = String(line ?? '').trim();
+  const headingMatch = HEADING_RE.exec(rawTrimmed);
   if (headingMatch && headingMatch[1]) {
-    return headingMatch[1].trim();
+    return stripInvisibleChars(headingMatch[1]).trim();
   }
-  return trimmed;
+  return stripInvisibleChars(rawTrimmed).trim();
 };
 
 const findTitleLineIndex = (content: string): number => {
@@ -62,10 +74,11 @@ const findTitleLineIndex = (content: string): number => {
     const { line, nextOffset, done } = readNextLine(content, offset);
     offset = nextOffset;
 
-    const trimmed = String(line).trim();
-    if (trimmed) {
-      const imgMatch = IMAGE_LINE_RE.exec(trimmed);
-      if (imgMatch || HTML_IMAGE_LINE_ONLY_RE.test(trimmed)) {
+    const rawTrimmed = String(line).trim();
+    const visibleTrimmed = stripInvisibleChars(rawTrimmed).trim();
+    if (visibleTrimmed) {
+      const imgMatch = IMAGE_LINE_RE.exec(rawTrimmed);
+      if (imgMatch || HTML_IMAGE_LINE_ONLY_RE.test(rawTrimmed)) {
         if (firstImageIdx === null) firstImageIdx = i;
       } else {
         return i;
@@ -95,7 +108,7 @@ const removeMarkdownWithFix = (inputString) => {
 
 export const getTitle = (content) => {
   if (!content) {
-    return 'New Note…';
+    return untitledNoteTitle;
   }
 
   // Title is the first meaningful (non-empty, non-image-only) line.
@@ -106,52 +119,54 @@ export const getTitle = (content) => {
   while (true) {
     const { line, nextOffset, done } = readNextLine(content, offset);
     offset = nextOffset;
-    const trimmed = String(line).trim();
-    if (!trimmed) {
+    const rawTrimmed = String(line).trim();
+    const visibleTrimmed = stripInvisibleChars(rawTrimmed).trim();
+    if (!visibleTrimmed) {
       if (done) break;
       continue;
     }
 
-    const headingMatch = HEADING_RE.exec(trimmed);
+    const headingMatch = HEADING_RE.exec(rawTrimmed);
     if (headingMatch && headingMatch[1]) {
-      const title = headingMatch[1].trim();
+      const title = stripInvisibleChars(headingMatch[1]).trim();
       if (title) return title.slice(0, maxTitleChars);
     }
 
     // If the first meaningful line is a task list item, prefer the task text.
     // Skip "empty" tasks like `- [ ]` so the title doesn't become the checkbox syntax.
-    const taskMatch = TASK_LINE_RE.exec(trimmed);
+    const taskMatch = TASK_LINE_RE.exec(rawTrimmed);
     if (taskMatch) {
-      const taskText = String(taskMatch[1] ?? '').trim();
+      const taskText = stripInvisibleChars(String(taskMatch[1] ?? '')).trim();
       if (!taskText) continue;
       return taskText.slice(0, maxTitleChars);
     }
 
-    const imgMatch = IMAGE_LINE_RE.exec(trimmed);
+    const imgMatch = IMAGE_LINE_RE.exec(rawTrimmed);
     if (imgMatch) {
-      const alt = (imgMatch[1] ?? '').trim();
+      const alt = stripInvisibleChars(String(imgMatch[1] ?? '')).trim();
       if (!pendingImageAlt && alt) pendingImageAlt = alt;
       // Keep looking for real text.
       if (done) break;
       continue;
     }
 
-    if (HTML_IMAGE_LINE_ONLY_RE.test(trimmed)) {
-      const alt = extractHtmlAttribute(HTML_IMAGE_ALT_RE, trimmed);
+    if (HTML_IMAGE_LINE_ONLY_RE.test(rawTrimmed)) {
+      const altRaw = extractHtmlAttribute(HTML_IMAGE_ALT_RE, rawTrimmed);
+      const alt = altRaw ? stripInvisibleChars(altRaw).trim() : null;
       if (!pendingImageAlt && alt) pendingImageAlt = alt;
       // Keep looking for real text.
       if (done) break;
       continue;
     }
 
-    return trimmed.slice(0, maxTitleChars);
+    return visibleTrimmed.slice(0, maxTitleChars);
   }
 
   if (pendingImageAlt) {
     return pendingImageAlt.slice(0, maxTitleChars);
   }
 
-  return 'New Note…';
+  return untitledNoteTitle;
 };
 
 /**
@@ -191,8 +206,7 @@ const getPreview = (content: string, searchQuery?: string) => {
           .split('\n')
           .filter(
             (line) =>
-              line !== '\r' &&
-              line !== '' &&
+              stripInvisibleChars(String(line ?? '')).trim() !== '' &&
               normalizeTitleCandidate(line) !== title
           )
           .join('\n');
@@ -219,21 +233,25 @@ const getPreview = (content: string, searchQuery?: string) => {
       continue;
     }
     if (lines >= 3) break;
-    const trimmed = String(rawLine ?? '').trim();
-    if (!trimmed) {
+    const rawTrimmed = String(rawLine ?? '').trim();
+    const visibleTrimmed = stripInvisibleChars(rawTrimmed).trim();
+    if (!visibleTrimmed) {
       idx++;
       if (done) break;
       continue;
     }
     // Skip empty task list items (`- [ ]` with no text) so the preview
     // doesn’t show a dangling checkbox row.
-    const taskMatch = TASK_LINE_RE.exec(trimmed);
-    if (taskMatch && !String(taskMatch[1] ?? '').trim()) {
+    const taskMatch = TASK_LINE_RE.exec(rawTrimmed);
+    if (
+      taskMatch &&
+      !stripInvisibleChars(String(taskMatch[1] ?? '')).trim()
+    ) {
       idx++;
       if (done) break;
       continue;
     }
-    const line = trimmed;
+    const line = visibleTrimmed;
     if (IMAGE_LINE_ONLY_RE.test(line) || HTML_IMAGE_LINE_ONLY_RE.test(line)) {
       idx++;
       if (done) break;
@@ -280,7 +298,9 @@ export const noteTitleAndPreview = (
   }
 
   const content = note.content || '';
-  const title = formatPreview(stripMarkdown, getTitle(content));
+  const title = normalizeNoteTitleForDisplay(
+    formatPreview(stripMarkdown, getTitle(content))
+  );
   const preview = formatPreview(
     stripMarkdown,
     getPreview(content, searchQuery)

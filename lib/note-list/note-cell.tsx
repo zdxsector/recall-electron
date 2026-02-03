@@ -9,7 +9,10 @@ import SmallSyncIcon from '../icons/sync-small';
 import FileSmallIcon from '../icons/file-small';
 import { decorateWith, makeFilterDecorator } from './decorators';
 import { getTerms } from '../utils/filter-notes';
-import { noteTitleAndPreview } from '../utils/note-utils';
+import {
+  normalizeNoteTitleForDisplay,
+  noteTitleAndPreview,
+} from '../utils/note-utils';
 import { withCheckboxCharacters } from '../utils/task-transform';
 import { renderNoteToHtml } from '../utils/render-note-to-html';
 
@@ -611,7 +614,8 @@ export class NoteCell extends Component<Props> {
       return <div>{"Couldn't find note"}</div>;
     }
 
-    const { title, preview } = noteTitleAndPreview(note, searchQuery);
+    const { title: rawTitle, preview } = noteTitleAndPreview(note, searchQuery);
+    const title = normalizeNoteTitleForDisplay(rawTitle);
     const isPinned = note.systemTags.includes('pinned');
     const isPublished = !!note.publishURL;
     const recentlyUpdated =
