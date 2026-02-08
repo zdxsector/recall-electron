@@ -1,8 +1,14 @@
 # Recall for Electron
+<img width="1293" height="789" alt="image" src="https://github.com/user-attachments/assets/2e79a848-8eeb-49fa-8952-7e5d7770c5fd" />
 
-![Screenshot](https://en-blog.files.wordpress.com/2018/09/screenshot-1.png)
 
-A Recall [React](https://reactjs.org/) client packaged in [Electron](https://electronjs.org/). Learn more about Recall at [Recall.com](https://recall.com).
+Successor of [simplenote](https://github.com/Automattic/simplenote-electron) for **OFFLINE** version.
+
+# What's the diff in here?
+- This is using custom muya editor for live preview while editing
+- Fully offline version
+- Notebook-note folder feature
+- Optimized performance
 
 ## Running
 
@@ -10,11 +16,10 @@ A Recall [React](https://reactjs.org/) client packaged in [Electron](https://ele
 
 1. Clone the repo: `git clone https://github.com/Automattic/recall-electron.git`
 2. `cd recall-electron`
-3. `npm install`
-4. Decrypt the config file using `make decrypt_conf`.
-5. `npm run dev`
-6. The dev server will start on [http://localhost:4000](http://localhost:4000), and the Electron app will launch automatically.
-7. For all logging from Electron to be printed to the terminal (e.g. `console.log` statements within `app.js`), you might need to set `env ELECTRON_ENABLE_LOGGING=1`.
+3. `npm install --legacy-peer-deps`
+4. `npm run dev`
+5. The dev server will start on [http://localhost:4000](http://localhost:4000), and the Electron app will launch automatically.
+6. For all logging from Electron to be printed to the terminal (e.g. `console.log` statements within `app.js`), you might need to set `env ELECTRON_ENABLE_LOGGING=1`.
 
 _Note: Recall API features such as sharing and publishing will not work with development builds. Due to a limitation of `make`, installation paths used for build cannot have spaces._
 
@@ -28,25 +33,8 @@ _Note: Recall API features such as sharing and publishing will not work with dev
 
 Unit tests are run with `npm test`.
 
-## Coding Guidelines
-
-Please adhere to the same guidelines as found in [wp-calypso](https://github.com/Automattic/wp-calypso/blob/master/docs/coding-guidelines.md).
-
-See <a href="./CONTRIBUTING.md">CONTRIBUTING.md</a> for more guidelines.
-
 ## Dependencies
 
-- [node-simperium](https://github.com/Simperium/node-simperium) for Simperium syncing.
 - [ReactJS](https://reactjs.org/) for UI.
 - [Electron](https://electronjs.org/) for wrapping the JavaScript application.
 - `rpm` must be installed in order to build Linux packages (`brew install rpm` on OSX).
-
-## Recall for Other Platforms
-
-[recall-electron](https://github.com/Automattic/recall-electron) is the official Recall desktop app for Windows and Linux.
-
-For other platforms, see:
-
-- [recall-macos](https://github.com/Automattic/recall-macos)
-- [recall-ios](https://github.com/Automattic/recall-ios)
-- [recall-android](https://github.com/Automattic/recall-android)
