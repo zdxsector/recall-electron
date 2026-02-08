@@ -7,7 +7,7 @@
   },
   "files": ["desktop", "dist", "shared"],
   "win": {
-    "icon": "resources/images/recall.ico",
+    "icon": "resources/images/icon_512x512.png",
     "target": [
       {
         "target": "appx",

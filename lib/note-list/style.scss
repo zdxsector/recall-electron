@@ -264,6 +264,22 @@
   // visually compact for list performance and accessibility.
   .note-list-item-excerpt.note-list-item-excerpt-rendered {
     pointer-events: none;
+    overflow: hidden;
+    word-break: break-word;
+    overflow-wrap: anywhere;
+
+    // Muya's renderer returns an `article.markdown-body`. Ensure it stays compact
+    // in the list and uses the same typography as the editor/export styles.
+    .markdown-body {
+      padding: 0;
+      margin: 0;
+      min-width: 0;
+      max-width: none;
+      width: 100%;
+      line-height: 1.4;
+      font-family: inherit;
+      color: inherit;
+    }
 
     // Keep block elements from adding vertical padding/margins in the list.
     p,
@@ -274,10 +290,98 @@
     table,
     hr {
       margin: 0;
+      max-width: 100%;
+      overflow: hidden;
+    }
+
+    // Show "extra new lines" as subtle vertical spacing like the editor.
+    p {
+      padding: 0.25em 0;
+      margin: 0 0 0.35em;
+    }
+
+    p:last-child {
+      margin-bottom: 0;
     }
 
     ul,
     ol {
+      // Keep list text aligned like the editor, but ensure the marker isn't clipped
+      // by our `overflow: hidden` container by reserving space on the left.
+      padding-left: 20px;
+      list-style-position: outside;
+      margin: 0 0 0.35em;
+    }
+
+    ul:last-child,
+    ol:last-child {
+      margin-bottom: 0;
+    }
+
+    li {
+      margin: 0;
+      padding-left: 0;
+    }
+
+    // Task list items: remove bullet marker and align checkbox with text.
+    li.task-list-item {
+      list-style-type: none;
+      padding-left: 0;
+      display: flex;
+      align-items: flex-start;
+      gap: 0.55em;
+      line-height: 1.6;
+      padding: 0.15em 0;
+    }
+
+    .note-list-task-checkbox {
+      display: inline-block;
+      width: 0.95em;
+      height: 0.95em;
+      margin-top: 0.15em;
+      border: 1px solid var(--editor-color-50, var(--secondary-color));
+      border-radius: 2px;
+      background: transparent;
+      box-sizing: border-box;
+      flex: 0 0 auto;
+      position: relative;
+    }
+
+    .note-list-task-checkbox.is-checked {
+      border-color: var(--accent-color);
+    }
+
+    .note-list-task-checkbox.is-checked::after {
+      content: '';
+      position: absolute;
+      left: 0.23em;
+      top: 0.05em;
+      width: 0.32em;
+      height: 0.6em;
+      border: solid var(--accent-color);
+      border-width: 0 2px 2px 0;
+      transform: rotate(45deg);
+      box-sizing: border-box;
+    }
+
+    blockquote {
+      margin: 0;
+      padding: 0 0 0 0.75em;
+      border-left: 3px solid var(--secondary-color);
+      font-style: italic;
+      opacity: 0.9;
+    }
+
+    hr {
+      border: 0;
+      border-top: 1px solid var(--secondary-color);
+    }
+
+    // Re-add indentation for nested lists.
+    ul ul,
+    ol ol,
+    ul ol,
+    ol ul {
       padding-left: 16px;
     }
 
@@ -290,20 +394,29 @@
       margin: 0;
       font-size: inherit;
       font-weight: 600;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
 
     img {
-      display: inline-block;
-      max-width: 100%;
-      max-height: 56px;
-      object-fit: cover;
-      border-radius: 3px;
+      display: block;
+      // Fixed thumbnail size - ignore any width/height attributes from the editor
+      width: auto !important;
+      height: auto !important;
+      max-width: 50%;
+      max-height: 80px;
+      object-fit: contain;
+      border-radius: 4px;
       border: 1px solid var(--secondary-color);
-      vertical-align: middle;
+      margin-top: 4px;
     }
 
     code {
       font-size: 0.95em;
+      word-break: break-all;
+      background-color: var(--secondary-highlight-color);
+      border-radius: 2px;
+      padding: 0 3px;
     }
 
     // Syntax highlighting styles for code blocks
@@ -313,11 +426,21 @@
       padding: 4px 6px;
       overflow: hidden;
       max-height: 60px;
+      max-width: 100%;
+      white-space: pre-wrap;
 
       code {
         background: transparent;
         padding: 0;
+        white-space: pre-wrap;
+        word-break: break-all;
       }
+    }
+
+    // Prevent tables from overflowing
+    table {
+      table-layout: fixed;
+      width: 100%;
     }
   }
 
@@ -345,8 +468,11 @@
   }
 
   .comfy .note-list-item-excerpt.note-list-item-excerpt-rendered img {
-    max-height: 19px;
-    max-width: 19px;
+    // Fixed thumbnail size - ignore any width/height attributes from the editor
+    width: auto !important;
+    height: auto !important;
+    max-height: 32px;
+    max-width: 50%;
   }
 
   .note-list-item-image-indicator {

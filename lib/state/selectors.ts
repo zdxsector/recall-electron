@@ -56,6 +56,22 @@ export const openedFolder: S.Selector<T.FolderId | null> = ({
   ui: { collection },
 }) => (collection.type === 'folder' && collection.folderId) || null;
 
+export const collectionTitle: S.Selector<string> = (state) => {
+  const { collection } = state.ui;
+  switch (collection.type) {
+    case 'tag':
+      return collection.tagName;
+    case 'folder':
+      return state.data.folders.get(collection.folderId)?.name ?? 'Folder';
+    case 'trash':
+      return 'Trash';
+    case 'untagged':
+      return 'Untagged Notes';
+    default:
+      return 'All Notes';
+  }
+};
+
 export const showTrash: S.Selector<boolean> = ({ ui: { collection } }) =>
   collection.type === 'trash';
 export const isDialogOpen = (state: S.State, name: T.DialogType['type']) =>

@@ -186,8 +186,8 @@ const mapStateToProps: S.MapState<StateProps, OwnProps> = (state, props) => {
     noteId,
     notes: state.data.notes,
     searchQuery: state.ui.searchQuery,
-    // Always render Markdown preview when the markdown tag is set, regardless of edit mode.
-    showRenderedView: !!note?.systemTags.includes('markdown'),
+    // Always render Markdown preview since Muya is a markdown editor.
+    showRenderedView: true,
   };
 };
 

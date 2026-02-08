@@ -11,14 +11,12 @@ import * as T from '../types';
 
 type StateProps = {
   hasRevisions: boolean;
-  isMarkdown: boolean;
   isPinned: boolean;
   noteId: T.EntityId;
   note: T.Note;
 };
 
 type DispatchProps = {
-  markdownNote: (noteId: T.EntityId, shouldEnableMarkdown: boolean) => any;
   onFocusTrapDeactivate: () => any;
   pinNote: (noteId: T.EntityId, shouldPin: boolean) => any;
   toggleRevisions: () => any;
@@ -51,7 +49,7 @@ export class NoteActions extends Component<Props> {
   };
 
   render() {
-    const { hasRevisions, isMarkdown, isPinned } = this.props;
+    const { hasRevisions, isPinned } = this.props;
 
     return (
       <FocusTrap
@@ -76,25 +74,6 @@ export class NoteActions extends Component<Props> {
                   isStandard
                   onChange={() => {
                     this.pinNote(!isPinned);
-                  }}
-                />
-              </span>
-            </label>
-
-            <label
-              className="note-actions-item"
-              htmlFor="note-actions-markdown-checkbox"
-            >
-              <span className="note-actions-item-text">
-                <span className="note-actions-name">Markdown</span>
-              </span>
-              <span className="note-actions-item-control">
-                <CheckboxControl
-                  id="note-actions-markdown-checkbox"
-                  checked={isMarkdown}
-                  isStandard
-                  onChange={() => {
-                    this.markdownNote(!isMarkdown);
                   }}
                 />
               </span>
@@ -135,9 +114,6 @@ export class NoteActions extends Component<Props> {
 
   pinNote = (shouldPin: boolean) =>
     this.props.pinNote(this.props.noteId, shouldPin);
-
-  markdownNote = (shouldEnableMarkdown: boolean) =>
-    this.props.markdownNote(this.props.noteId, shouldEnableMarkdown);
 }
 
 const mapStateToProps: S.MapState<StateProps> = ({
@@ -150,13 +126,11 @@ const mapStateToProps: S.MapState<StateProps> = ({
     noteId: openedNote,
     note: note,
     hasRevisions: !!data.noteRevisions.get(openedNote)?.size,
-    isMarkdown: note?.systemTags.includes('markdown'),
     isPinned: note?.systemTags.includes('pinned'),
   };
 };
 
 const mapDispatchToProps: S.MapDispatch<DispatchProps> = {
-  markdownNote: actions.data.markdownNote,
   onFocusTrapDeactivate: actions.ui.closeNoteActions,
   pinNote: actions.data.pinNote,
   toggleRevisions: actions.ui.toggleRevisions,

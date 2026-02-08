@@ -1,0 +1,92 @@
+@use '../../scss/variables' as *;
+
+$title-bar-height: 40px;
+// Windows native caption buttons (min/max/close) are typically ~138px combined.
+// We need to reserve space for them on the right side.
+$caption-controls-width: 138px;
+
+.windows-title-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: $title-bar-height;
+  width: 100%;
+  box-sizing: border-box;
+  background: color-mix(in srgb, var(--background-color) 92%, transparent);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-bottom: 1px solid color-mix(in srgb, var(--secondary-color) 65%, transparent);
+  flex-shrink: 0;
+  user-select: none;
+  position: relative;
+  z-index: 1000;
+  // Title bar style 'hidden' with overlay: our bar is the drag region (except interactive children).
+  -webkit-app-region: drag;
+  padding: 0 8px;
+  // Reserve space on the right for the native window controls (titleBarOverlay).
+  padding-right: $caption-controls-width;
+}
+
+.windows-title-bar__drag-region {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  height: 100%;
+  gap: 10px;
+}
+
+.windows-title-bar__left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  .icon-button {
+    width: 28px;
+    height: 28px;
+    padding: 4px;
+    // Buttons should not be draggable (keep the rest of the bar draggable like Cursor).
+    -webkit-app-region: no-drag;
+  }
+}
+
+.windows-title-bar__title {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--foreground-color);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 240px;
+}
+
+.windows-title-bar__center {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.windows-title-bar__app-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--primary-color);
+  letter-spacing: 0.5px;
+}
+
+.windows-title-bar__right {
+  display: flex;
+  align-items: center;
+  height: 100%;
+
+  .icon-button {
+    width: 28px;
+    height: 28px;
+    padding: 4px;
+    // Buttons should not be draggable (keep the rest of the bar draggable like Cursor).
+    -webkit-app-region: no-drag;
+  }
+}
+
+.windows-title-bar__spacer {
+  flex: 1;
+}

@@ -5,6 +5,8 @@ import { isElectron } from '../utils/platform';
 
 const DB_VERSION = 2020065;
 let keepSyncing = true;
+const LARGE_NOTE_CONTENT_THRESHOLD = 200_000;
+const HUGE_NOTE_CONTENT_THRESHOLD = 1_000_000;
 
 const DEFAULT_NOTEBOOK_ID = 'default-notebook' as unknown as T.NotebookId;
 const DEFAULT_FOLDER_ID = 'default-folder' as unknown as T.FolderId;
@@ -264,13 +266,13 @@ const saveStateToIndexedDB = (state: S.State) => {
 };
 
 // ----------------------------------------
-// SQLite backend (Electron)
+// Electron persistence backend (filesystem bridge via preload)
 // ----------------------------------------
 
-const hasSQLiteBackend = (): boolean =>
+const hasElectronPersistenceBackend = (): boolean =>
   isElectron && typeof window.electron?.loadPersistentState === 'function';
 
-const loadStateFromSQLite = async (
+const loadStateFromElectronPersistence = async (
   accountName: string | null
 ): Promise<[T.RecursivePartial<S.State>, S.Middleware | null]> => {
   try {
@@ -346,12 +348,12 @@ const loadStateFromSQLite = async (
   }
 };
 
-const persistRevisionsSQLite = (
+const persistRevisionsElectronPersistence = (
   noteId: T.EntityId,
   revisions: [number, T.Note][]
 ) => window.electron.saveNoteRevisions(noteId, revisions);
 
-const saveStateToSQLite = (state: S.State) => {
+const saveStateToElectronPersistence = (state: S.State) => {
   const notes = Array.from(state.data.notes);
   const noteTags = Array.from(state.data.noteTags).map(([tagHash, noteIds]) => [
     tagHash,
@@ -392,25 +394,82 @@ const saveStateToSQLite = (state: S.State) => {
 export const loadState = (
   accountName: string | null
 ): Promise<[T.RecursivePartial<S.State>, S.Middleware | null]> =>
-  hasSQLiteBackend()
-    ? loadStateFromSQLite(accountName)
+  hasElectronPersistenceBackend()
+    ? loadStateFromElectronPersistence(accountName)
     : loadStateFromIndexedDB(accountName);
 
 const persistRevisions = async (
   noteId: T.EntityId,
   revisions: [number, T.Note][]
 ) =>
-  hasSQLiteBackend()
-    ? persistRevisionsSQLite(noteId, revisions)
+  hasElectronPersistenceBackend()
+    ? persistRevisionsElectronPersistence(noteId, revisions)
     : persistRevisionsIndexedDB(noteId, revisions);
 
 export const saveState = (state: S.State) =>
-  hasSQLiteBackend() ? saveStateToSQLite(state) : saveStateToIndexedDB(state);
+  hasElectronPersistenceBackend()
+    ? saveStateToElectronPersistence(state)
+    : saveStateToIndexedDB(state);
 
 export const middleware: S.Middleware =
   ({ dispatch, getState }) =>
   (next) => {
     let worker: ReturnType<typeof setTimeout> | null = null;
+    let maxWorker: ReturnType<typeof setTimeout> | null = null;
+    let lastSavedAt = 0;
+    let pendingSaveIsLarge = false;
+
+    const saveNow = () => {
+      if (!keepSyncing) return;
+      try {
+        saveState(getState());
+      } finally {
+        lastSavedAt = Date.now();
+        pendingSaveIsLarge = false;
+        if (maxWorker) {
+          clearTimeout(maxWorker);
+          maxWorker = null;
+        }
+      }
+    };
+
+    const saveOnIdleIfPossible = () => {
+      if (!keepSyncing) return;
+      // For large notes, try to push persistence work into idle time to avoid
+      // stalling the UI thread during typing.
+      if (
+        pendingSaveIsLarge &&
+        typeof (globalThis as any).requestIdleCallback === 'function'
+      ) {
+        try {
+          (globalThis as any).requestIdleCallback(() => saveNow(), {
+            timeout: 5000,
+          });
+          return;
+        } catch {
+          // fall back
+        }
+      }
+      saveNow();
+    };
+
+    const getSaveDelayMs = (action: A.ActionType): number => {
+      if (action.type === 'EDIT_NOTE') {
+        const content = (action as any)?.changes?.content;
+        if (typeof content === 'string') {
+          const len = content.length;
+          if (len >= HUGE_NOTE_CONTENT_THRESHOLD) return 15_000;
+          if (len >= LARGE_NOTE_CONTENT_THRESHOLD) return 5_000;
+        }
+      }
+      return 1000;
+    };
+
+    const shouldTreatAsLargeSave = (action: A.ActionType): boolean => {
+      if (action.type !== 'EDIT_NOTE') return false;
+      const content = (action as any)?.changes?.content;
+      return typeof content === 'string' && content.length >= LARGE_NOTE_CONTENT_THRESHOLD;
+    };
 
     return (action) => {
       const result = next(action);
@@ -419,7 +478,18 @@ export const middleware: S.Middleware =
         clearTimeout(worker);
       }
       if (keepSyncing) {
-        worker = setTimeout(() => keepSyncing && saveState(getState()), 1000);
+        pendingSaveIsLarge = shouldTreatAsLargeSave(action);
+        const delay = getSaveDelayMs(action as A.ActionType);
+        worker = setTimeout(() => saveOnIdleIfPossible(), delay);
+
+        // Safety: if user types continuously in a huge note, we still want
+        // persistence to happen occasionally. Schedule a max-interval save that
+        // does not get reset by more typing.
+        const maxIntervalMs =
+          pendingSaveIsLarge ? (Date.now() - lastSavedAt > 60_000 ? 2_000 : 60_000) : 0;
+        if (pendingSaveIsLarge && !maxWorker) {
+          maxWorker = setTimeout(() => saveOnIdleIfPossible(), maxIntervalMs);
+        }
       }
 
       const typed: A.ActionType = action as A.ActionType;

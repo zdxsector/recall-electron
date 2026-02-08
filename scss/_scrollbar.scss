@@ -1,32 +1,51 @@
-// Turn on custom scrollbar
+// Thin, modern custom scrollbar (Chromium/Electron + Firefox).
+:root {
+  --scrollbar-size: 8px;
+  --scrollbar-thumb: color-mix(
+    in srgb,
+    var(--foreground-color) 35%,
+    transparent
+  );
+  --scrollbar-thumb-hover: color-mix(
+    in srgb,
+    var(--foreground-color) 55%,
+    transparent
+  );
+  --scrollbar-thumb-active: var(--tertiary-accent-color);
+  --scrollbar-track: transparent;
+}
+
 ::-webkit-scrollbar {
-  width: 14px;
-  background: transparent;
+  width: var(--scrollbar-size);
+  height: var(--scrollbar-size);
+}
+
+::-webkit-scrollbar-track {
+  background: var(--scrollbar-track);
 }
 
 ::-webkit-scrollbar-corner {
-  background: transparent;
+  background: var(--scrollbar-track);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--secondary-color);
-  border-radius: 100px;
-  border: 4px solid var(--background-color);
-  min-height: 24px;
+  background-color: var(--scrollbar-thumb);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+  min-height: 28px;
 }
 
-// hover effect for scrollbar 'thumb'
 ::-webkit-scrollbar-thumb:hover {
-  background-color: var(--foreground-color);
+  background-color: var(--scrollbar-thumb-hover);
 }
 
 ::-webkit-scrollbar-thumb:active {
-  background: var(--tertiary-accent-color);
-  border-radius: 100px;
+  background-color: var(--scrollbar-thumb-active);
 }
 
-// Styles for Firefox not a lot of options we are able to set for custom scrollbars
+// Firefox (limited styling surface)
 body {
   scrollbar-width: thin;
-  scrollbar-color: var(--tertiary-accent-color) transparent;
+  scrollbar-color: var(--scrollbar-thumb-hover) var(--scrollbar-track);
 }

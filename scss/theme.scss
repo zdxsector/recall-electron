@@ -41,28 +41,10 @@
   }
 }
 
-/* Monaco adds the dir='ltr' attribute to rtl languages.
-   This does the opposite of what you think it should do.
-*/
-span[dir='ltr'] {
-  float: right;
-  margin-right: calc(100% - 768px);
-}
-
 .is-line-length-full {
   .note-detail-preview,
   .note-content-plaintext.visible {
     padding: 0 25px;
-  }
-
-  span[dir='ltr'] {
-    margin-right: 20px;
-  }
-}
-
-@media only screen and (width <= 1400px) {
-  span[dir='ltr'] {
-    margin-right: 14%;
   }
 }
 
@@ -101,6 +83,24 @@ body[data-theme='dark'] .muya-editor-root {
 
   // Make code blocks visibly layered over the dark editor background.
   --code-block-bg-color: var(--secondary-highlight-color);
+}
+
+// Muya code blocks are rendered as <pre class="mu-code-block">...
+// Our global normalize sets `pre { overflow: auto; }`, which creates a horizontal
+// scrollbar for long lines (especially after pasting very large text).
+// In the editor, prefer wrapping to avoid internal scrollbars; the editor itself
+// should own scrolling.
+.muya-editor-root {
+  pre.mu-code-block,
+  pre.mu-code-block code {
+    white-space: pre-wrap !important;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+
+  pre.mu-code-block {
+    overflow: visible !important;
+  }
 }
 
 // Muya applies colors to nested nodes; force inheritance for editor subtree.
@@ -185,6 +185,14 @@ body[data-theme='dark'] {
 .muya-editor-root {
   height: 100%;
   width: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+
+  // Muya's bundled CSS sets `html, body { line-height: 1.6; }`, which makes
+  // the editor feel overly loose compared to the rest of the app. Override the
+  // line height *only* for the editor subtree.
+  line-height: 1.4;
 
   .mu-container {
     max-width: none;
@@ -193,14 +201,24 @@ body[data-theme='dark'] {
   }
 }
 
+// Muya's `MarkdownToHtml` output is wrapped in `article.markdown-body`.
+// Keep task list checkboxes native (default square UI) for correctness while typing
+// and to match the note-list rendered preview.
+.markdown-body .task-list-item > input[type='checkbox'] {
+  appearance: auto;
+  -webkit-appearance: auto;
+}
+
 @media only screen and (width <= 1400px) {
   .muya-editor-root .mu-container {
     padding: 0 10% 100px;
   }
 }
 
+// Full width mode: add extra left padding to prevent content from
+// overflowing into the left side navigation area
 .is-line-length-full .muya-editor-root .mu-container {
-  padding: 0 25px 100px;
+  padding: 0 40px 100px;
 }
 
 // Placeholder styling (Muya uses contenteditable placeholders rather than <input> placeholders)

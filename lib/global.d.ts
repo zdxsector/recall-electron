@@ -19,6 +19,7 @@ declare module '*.eot';
 type ElectronBridge = {
   isMac: boolean;
   isLinux: boolean;
+  isWindows: boolean;
   loadPersistentState: () => any;
   savePersistentState: (data: any) => void;
   loadAllRevisions: () => any;
@@ -26,11 +27,25 @@ type ElectronBridge = {
   saveNoteAssetFromDataUrl: (
     args: any
   ) => Promise<{ rel: string; fileUrl: string } | null>;
+  saveNoteAssetFromBuffer: (
+    args: any
+  ) => Promise<{ rel: string; fileUrl: string } | null>;
   saveNoteAssetFromUrl: (
     args: any
   ) => Promise<{ rel: string; fileUrl: string } | null>;
   resolveNoteAssetFileUrl: (args: any) => string | null;
   readClipboardImageDataUrl: () => string | null;
+  // Window control functions for custom title bar (Windows)
+  windowMinimize: () => void;
+  windowMaximize: () => void;
+  windowClose: () => void;
+  windowIsMaximized: () => Promise<boolean>;
+  setTitleBarOverlay: (overlay: {
+    color?: string;
+    symbolColor?: string;
+    height?: number;
+  }) => void;
+  onWindowMaximized: (callback: (isMaximized: boolean) => void) => () => void;
 };
 
 declare global {

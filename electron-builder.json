@@ -47,8 +47,7 @@
     ]
   },
   "win": {
-    "icon": "resources/images/recall.ico",
-    "certificateSubjectName": "Automattic, Inc.",
+    "icon": "resources/images/icon_512x512.png",
     "artifactName": "Recall-win-${version}-${arch}.${ext}",
     "target": [
       {
@@ -86,13 +85,15 @@
     "category": "Utility",
     "executableName": "recall",
     "desktop": {
-      "Name": "Recall",
-      "Comment": "Recall for Linux",
-      "GenericName": "Note Taking Application",
-      "Type": "Application",
-      "Icon": "recall",
-      "StartupNotify": true,
-      "Categories": "Utility"
+      "entry": {
+        "Name": "Recall",
+        "Comment": "Recall for Linux",
+        "GenericName": "Note Taking Application",
+        "Type": "Application",
+        "Icon": "recall",
+        "StartupNotify": true,
+        "Categories": "Utility"
+      }
     },
     "vendor": "Automattic, Inc.",
     "maintainer": "Automattic, Inc. <support@recall.com>"

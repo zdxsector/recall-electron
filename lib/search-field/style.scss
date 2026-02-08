@@ -32,6 +32,15 @@
     justify-content: center;
   }
 
+  .search-field__new-note {
+    margin-left: 4px;
+  }
+
+  .icon-new-note {
+    width: 16px;
+    height: 16px;
+  }
+
   .icon-cross-small {
     transition: $anim-transition;
   }

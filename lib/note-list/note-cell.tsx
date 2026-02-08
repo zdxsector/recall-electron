@@ -1,6 +1,7 @@
 import React, { Component, CSSProperties, createRef } from 'react';
 import { connect } from 'react-redux';
 import classNames from 'classnames';
+import { escapeRegExp } from 'lodash';
 
 import PublishIcon from '../icons/published-small';
 import SmallPinnedIcon from '../icons/pinned-small';
@@ -8,7 +9,10 @@ import SmallSyncIcon from '../icons/sync-small';
 import FileSmallIcon from '../icons/file-small';
 import { decorateWith, makeFilterDecorator } from './decorators';
 import { getTerms } from '../utils/filter-notes';
-import { noteTitleAndPreview } from '../utils/note-utils';
+import {
+  normalizeNoteTitleForDisplay,
+  noteTitleAndPreview,
+} from '../utils/note-utils';
 import { withCheckboxCharacters } from '../utils/task-transform';
 import { renderNoteToHtml } from '../utils/render-note-to-html';
 
@@ -21,33 +25,175 @@ const IMAGE_LINE_ONLY_RE = /^\s*!\[([^\]]*)\]\(\s*([^)]+?)\s*\)\s*$/;
 const HTML_IMAGE_LINE_ONLY_RE = /^\s*<img\b[^>]*>\s*$/i;
 const HTML_IMAGE_SRC_RE = /\bsrc\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/i;
 const HTML_IMAGE_ALT_RE = /\balt\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/i;
+const TASK_LINE_RE = /^\s*-\s*\[(?: |x|X)\]\s*(.*)$/;
 const MAX_TITLE_THUMBNAIL_LINES = 4;
 const MAX_RENDERED_PREVIEW_LINES = 30;
 const MAX_RENDERED_PREVIEW_CHARS = 2500;
+const LARGE_RENDERED_PREVIEW_DOC_THRESHOLD = 200_000;
 
-const findTitleLineIndex = (content: string): number => {
-  const lines = String(content ?? '').split(/\r?\n/);
-  let firstImageIdx: number | null = null;
-  for (let i = 0; i < lines.length; i++) {
-    const trimmed = String(lines[i]).trim();
-    if (!trimmed) continue;
-    const imgMatch = IMAGE_LINE_ONLY_RE.exec(trimmed);
-    if (imgMatch || HTML_IMAGE_LINE_ONLY_RE.test(trimmed)) {
-      if (firstImageIdx === null) firstImageIdx = i;
-      continue;
-    }
-    return i;
+const FENCE_RE = /^(\s*)(`{3,}|~{3,})(.*)$/;
+const isFenceLine = (line: string) => FENCE_RE.test(String(line ?? ''));
+
+type ReadLineResult = { line: string; nextOffset: number; done: boolean };
+const readNextLine = (content: string, offset: number): ReadLineResult => {
+  const s = String(content ?? '');
+  if (offset >= s.length) {
+    return { line: '', nextOffset: s.length, done: true };
   }
-  return firstImageIdx ?? -1;
+  const nl = s.indexOf('\n', offset);
+  const end = nl === -1 ? s.length : nl;
+  let line = s.slice(offset, end);
+  if (line.endsWith('\r')) line = line.slice(0, -1);
+  return {
+    line,
+    nextOffset: nl === -1 ? s.length : end + 1,
+    done: nl === -1,
+  };
 };
 
-const getRenderedPreviewSource = (content: string): string => {
-  const allLines = String(content ?? '').split(/\r?\n/);
-  if (allLines.length === 0) return '';
+const findTitleLine = (
+  content: string
+): { idx: number; trimmedLine: string } => {
+  let firstImageIdx: number | null = null;
+  let firstImageLine = '';
+  let offset = 0;
+  let idx = 0;
+  while (true) {
+    const { line, nextOffset, done } = readNextLine(content, offset);
+    offset = nextOffset;
+    const trimmed = String(line ?? '').trim();
+    if (trimmed) {
+      const imgMatch = IMAGE_LINE_ONLY_RE.exec(trimmed);
+      if (imgMatch || HTML_IMAGE_LINE_ONLY_RE.test(trimmed)) {
+        if (firstImageIdx === null) {
+          firstImageIdx = idx;
+          firstImageLine = trimmed;
+        }
+      } else {
+        // Skip empty checklist items (e.g. `- [ ]`) so we don't treat them as the
+        // note title line. This avoids showing `- [ ]` as the title and keeps the
+        // list preview aligned with the editor's content.
+        const taskMatch = TASK_LINE_RE.exec(trimmed);
+        if (!(taskMatch && !String(taskMatch[1] ?? '').trim())) {
+          return { idx, trimmedLine: trimmed };
+        }
+      }
+    }
 
-  const titleIdx = findTitleLineIndex(content);
+    if (done) break;
+    idx++;
+  }
+  return firstImageIdx === null
+    ? { idx: -1, trimmedLine: '' }
+    : { idx: firstImageIdx, trimmedLine: firstImageLine };
+};
+
+const unwrapSearchMatchSpans = (root: HTMLElement) => {
+  root.querySelectorAll('span.search-match').forEach((el) => {
+    const parent = el.parentNode;
+    if (!parent) return;
+    parent.replaceChild(document.createTextNode(el.textContent ?? ''), el);
+    parent.normalize();
+  });
+};
+
+const applySearchHighlights = (root: HTMLElement, searchQuery: string) => {
+  const q = String(searchQuery ?? '').trim();
+  if (!q) return;
+
+  // Remove any prior highlights so we can re-apply cleanly.
+  unwrapSearchMatchSpans(root);
+
+  const terms = getTerms(q).map((t) => String(t ?? '').trim()).filter(Boolean);
+  if (terms.length === 0) return;
+
+  // Larger terms first to reduce "partial highlight" when alternatives overlap.
+  terms.sort((a, b) => b.length - a.length);
+  const pattern = new RegExp(terms.map(escapeRegExp).join('|'), 'gi');
+
+  const shouldSkipTextNode = (node: Text) => {
+    const parent = node.parentElement;
+    if (!parent) return true;
+    // Keep code/math/diagrams readable and avoid disturbing syntax highlighting DOM.
+    if (
+      parent.closest(
+        'pre, code, svg, math, .katex, .mermaid, .vega, .plantuml, .token'
+      )
+    ) {
+      return true;
+    }
+    // Avoid highlighting inside UI controls (shouldn't exist, but be defensive).
+    if (parent.closest('button, input, textarea, select')) return true;
+    return false;
+  };
+
+  const walker = document.createTreeWalker(
+    root,
+    NodeFilter.SHOW_TEXT,
+    {
+      acceptNode: (n) => {
+        const node = n as Text;
+        const value = node.nodeValue ?? '';
+        if (!value || !value.trim()) return NodeFilter.FILTER_REJECT;
+        if (shouldSkipTextNode(node)) return NodeFilter.FILTER_REJECT;
+        pattern.lastIndex = 0;
+        return pattern.test(value)
+          ? NodeFilter.FILTER_ACCEPT
+          : NodeFilter.FILTER_REJECT;
+      },
+    } as unknown as NodeFilter
+  );
+
+  const nodes: Text[] = [];
+  while (walker.nextNode()) {
+    nodes.push(walker.currentNode as Text);
+  }
+
+  for (const textNode of nodes) {
+    const text = textNode.nodeValue ?? '';
+    pattern.lastIndex = 0;
+    let lastIdx = 0;
+    let match: RegExpExecArray | null;
+    const frag = document.createDocumentFragment();
+
+    while ((match = pattern.exec(text)) !== null) {
+      const start = match.index ?? 0;
+      const matched = match[0] ?? '';
+      if (!matched) break;
+
+      if (start > lastIdx) {
+        frag.appendChild(document.createTextNode(text.slice(lastIdx, start)));
+      }
+
+      const span = document.createElement('span');
+      span.className = 'search-match';
+      span.textContent = matched;
+      frag.appendChild(span);
+
+      lastIdx = start + matched.length;
+      if (pattern.lastIndex === start) {
+        // Safety: avoid infinite loops in unexpected regex edge cases.
+        pattern.lastIndex++;
+      }
+    }
+
+    if (lastIdx < text.length) {
+      frag.appendChild(document.createTextNode(text.slice(lastIdx)));
+    }
+
+    textNode.parentNode?.replaceChild(frag, textNode);
+  }
+};
+
+const getRenderedPreviewSource = (
+  content: string,
+  searchQuery?: string
+): string => {
+  const raw = String(content ?? '');
+  if (!raw) return '';
+
+  const { idx: titleIdx, trimmedLine: titleLine } = findTitleLine(raw);
   if (titleIdx < 0) return '';
-  const titleLine = String(allLines[titleIdx] ?? '').trim();
 
   // If the "title line" is image-only (e.g. note is only images),
   // include it in the preview so users can still see the image.
@@ -57,19 +203,108 @@ const getRenderedPreviewSource = (content: string): string => {
 
   let startIdx = titleIsImageOnly ? titleIdx : titleIdx + 1;
 
-  // Skip leading blank lines after the title.
-  while (startIdx < allLines.length && !String(allLines[startIdx]).trim()) {
-    startIdx++;
+  // If we're searching, try to center the preview around the first match so the
+  // user sees relevant context rather than always the top of the note.
+  const term = (getTerms(String(searchQuery ?? ''))[0] ?? '').trim();
+  // For huge documents, scanning the entire note just to "center the preview"
+  // can be very expensive and is not worth impacting typing performance.
+  if (term && raw.length < LARGE_RENDERED_PREVIEW_DOC_THRESHOLD) {
+    const needle = term.toLowerCase();
+    const findMatchFrom = (fromIdx: number): number | null => {
+      let offset = 0;
+      let idx = 0;
+      while (true) {
+        const { line, nextOffset, done } = readNextLine(raw, offset);
+        offset = nextOffset;
+        if (idx >= Math.max(0, fromIdx)) {
+          if (String(line ?? '').toLowerCase().includes(needle)) return idx;
+        }
+        if (done) break;
+        idx++;
+      }
+      return null;
+    };
+    const matchIdx = findMatchFrom(startIdx) ?? findMatchFrom(0);
+    if (matchIdx !== null) startIdx = Math.max(startIdx, Math.max(0, matchIdx - 1));
   }
 
   let chars = 0;
   const slice: string[] = [];
-  for (let i = startIdx; i < allLines.length; i++) {
-    const line = String(allLines[i] ?? '');
+  // If we enter a fenced code block, keep including lines until we close it,
+  // otherwise previews can show raw/unrendered block tokens (e.g. mermaid/math).
+  let openFence: { marker: string } | null = null;
+
+  // Seek to startIdx without allocating a full lines array.
+  let offset = 0;
+  let idx = 0;
+  while (idx < startIdx) {
+    const r = readNextLine(raw, offset);
+    offset = r.nextOffset;
+    if (r.done) return '';
+    idx++;
+  }
+
+  // Skip leading blank lines at the preview start.
+  while (true) {
+    const probe = readNextLine(raw, offset);
+    if (probe.done) return '';
+    if (String(probe.line ?? '').trim()) break;
+    offset = probe.nextOffset;
+    idx++;
+  }
+
+  // Collect preview lines with caps.
+  while (true) {
+    const r = readNextLine(raw, offset);
+    offset = r.nextOffset;
+    const line = String(r.line ?? '');
+    const trimmed = line.trim();
+    // Skip empty task list items (e.g. trailing "- [ ]" with no text) so the
+    // list preview doesn’t show an extra blank checkbox row.
+    const taskMatch = TASK_LINE_RE.exec(trimmed);
+    if (taskMatch && !String(taskMatch[1] ?? '').trim()) {
+      if (r.done) break;
+      idx++;
+      continue;
+    }
     slice.push(line);
     chars += line.length + 1;
+
+    // Track fenced code blocks to avoid cutting mid-block.
+    const fenceMatch = FENCE_RE.exec(line);
+    if (fenceMatch) {
+      const marker = fenceMatch[2] ?? '';
+      if (!openFence) {
+        openFence = { marker };
+      } else if (openFence.marker === marker) {
+        openFence = null;
+      }
+    }
+
     if (slice.length >= MAX_RENDERED_PREVIEW_LINES) break;
     if (chars >= MAX_RENDERED_PREVIEW_CHARS) break;
+    if (r.done) break;
+    idx++;
+  }
+
+  // If we cut off while still inside a fence, continue until we close it,
+  // with a hard safety cap to prevent huge previews.
+  if (openFence) {
+    const safetyMaxExtraLines = 40;
+    let remaining = safetyMaxExtraLines;
+    while (remaining > 0) {
+      const r = readNextLine(raw, offset);
+      offset = r.nextOffset;
+      const line = String(r.line ?? '');
+      slice.push(line);
+      remaining--;
+      const fenceMatch = FENCE_RE.exec(line);
+      if (fenceMatch && (fenceMatch[2] ?? '') === openFence.marker) {
+        openFence = null;
+        break;
+      }
+      if (r.done) break;
+    }
   }
 
   return slice.join('\n').trim();
@@ -139,6 +374,22 @@ export class NoteCell extends Component<Props> {
   }
 
   componentDidUpdate(prevProps: Props) {
+    const prevNote = prevProps.note;
+    const nextNote = this.props.note;
+
+    // react-virtualized can reuse row components; ensure we refresh previews when
+    // the identity/context of the note changes (not only its content).
+    // IMPORTANT: Redux updates note objects immutably, so `prevNote !== nextNote`
+    // will be true on every content edit. Treating that as an identity change
+    // causes us to clear the preview DOM on every keystroke (visible "flash").
+    // Only consider the row "identity" changed when the note id changes.
+    const noteIdentityChanged = prevProps.noteId !== this.props.noteId;
+    const folderContextChanged = prevNote?.folderId !== nextNote?.folderId;
+
+    if (noteIdentityChanged || folderContextChanged) {
+      this.props.invalidateHeight();
+    }
+
     if (prevProps.note?.content !== this.props.note?.content) {
       this.props.invalidateHeight();
     }
@@ -152,11 +403,23 @@ export class NoteCell extends Component<Props> {
     }
 
     if (
+      noteIdentityChanged ||
+      folderContextChanged ||
       prevProps.note?.content !== this.props.note?.content ||
       prevProps.isOpened !== this.props.isOpened ||
       prevProps.displayMode !== this.props.displayMode ||
       prevProps.searchQuery !== this.props.searchQuery
     ) {
+      // Prevent stale rendered HTML from briefly showing for another note.
+      // Only clear when switching notes, not when content changes to avoid flashing.
+      if (noteIdentityChanged || folderContextChanged) {
+        const node = this.renderedPreviewRef.current;
+        if (node) node.innerHTML = '';
+        // Bump seq so any in-flight async preview work is ignored.
+        this.renderedPreviewSeq++;
+      }
+      // When only content changes (not note identity), don't clear the preview
+      // to avoid flashing. The new content will smoothly replace the old content.
       this.scheduleRenderedPreview();
     }
 
@@ -173,27 +436,13 @@ export class NoteCell extends Component<Props> {
   }
 
   shouldShowRenderedPreview() {
-    const { displayMode, isOpened, searchQuery, note } = this.props;
+    const { displayMode, note } = this.props;
     if (!note) return false;
     if ('condensed' === displayMode) return false;
-    if ((searchQuery ?? '').trim()) return false;
-
-    // Check if note has images or code blocks near the top
-    const top = String(note.content ?? '').slice(0, 2000);
-    const hasImages = /!\[[^\]]*\]\(|<img\b/i.test(top);
-    const hasCodeBlock = /```[\s\S]*?```|^( {4}|\t)[^\s]/m.test(top);
-
-    // Always show rendered preview for notes with images or code blocks
-    // (to persist preview with syntax highlighting even when the note is not opened)
-    if (hasImages || hasCodeBlock) return true;
-
-    // For notes without images/code, only show rendered markdown preview when opened
-    if (!isOpened) return false;
-
-    // Show rendered preview when Markdown is enabled
-    if (note.systemTags.includes('markdown')) return true;
-
-    return false;
+    // Prefer a Muya-rendered preview so the list matches what the editor displays.
+    // When searching we still render, and we apply search-term highlights to the
+    // rendered HTML so results remain scannable.
+    return true;
   }
 
   scheduleRenderedPreview() {
@@ -214,7 +463,10 @@ export class NoteCell extends Component<Props> {
     }
 
     const { note, noteId, folders, notebooks } = this.props;
-    const source = getRenderedPreviewSource(note?.content ?? '');
+    const source = getRenderedPreviewSource(
+      note?.content ?? '',
+      this.props.searchQuery
+    );
     if (!source) {
       node.innerHTML = '';
       return;
@@ -226,7 +478,20 @@ export class NoteCell extends Component<Props> {
       const html = await renderNoteToHtml(source);
       if (seq !== this.renderedPreviewSeq) return;
 
-      node.innerHTML = html;
+      const htmlWithSafeCheckboxes = String(html ?? '').replace(
+        /<input\b[^>]*type=(?:"checkbox"|'checkbox'|checkbox)[^>]*>/gi,
+        (tag) => {
+          const isChecked =
+            /\bchecked\b/i.test(tag) ||
+            /\bdata-checked\s*=\s*(?:"true"|'true'|true)/i.test(tag) ||
+            /\baria-checked\s*=\s*(?:"true"|'true'|true)/i.test(tag);
+          return `<span class="note-list-task-checkbox${
+            isChecked ? ' is-checked' : ''
+          }" aria-hidden="true"></span>`;
+        }
+      );
+
+      node.innerHTML = htmlWithSafeCheckboxes;
 
       // Ensure preview content isn't interactive inside the list item button.
       node.querySelectorAll('a').forEach((a) => {
@@ -236,9 +501,26 @@ export class NoteCell extends Component<Props> {
       });
       node.querySelectorAll('input').forEach((input) => {
         try {
-          (input as HTMLInputElement).disabled = true;
-          (input as HTMLInputElement).readOnly = true;
-          (input as HTMLInputElement).tabIndex = -1;
+          const el = input as HTMLInputElement;
+          const type = (el.getAttribute('type') ?? '').toLowerCase();
+
+          // IMPORTANT: Inputs inside a <button> are invalid HTML and Chromium can
+          // drop/ignore them, which makes task lists render as bullet lists.
+          // Replace checkbox inputs with a non-interactive span that we can style.
+          if (type === 'checkbox') {
+            const span = document.createElement('span');
+            span.className = `note-list-task-checkbox${
+              el.checked ? ' is-checked' : ''
+            }`;
+            span.setAttribute('aria-hidden', 'true');
+            el.replaceWith(span);
+            return;
+          }
+
+          // Any other inputs should be inert in the list.
+          el.disabled = true;
+          el.readOnly = true;
+          el.tabIndex = -1;
         } catch {
           // ignore
         }
@@ -269,11 +551,26 @@ export class NoteCell extends Component<Props> {
         });
       }
 
-      // Keep previews lightweight.
+      // Keep previews lightweight and fixed-size thumbnails.
       node.querySelectorAll('img').forEach((img) => {
         img.setAttribute('loading', 'lazy');
         img.setAttribute('draggable', 'false');
+        // Remove any width/height attributes from the editor so CSS controls sizing
+        img.removeAttribute('width');
+        img.removeAttribute('height');
+        img.style.removeProperty('width');
+        img.style.removeProperty('height');
       });
+
+      // Highlight search terms inside rendered HTML (matches list UX expectations).
+      const q = (this.props.searchQuery ?? '').trim();
+      if (q) {
+        try {
+          applySearchHighlights(node, q);
+        } catch {
+          // ignore highlight errors
+        }
+      }
 
       // Apply syntax highlighting to code blocks
       const codeElements = node.querySelectorAll('pre code');
@@ -317,7 +614,8 @@ export class NoteCell extends Component<Props> {
       return <div>{"Couldn't find note"}</div>;
     }
 
-    const { title, preview } = noteTitleAndPreview(note, searchQuery);
+    const { title: rawTitle, preview } = noteTitleAndPreview(note, searchQuery);
+    const title = normalizeNoteTitleForDisplay(rawTitle);
     const isPinned = note.systemTags.includes('pinned');
     const isPublished = !!note.publishURL;
     const recentlyUpdated =

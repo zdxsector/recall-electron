@@ -3,7 +3,6 @@ const webpack = require('webpack');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 const spawnSync = require('child_process').spawnSync;
 const MiniCssExtractPlugin = require('mini-css-extract-plugin');
-const MonacoWebpackPlugin = require('monaco-editor-webpack-plugin');
 const NodePolyfillPlugin = require('node-polyfill-webpack-plugin');
 const fs = require('fs');
 const path = require('path');
@@ -37,6 +36,19 @@ function getConfig() {
 module.exports = () => {
   const isDevMode = process.env.NODE_ENV === 'development';
   const config = getConfig();
+  const buildReference = (() => {
+    try {
+      const res = spawnSync('git', ['describe', '--always', '--dirty'], {
+        encoding: 'utf8',
+      });
+      if (res && res.status === 0 && typeof res.stdout === 'string') {
+        return res.stdout.trim();
+      }
+    } catch {
+      // ignore; fall back to empty string
+    }
+    return '';
+  })();
 
   return {
     context: __dirname + '/lib',
@@ -63,8 +75,16 @@ module.exports = () => {
             },
           ],
         },
+        // Handle CSS imports with ?inline query (Vite-style) - export as raw string
+        {
+          test: /\.css$/,
+          resourceQuery: /inline/,
+          type: 'asset/source',
+        },
         {
           test: /\.(sa|sc|c)ss$/,
+          // Exclude CSS files with ?inline query (handled above)
+          resourceQuery: { not: [/inline/] },
           use: [
             isDevMode ? 'style-loader' : MiniCssExtractPlugin.loader,
             {
@@ -115,7 +135,7 @@ module.exports = () => {
       modules: ['node_modules'],
       alias: {
         // Use the local vendored Muya source for full customization.
-        '@muyajs/core': path.resolve(__dirname, 'muya/packages/core/src'),
+        '@muyajs/core': path.resolve(__dirname, 'lib/muya/packages/core/src'),
       },
     },
     plugins: [
@@ -131,9 +151,7 @@ module.exports = () => {
       }),
       new HtmlWebpackPlugin({
         'build-platform': process.platform,
-        'build-reference': spawnSync('git', ['describe', '--always', '--dirty'])
-          .stdout.toString('utf8')
-          .replace('\n', ''),
+        'build-reference': buildReference,
         favicon: process.cwd() + '/resources/images/favicon.ico',
         'node-version': process.version,
         template: 'index.ejs',
@@ -142,39 +160,6 @@ module.exports = () => {
       new MiniCssExtractPlugin({
         filename: isDevMode ? '[name].css' : '[name].[fullhash].css',
         chunkFilename: isDevMode ? '[id].css' : '[id].[fullhash].css',
-      }),
-      new MonacoWebpackPlugin({
-        languages: [],
-        // don't include features we disable. these generally correspond to the options
-        // passed to editor initialization in note-content-editor.tsx
-        // @see https://github.com/microsoft/monaco-editor/blob/main/webpack-plugin/README.md#options
-        features: [
-          '!bracketMatching',
-          '!codeAction',
-          '!codelens',
-          '!colorPicker',
-          '!comment',
-          '!diffEditor',
-          '!diffEditorBreadcrumbs',
-          '!folding',
-          '!gotoError',
-          '!gotoLine',
-          '!gotoSymbol',
-          '!gotoZoom',
-          '!inspectTokens',
-          '!multicursor',
-          '!parameterHints',
-          '!quickCommand',
-          '!quickHelp',
-          '!quickOutline',
-          '!referenceSearch',
-          '!rename',
-          '!snippet',
-          '!stickyScroll',
-          '!suggest',
-          '!toggleHighContrast',
-          '!unicodeHighlighter',
-        ],
       }),
       new webpack.DefinePlugin({
         __TEST__: JSON.stringify(process.env.NODE_ENV === 'test'),

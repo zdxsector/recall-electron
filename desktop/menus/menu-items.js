@@ -5,11 +5,7 @@ const updater = require('../updater');
 const { autoUpdater } = require('electron-updater');
 
 const about = {
-  label: '&About ' + app.name,
-  click: appCommandSender({
-    action: 'showDialog',
-    dialog: 'ABOUT',
-  }),
+  label: '&zdxsector ' + app.name,
 };
 
 const checkForUpdates = {
