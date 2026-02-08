@@ -15,7 +15,25 @@ describe('noteTitleAndPreview', () => {
 
   it('should return default values if note content is empty', () => {
     const result = noteTitleAndPreview(note);
-    expect(result).toEqual({ preview: '', title: 'New Note…' });
+    expect(result).toEqual({ preview: '', title: 'No Title' });
+  });
+
+  it('should treat Muya zero-width placeholders as untitled', () => {
+    // Muya serializes empty lines/blocks as U+200B.
+    note.content = '\u200b';
+    note.systemTags = ['markdown'];
+    const result = noteTitleAndPreview(note);
+    expect(result).toEqual({ preview: '', title: 'No Title' });
+  });
+
+  it('should skip an invisible first line and use the next visible text line as title', () => {
+    note.content = '\u200b\nMy title\nThe preview';
+    note.systemTags = [];
+    const result = noteTitleAndPreview(note);
+    expect(result).toEqual({
+      title: 'My title',
+      preview: 'The preview',
+    });
   });
 
   it('should return the title and preview when note is not Markdown', () => {

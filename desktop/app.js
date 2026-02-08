@@ -193,23 +193,31 @@ module.exports = function main() {
     ipcMain.on('clearCookies', function () {
       // Removes any cookies stored in the app. We're particularly interested in
       // removing the WordPress.com cookies that may have been set during sign in.
-      session.defaultSession.cookies.get({}, (error, cookies) => {
-        cookies.forEach((cookie) => {
-          // Reconstruct the url to pass to the cookies.remove function
-          let cookieUrl = '';
-          cookieUrl += cookie.secure ? 'https://' : 'http://';
-          cookieUrl += cookie.domain.charAt(0) === '.' ? 'www' : '';
-          cookieUrl += cookie.domain;
-          cookieUrl += cookie.path;
-
-          session.defaultSession.cookies.remove(
-            cookieUrl,
-            cookie.name,
-            () => {} // Ignore callback
+      (async () => {
+        try {
+          const cookies = await session.defaultSession.cookies.get({});
+          await Promise.all(
+            cookies.map((cookie) => {
+              // Reconstruct the url to pass to cookies.remove
+              const protocol = cookie.secure ? 'https://' : 'http://';
+              const host =
+                cookie.domain && cookie.domain.charAt(0) === '.'
+                  ? `www${cookie.domain}`
+                  : cookie.domain;
+              const cookieUrl = `${protocol}${host}${cookie.path || '/'}`;
+              return session.defaultSession.cookies.remove(cookieUrl, cookie.name);
+            })
           );
-        });
-      });
-      mainWindow.reload();
+        } catch {
+          // ignore
+        }
+
+        try {
+          mainWindow && mainWindow.reload();
+        } catch {
+          // ignore
+        }
+      })();
     });
 
     ipcMain.on('setAutoHideMenuBar', function (event, autoHideMenuBar) {

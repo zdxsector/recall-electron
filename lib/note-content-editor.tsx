@@ -41,6 +41,9 @@ type Props = OwnProps & StateProps & DispatchProps;
 
 class NoteContentEditor extends Component<Props> {
   muyaRef = createRef<MuyaEditorHandle>();
+  matchCountTimer: ReturnType<typeof setTimeout> | null = null;
+  matchCountIdleHandle: number | null = null;
+  matchCountSeq = 0;
 
   componentDidMount() {
     this.props.storeFocusEditor(this.focusEditor);
@@ -60,6 +63,23 @@ class NoteContentEditor extends Component<Props> {
 
   componentWillUnmount() {
     window.removeEventListener('toggleChecklist', this.handleChecklist, true);
+    if (this.matchCountTimer) {
+      clearTimeout(this.matchCountTimer);
+      this.matchCountTimer = null;
+    }
+    if (this.matchCountIdleHandle != null) {
+      try {
+        (window as any).cancelIdleCallback?.(this.matchCountIdleHandle);
+      } catch {
+        // ignore
+      }
+      try {
+        clearTimeout(this.matchCountIdleHandle as any);
+      } catch {
+        // ignore
+      }
+      this.matchCountIdleHandle = null;
+    }
   }
 
   componentDidUpdate(prevProps: Props) {
@@ -67,6 +87,7 @@ class NoteContentEditor extends Component<Props> {
       prevProps.searchQuery !== this.props.searchQuery ||
       prevProps.note?.content !== this.props.note?.content
     ) {
+      // Avoid doing O(n) work (lowercasing/scanning) on every keystroke for huge notes.
       this.updateMatchesCount();
       // reset search selection when either the note or the search changes
       if (prevProps.searchQuery !== this.props.searchQuery) {
@@ -122,18 +143,61 @@ class NoteContentEditor extends Component<Props> {
       this.props.storeNumberOfMatchesInNote(0);
       return;
     }
+    const content = this.props.note?.content ?? '';
+    const len = String(content).length;
+    const isLarge = len >= 200_000;
+    const delayMs = isLarge ? 350 : 80;
+    const seq = ++this.matchCountSeq;
 
-    const haystack = (this.props.note?.content ?? '').toLowerCase();
-    const needle = q.toLowerCase();
-    let count = 0;
-    let idx = 0;
-    while (true) {
-      const nextIdx = haystack.indexOf(needle, idx);
-      if (nextIdx === -1) break;
-      count++;
-      idx = nextIdx + needle.length;
+    if (this.matchCountTimer) {
+      clearTimeout(this.matchCountTimer);
     }
-    this.props.storeNumberOfMatchesInNote(count);
+
+    this.matchCountTimer = setTimeout(() => {
+      const compute = () => {
+        // If a newer request came in, drop this one.
+        if (seq !== this.matchCountSeq) return;
+        const currentQ = (this.props.searchQuery ?? '').trim();
+        if (!currentQ) {
+          this.props.storeNumberOfMatchesInNote(0);
+          return;
+        }
+        const currentContent = this.props.note?.content ?? '';
+        const haystack = String(currentContent).toLowerCase();
+        const needle = currentQ.toLowerCase();
+        let count = 0;
+        let idx = 0;
+        while (true) {
+          const nextIdx = haystack.indexOf(needle, idx);
+          if (nextIdx === -1) break;
+          count++;
+          idx = nextIdx + needle.length;
+        }
+        // Still current?
+        if (seq !== this.matchCountSeq) return;
+        this.props.storeNumberOfMatchesInNote(count);
+      };
+
+      if (isLarge && typeof (window as any).requestIdleCallback === 'function') {
+        try {
+          this.matchCountIdleHandle = (window as any).requestIdleCallback(
+            () => {
+              this.matchCountIdleHandle = null;
+              compute();
+            },
+            { timeout: 1500 }
+          );
+          return;
+        } catch {
+          // fall back to setTimeout
+        }
+      }
+      // Fallback: async but not idle.
+      this.matchCountIdleHandle = window.setTimeout(() => {
+        this.matchCountIdleHandle = null;
+        compute();
+      }, 0) as unknown as number;
+    }, delayMs);
   };
 
   // Handle click on editor shell - ensures focus even when Electron loses track

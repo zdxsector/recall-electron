@@ -85,6 +85,24 @@ body[data-theme='dark'] .muya-editor-root {
   --code-block-bg-color: var(--secondary-highlight-color);
 }
 
+// Muya code blocks are rendered as <pre class="mu-code-block">...
+// Our global normalize sets `pre { overflow: auto; }`, which creates a horizontal
+// scrollbar for long lines (especially after pasting very large text).
+// In the editor, prefer wrapping to avoid internal scrollbars; the editor itself
+// should own scrolling.
+.muya-editor-root {
+  pre.mu-code-block,
+  pre.mu-code-block code {
+    white-space: pre-wrap !important;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+
+  pre.mu-code-block {
+    overflow: visible !important;
+  }
+}
+
 // Muya applies colors to nested nodes; force inheritance for editor subtree.
 // Exception: preserve Prism.js syntax highlighting colors on .token elements.
 body[data-theme='light'] .muya-editor-root *:not(.token) {

@@ -9,6 +9,8 @@ import type * as T from '../types';
 import { showAllNotes } from '../state/ui/actions';
 
 const emptyList = [] as unknown[];
+const LARGE_NOTE_CONTENT_THRESHOLD = 200_000;
+const HUGE_NOTE_CONTENT_THRESHOLD = 1_000_000;
 
 // @TODO: Refactor search state into Redux for access
 //        and to prevent needing to recalculate separately
@@ -333,9 +335,8 @@ export const middleware: S.Middleware = (store) => {
   };
 
   let searchTimer: ReturnType<typeof setTimeout> | null = null;
-  const queueSearch = () => {
+  const queueSearchWithDelay = (delayMs: number) => {
     clearTimeout(searchTimer!);
-
     searchTimer = setTimeout(() => {
       const searchResults = setFilteredNotes(runSearch());
 
@@ -346,7 +347,106 @@ export const middleware: S.Middleware = (store) => {
           searchResults,
         },
       });
-    }, 30);
+    }, delayMs);
+  };
+  const queueSearch = () => queueSearchWithDelay(30);
+
+  // For very large notes, lowercasing/indexing on every EDIT_NOTE will freeze typing.
+  // Defer the expensive work until the user pauses.
+  const pendingContentWork = new Map<
+    T.EntityId,
+    {
+      timer: ReturnType<typeof setTimeout> | null;
+      idleHandle: number | null;
+      seq: number;
+    }
+  >();
+
+  const cancelPendingContentWork = (noteId: T.EntityId) => {
+    const w = pendingContentWork.get(noteId);
+    if (!w) return;
+    if (w.timer) clearTimeout(w.timer);
+    w.timer = null;
+    if (w.idleHandle != null) {
+      try {
+        (globalThis as any).cancelIdleCallback?.(w.idleHandle);
+      } catch {
+        // ignore
+      }
+      try {
+        clearTimeout(w.idleHandle as any);
+      } catch {
+        // ignore
+      }
+      w.idleHandle = null;
+    }
+  };
+
+  const scheduleIndexLargeNoteContent = (
+    noteId: T.EntityId,
+    content: string
+  ) => {
+    const note = searchState.notes.get(noteId);
+    if (!note) return;
+
+    const len = String(content ?? '').length;
+    const delayMs =
+      len >= HUGE_NOTE_CONTENT_THRESHOLD ? 1500 : len >= LARGE_NOTE_CONTENT_THRESHOLD ? 500 : 0;
+    if (delayMs <= 0) {
+      note.content = content.toLocaleLowerCase();
+      note.casedContent = content;
+      indexNote(noteId);
+      queueSearch();
+      return;
+    }
+
+    const prev = pendingContentWork.get(noteId) ?? {
+      timer: null,
+      idleHandle: null,
+      seq: 0,
+    };
+    prev.seq += 1;
+    pendingContentWork.set(noteId, prev);
+    cancelPendingContentWork(noteId);
+
+    const seq = prev.seq;
+    prev.timer = setTimeout(() => {
+      const compute = () => {
+        const w = pendingContentWork.get(noteId);
+        if (!w || w.seq !== seq) return;
+        const n = searchState.notes.get(noteId);
+        if (!n) return;
+        n.content = content.toLocaleLowerCase();
+        n.casedContent = content;
+        indexNote(noteId);
+        // Use a slightly longer delay for the subsequent full search to avoid
+        // ping-ponging with rapid edits.
+        queueSearchWithDelay(60);
+      };
+
+      if (
+        typeof (globalThis as any).requestIdleCallback === 'function' &&
+        len >= LARGE_NOTE_CONTENT_THRESHOLD
+      ) {
+        try {
+          prev.idleHandle = (globalThis as any).requestIdleCallback(
+            () => {
+              prev.idleHandle = null;
+              compute();
+            },
+            { timeout: 2000 }
+          );
+          return;
+        } catch {
+          // fall back
+        }
+      }
+
+      prev.idleHandle = setTimeout(() => {
+        prev.idleHandle = null;
+        compute();
+      }, 0) as unknown as number;
+    }, delayMs);
   };
 
   store.getState().data.notes.forEach((note, noteId) => {
@@ -432,9 +532,20 @@ export const middleware: S.Middleware = (store) => {
 
       case 'EDIT_NOTE': {
         const note = searchState.notes.get(action.noteId)!;
+        let deferHeavySearchWork = false;
         if ('undefined' !== typeof action.changes.content) {
-          note.content = action.changes.content.toLocaleLowerCase();
-          note.casedContent = action.changes.content;
+          const nextContent = action.changes.content ?? '';
+          // Always keep cased content current for title extraction, but avoid
+          // lowercasing/indexing huge notes on every keystroke.
+          note.casedContent = nextContent;
+          if (String(nextContent).length >= LARGE_NOTE_CONTENT_THRESHOLD) {
+            scheduleIndexLargeNoteContent(action.noteId, nextContent);
+            // Defer `withSearch` for huge docs; it runs a full search which can
+            // be very expensive while typing.
+            deferHeavySearchWork = true;
+          } else {
+            note.content = nextContent.toLocaleLowerCase();
+          }
         }
         if ('undefined' !== typeof action.changes.tags) {
           note.tags = new Set(action.changes.tags.map(t));
@@ -457,6 +568,9 @@ export const middleware: S.Middleware = (store) => {
         if ('undefined' !== typeof action.changes.folderId) {
           note.folderId =
             (action.changes.folderId as T.FolderId | null) ?? null;
+        }
+        if (deferHeavySearchWork) {
+          return next(action);
         }
         indexNote(action.noteId);
         return next(withSearch(action));
