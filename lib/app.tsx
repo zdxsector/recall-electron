@@ -245,8 +245,11 @@ class AppComponent extends Component<Props> {
 
     const isWindowsElectron = getIsWindowsElectron();
     
+    const isMacElectron = isElectron && isMac;
+
     const mainClasses = classNames('recall-app', {
       'is-electron': isElectron,
+      'is-macos': isMacElectron,
       'is-windows': isWindowsElectron,
     });
 

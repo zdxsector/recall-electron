@@ -55,8 +55,8 @@
 .app-layout__nav-column {
   width: $navigation-bar-width;
   flex: none;
-  border-right: 1px solid var(--secondary-color);
-  background-color: var(--background-color);
+  border-right: 1px solid var(--sidebar-separator-color);
+  background-color: var(--sidebar-bg-color);
   overflow: hidden;
   transition: width 200ms ease-in-out;
 
@@ -106,6 +106,7 @@
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
+  background-color: var(--note-list-bg-color);
   transition: transform 200ms ease-in-out;
 
   @media only screen and (max-width: $medium) {
@@ -130,7 +131,7 @@
   display: flex;
   flex-direction: column;
   flex: 1 1 auto;
-  border-left: 1px solid var(--secondary-color);
+  border-left: 1px solid var(--note-list-separator-color);
 
   @media only screen and (max-width: $single-column) {
     position: absolute;

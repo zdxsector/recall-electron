@@ -1,0 +1,74 @@
+- generic [ref=e1]:
+  - generic [ref=e5]:
+    - navigation [ref=e88]:
+      - generic [ref=e7]:
+        - button [ref=e89] [cursor=pointer]:
+          - img [ref=e11]
+        - generic [ref=e14]:
+          - button [ref=e90] [cursor=pointer]:
+            - img [ref=e18]
+            - text: All Notes
+          - button [ref=e91] [cursor=pointer]:
+            - img [ref=e24]
+            - text: Trash
+          - button [ref=e92] [cursor=pointer]:
+            - img [ref=e30]
+            - text: Settings
+        - generic [ref=e35]:
+          - generic [ref=e36]: Notebooks
+          - button [ref=e93] [cursor=pointer]: New notebook…
+        - generic [ref=e39]:
+          - button [ref=e94] [cursor=pointer]: Keyboard Shortcuts
+          - button [ref=e95] [cursor=pointer]: slybacalso.me
+          - button [ref=e96] [cursor=pointer]: About
+    - complementary [ref=e97]:
+      - generic [ref=e46]:
+        - button [ref=e99] [cursor=pointer]:
+          - img [ref=e49]
+        - generic [ref=e53]: All Notes
+      - generic [ref=e54]:
+        - button [ref=e100] [cursor=pointer]:
+          - img [ref=e56]
+        - searchbox [ref=e101]
+        - button [ref=e102] [cursor=pointer]:
+          - img [ref=e61]
+      - generic [ref=e65]:
+        - img [ref=e67]
+        - button [ref=e103] [cursor=pointer]: Create your first note
+    - main [ref=e104]:
+      - img [ref=e75]
+  - dialog "SETTINGS" [ref=e106]:
+    - generic [ref=e107]:
+      - generic [ref=e108]:
+        - heading "Settings" [level=2] [ref=e109]
+        - button "Close dialog" [ref=e111] [cursor=pointer]:
+          - img [ref=e112]
+      - generic [ref=e116]:
+        - tablist [ref=e117]:
+          - tab "display" [ref=e118] [cursor=pointer]
+          - tab "tools" [active] [selected] [ref=e119] [cursor=pointer]
+        - generic [ref=e120]:
+          - tabpanel "display"
+          - tabpanel "tools" [ref=e213]:
+            - generic [ref=e214]:
+              - generic [ref=e215]:
+                - heading "Tools" [level=3] [ref=e216]
+                - list [ref=e217]:
+                  - listitem [ref=e218]:
+                    - button "Import Notes" [ref=e219] [cursor=pointer]:
+                      - text: Import Notes
+                      - img [ref=e220]
+                  - listitem [ref=e223]:
+                    - button "Export Notes" [ref=e224] [cursor=pointer]:
+                      - text: Export Notes
+                      - img [ref=e225]
+              - generic [ref=e228]:
+                - heading [level=3]
+                - generic [ref=e230]:
+                  - generic [ref=e231]: Keyboard Shortcuts
+                  - checkbox "Keyboard Shortcuts" [checked] [ref=e234]
+              - generic [ref=e235]:
+                - heading [level=3]
+                - generic [ref=e237]:
+                  - generic [ref=e238]: Notify on remote changes
+                  - checkbox "Notify on remote changes" [ref=e241]

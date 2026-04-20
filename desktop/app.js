@@ -99,10 +99,11 @@ module.exports = function main() {
     });
 
     const isWindows = process.platform === 'win32';
+    const isMac = process.platform === 'darwin';
 
     // Check if system prefers dark mode for initial window colors
     const prefersDark = nativeTheme.shouldUseDarkColors;
-    
+
     mainWindow = new BrowserWindow({
       backgroundColor: prefersDark ? '#1c1c1e' : '#fff',
       x: mainWindowState.x,
@@ -112,12 +113,15 @@ module.exports = function main() {
       minWidth: 370,
       minHeight: 520,
       show: false,
-      // Custom title bar on Windows: use native overlay controls (minimize/maximize/close)
-      // with transparent background so the custom title bar shows through.
+      // macOS: frameless window with traffic lights positioned inside the sidebar
+      ...(isMac && {
+        titleBarStyle: 'hiddenInset',
+        trafficLightPosition: { x: 20, y: 18 },
+      }),
+      // Windows: custom title bar with native overlay controls
       ...(isWindows && {
         titleBarStyle: 'hidden',
         titleBarOverlay: {
-          // Transparent background - the custom title bar CSS provides the actual background
           color: '#00000000',
           symbolColor: prefersDark ? '#ffffff' : '#1c1c1e',
           height: 40,

@@ -1,0 +1,211 @@
+[     122ms] [INFO] [webpack-dev-server] Server started: Hot Module Replacement enabled, Live Reloading enabled, Progress disabled, Overlay enabled. @ http://localhost:4000/app.9f33eaaf932f8bed310f.js:52
+[     126ms] [LOG] [HMR] Waiting for update signal from WDS... @ http://localhost:4000/app.9f33eaaf932f8bed310f.js:52
+[     176ms] [WARNING] [webpack-dev-server] Warnings while compiling. @ http://localhost:4000/app.9f33eaaf932f8bed310f.js:52
+[     177ms] [WARNING] [webpack-dev-server] WARNING
+asset size limit: The following asset(s) exceed the recommended size limit (244 KiB).
+This can impact web performance.
+Assets: 
+  9ff4cd0a41ae679059ae.ttf (333 KiB)
+  d707da3273e928fefc1a.ttf (324 KiB)
+  62494923a230eb3b0bc5.ttf (248 KiB)
+  6a75d92543d7b52cebbd.ttf (246 KiB)
+  app.9f33eaaf932f8bed310f.js (881 KiB)
+  highlight.d19f31372eca168c1a22.js (938 KiB)
+  sentry.b7d15a1493b9ba6a19d3.js (246 KiB)
+  4012.5bbe6ba53ec71b1c57ad.js (401 KiB)
+  7807.cfb77bdf2a2e33a06f1d.js (735 KiB)
+  5165.fd28148e0da1902aa9a2.js (329 KiB)
+  6637.fd03328dbad8f4db44e4.js (979 KiB)
+  359.98ff657be0d209749749.js (421 KiB)
+  5898.faad8c6c1d918de80b5e.js (459 KiB) @ http://localhost:4000/app.9f33eaaf932f8bed310f.js:52
+[     177ms] [WARNING] [webpack-dev-server] WARNING
+entrypoint size limit: The following entrypoint(s) combined asset size exceeds the recommended limit (244 KiB). This can impact web performance.
+Entrypoints:
+  main (1000 KiB)
+      main.9f33eaaf932f8bed310f.css
+      app.9f33eaaf932f8bed310f.js
+ @ http://localhost:4000/app.9f33eaaf932f8bed310f.js:52
+[     262ms] [INFO] Simperium config: Production @ http://localhost:4000/app.9f33eaaf932f8bed310f.js:52
+[     262ms] [INFO] Simperium config: Production @ http://localhost:4000/app.9f33eaaf932f8bed310f.js:52
+[  872067ms] [INFO] [webpack-dev-server] App updated. Recompiling... @ http://localhost:4000/app.9f33eaaf932f8bed310f.js:52
+[  888392ms] [WARNING] [webpack-dev-server] Warnings while compiling. @ http://localhost:4000/app.9f33eaaf932f8bed310f.js:52
+[  888393ms] [WARNING] [webpack-dev-server] WARNING
+asset size limit: The following asset(s) exceed the recommended size limit (244 KiB).
+This can impact web performance.
+Assets: 
+  9ff4cd0a41ae679059ae.ttf (333 KiB)
+  d707da3273e928fefc1a.ttf (324 KiB)
+  62494923a230eb3b0bc5.ttf (248 KiB)
+  6a75d92543d7b52cebbd.ttf (246 KiB)
+  app.3b77b26cb02e32802365.js (881 KiB)
+  highlight.d19f31372eca168c1a22.js (938 KiB)
+  sentry.b7d15a1493b9ba6a19d3.js (246 KiB)
+  4012.5bbe6ba53ec71b1c57ad.js (401 KiB)
+  7807.cfb77bdf2a2e33a06f1d.js (735 KiB)
+  5165.fd28148e0da1902aa9a2.js (329 KiB)
+  6637.7137a82670304f636221.js (979 KiB)
+  359.98ff657be0d209749749.js (421 KiB)
+  5898.a74ed8c370ae3f64521c.js (459 KiB) @ http://localhost:4000/app.9f33eaaf932f8bed310f.js:52
+[  888393ms] [WARNING] [webpack-dev-server] WARNING
+entrypoint size limit: The following entrypoint(s) combined asset size exceeds the recommended limit (244 KiB). This can impact web performance.
+Entrypoints:
+  main (1.18 MiB)
+      main.3b77b26cb02e32802365.css
+      app.3b77b26cb02e32802365.js
+      8792.9f33eaaf932f8bed310f.hot-update.js
+ @ http://localhost:4000/app.9f33eaaf932f8bed310f.js:52
+[  888399ms] [INFO] [webpack-dev-server] App hot update... @ http://localhost:4000/app.9f33eaaf932f8bed310f.js:52
+[  888399ms] [LOG] [HMR] Checking for updates on the server... @ http://localhost:4000/app.9f33eaaf932f8bed310f.js:52
+[  889059ms] [INFO] [webpack-dev-server] App updated. Recompiling... @ http://localhost:4000/app.9f33eaaf932f8bed310f.js:52
+[  903758ms] [WARNING] [webpack-dev-server] Warnings while compiling. @ http://localhost:4000/app.9f33eaaf932f8bed310f.js:52
+[  903759ms] [WARNING] [webpack-dev-server] WARNING
+asset size limit: The following asset(s) exceed the recommended size limit (244 KiB).
+This can impact web performance.
+Assets: 
+  9ff4cd0a41ae679059ae.ttf (333 KiB)
+  d707da3273e928fefc1a.ttf (324 KiB)
+  62494923a230eb3b0bc5.ttf (248 KiB)
+  6a75d92543d7b52cebbd.ttf (246 KiB)
+  app.d6468273262a446c44ff.js (881 KiB)
+  highlight.d19f31372eca168c1a22.js (938 KiB)
+  sentry.b7d15a1493b9ba6a19d3.js (246 KiB)
+  4012.5bbe6ba53ec71b1c57ad.js (401 KiB)
+  7807.cfb77bdf2a2e33a06f1d.js (735 KiB)
+  5165.fd28148e0da1902aa9a2.js (329 KiB)
+  6637.c5ef2f1c9932c1142859.js (979 KiB)
+  359.98ff657be0d209749749.js (421 KiB)
+  5898.bf3b3e79e881f409c68a.js (459 KiB) @ http://localhost:4000/app.9f33eaaf932f8bed310f.js:52
+[  903759ms] [WARNING] [webpack-dev-server] WARNING
+entrypoint size limit: The following entrypoint(s) combined asset size exceeds the recommended limit (244 KiB). This can impact web performance.
+Entrypoints:
+  main (1010 KiB)
+      main.d6468273262a446c44ff.css
+      app.d6468273262a446c44ff.js
+      8792.3b77b26cb02e32802365.hot-update.js
+ @ http://localhost:4000/app.9f33eaaf932f8bed310f.js:52
+[  903763ms] [INFO] [webpack-dev-server] App hot update... @ http://localhost:4000/app.9f33eaaf932f8bed310f.js:52
+[  904411ms] [INFO] [webpack-dev-server] App updated. Recompiling... @ http://localhost:4000/app.9f33eaaf932f8bed310f.js:52
+[  919094ms] [WARNING] [webpack-dev-server] Warnings while compiling. @ http://localhost:4000/app.9f33eaaf932f8bed310f.js:52
+[  919095ms] [WARNING] [webpack-dev-server] WARNING
+asset size limit: The following asset(s) exceed the recommended size limit (244 KiB).
+This can impact web performance.
+Assets: 
+  9ff4cd0a41ae679059ae.ttf (333 KiB)
+  d707da3273e928fefc1a.ttf (324 KiB)
+  62494923a230eb3b0bc5.ttf (248 KiB)
+  6a75d92543d7b52cebbd.ttf (246 KiB)
+  app.a9e28a323a11deaebdaa.js (881 KiB)
+  highlight.d19f31372eca168c1a22.js (938 KiB)
+  sentry.b7d15a1493b9ba6a19d3.js (246 KiB)
+  4012.5bbe6ba53ec71b1c57ad.js (401 KiB)
+  7807.cfb77bdf2a2e33a06f1d.js (735 KiB)
+  5165.fd28148e0da1902aa9a2.js (329 KiB)
+  6637.3b129e1056d223e04b48.js (979 KiB)
+  359.98ff657be0d209749749.js (421 KiB)
+  5898.97ee25bfbf5ab516739c.js (459 KiB) @ http://localhost:4000/app.9f33eaaf932f8bed310f.js:52
+[  919095ms] [WARNING] [webpack-dev-server] WARNING
+entrypoint size limit: The following entrypoint(s) combined asset size exceeds the recommended limit (244 KiB). This can impact web performance.
+Entrypoints:
+  main (1010 KiB)
+      main.a9e28a323a11deaebdaa.css
+      app.a9e28a323a11deaebdaa.js
+      8792.d6468273262a446c44ff.hot-update.js
+ @ http://localhost:4000/app.9f33eaaf932f8bed310f.js:52
+[  919100ms] [INFO] [webpack-dev-server] App hot update... @ http://localhost:4000/app.9f33eaaf932f8bed310f.js:52
+[  919826ms] [INFO] [webpack-dev-server] App updated. Recompiling... @ http://localhost:4000/app.9f33eaaf932f8bed310f.js:52
+[  919836ms] [WARNING] [HMR] Cannot apply update. Need to do a full reload! @ http://localhost:4000/app.9f33eaaf932f8bed310f.js:52
+[  919836ms] [WARNING] [HMR] Error: Aborted because 61787 is not accepted
+Update propagation: 61787
+    at u (http://localhost:4000/app.9f33eaaf932f8bed310f.js:53:604891)
+    at http://localhost:4000/app.9f33eaaf932f8bed310f.js:53:597502
+    at Array.map (<anonymous>)
+    at m (http://localhost:4000/app.9f33eaaf932f8bed310f.js:53:597479)
+    at t (http://localhost:4000/app.9f33eaaf932f8bed310f.js:53:597127)
+    at http://localhost:4000/app.9f33eaaf932f8bed310f.js:53:597177 @ http://localhost:4000/app.9f33eaaf932f8bed310f.js:52
+[  956506ms] [WARNING] [webpack-dev-server] Warnings while compiling. @ http://localhost:4000/app.9f33eaaf932f8bed310f.js:52
+[  956506ms] [WARNING] [webpack-dev-server] WARNING
+asset size limit: The following asset(s) exceed the recommended size limit (244 KiB).
+This can impact web performance.
+Assets: 
+  9ff4cd0a41ae679059ae.ttf (333 KiB)
+  d707da3273e928fefc1a.ttf (324 KiB)
+  62494923a230eb3b0bc5.ttf (248 KiB)
+  6a75d92543d7b52cebbd.ttf (246 KiB)
+  app.a4cadc27503cb5e289f5.js (881 KiB)
+  highlight.d19f31372eca168c1a22.js (938 KiB)
+  sentry.b7d15a1493b9ba6a19d3.js (246 KiB)
+  4012.5bbe6ba53ec71b1c57ad.js (401 KiB)
+  7807.cfb77bdf2a2e33a06f1d.js (735 KiB)
+  5165.fd28148e0da1902aa9a2.js (329 KiB)
+  6637.16f1ea1dfc319148fa62.js (979 KiB)
+  359.98ff657be0d209749749.js (421 KiB)
+  5898.76a25781d0278394e937.js (459 KiB) @ http://localhost:4000/app.9f33eaaf932f8bed310f.js:52
+[  956506ms] [WARNING] [webpack-dev-server] WARNING
+entrypoint size limit: The following entrypoint(s) combined asset size exceeds the recommended limit (244 KiB). This can impact web performance.
+Entrypoints:
+  main (1010 KiB)
+      main.a4cadc27503cb5e289f5.css
+      app.a4cadc27503cb5e289f5.js
+      8792.a9e28a323a11deaebdaa.hot-update.js
+ @ http://localhost:4000/app.9f33eaaf932f8bed310f.js:52
+[  956888ms] [INFO] [webpack-dev-server] Server started: Hot Module Replacement enabled, Live Reloading enabled, Progress disabled, Overlay enabled. @ http://localhost:4000/app.a4cadc27503cb5e289f5.js:52
+[  956890ms] [LOG] [HMR] Waiting for update signal from WDS... @ http://localhost:4000/app.a4cadc27503cb5e289f5.js:52
+[  956932ms] [WARNING] [webpack-dev-server] Warnings while compiling. @ http://localhost:4000/app.a4cadc27503cb5e289f5.js:52
+[  956932ms] [WARNING] [webpack-dev-server] WARNING
+asset size limit: The following asset(s) exceed the recommended size limit (244 KiB).
+This can impact web performance.
+Assets: 
+  9ff4cd0a41ae679059ae.ttf (333 KiB)
+  d707da3273e928fefc1a.ttf (324 KiB)
+  62494923a230eb3b0bc5.ttf (248 KiB)
+  6a75d92543d7b52cebbd.ttf (246 KiB)
+  app.a4cadc27503cb5e289f5.js (881 KiB)
+  highlight.d19f31372eca168c1a22.js (938 KiB)
+  sentry.b7d15a1493b9ba6a19d3.js (246 KiB)
+  4012.5bbe6ba53ec71b1c57ad.js (401 KiB)
+  7807.cfb77bdf2a2e33a06f1d.js (735 KiB)
+  5165.fd28148e0da1902aa9a2.js (329 KiB)
+  6637.16f1ea1dfc319148fa62.js (979 KiB)
+  359.98ff657be0d209749749.js (421 KiB)
+  5898.76a25781d0278394e937.js (459 KiB) @ http://localhost:4000/app.a4cadc27503cb5e289f5.js:52
+[  956932ms] [WARNING] [webpack-dev-server] WARNING
+entrypoint size limit: The following entrypoint(s) combined asset size exceeds the recommended limit (244 KiB). This can impact web performance.
+Entrypoints:
+  main (1010 KiB)
+      main.a4cadc27503cb5e289f5.css
+      app.a4cadc27503cb5e289f5.js
+      8792.a9e28a323a11deaebdaa.hot-update.js
+ @ http://localhost:4000/app.a4cadc27503cb5e289f5.js:52
+[  956943ms] [INFO] Simperium config: Production @ http://localhost:4000/app.a4cadc27503cb5e289f5.js:52
+[  956943ms] [INFO] Simperium config: Production @ http://localhost:4000/app.a4cadc27503cb5e289f5.js:52
+[  958288ms] [INFO] [webpack-dev-server] "dist/index.html" from static directory was changed. Reloading... @ http://localhost:4000/app.a4cadc27503cb5e289f5.js:52
+[  958411ms] [INFO] [webpack-dev-server] Server started: Hot Module Replacement enabled, Live Reloading enabled, Progress disabled, Overlay enabled. @ http://localhost:4000/app.a4cadc27503cb5e289f5.js:52
+[  958411ms] [LOG] [HMR] Waiting for update signal from WDS... @ http://localhost:4000/app.a4cadc27503cb5e289f5.js:52
+[  958422ms] [WARNING] [webpack-dev-server] Warnings while compiling. @ http://localhost:4000/app.a4cadc27503cb5e289f5.js:52
+[  958422ms] [WARNING] [webpack-dev-server] WARNING
+asset size limit: The following asset(s) exceed the recommended size limit (244 KiB).
+This can impact web performance.
+Assets: 
+  9ff4cd0a41ae679059ae.ttf (333 KiB)
+  d707da3273e928fefc1a.ttf (324 KiB)
+  62494923a230eb3b0bc5.ttf (248 KiB)
+  6a75d92543d7b52cebbd.ttf (246 KiB)
+  app.a4cadc27503cb5e289f5.js (881 KiB)
+  highlight.d19f31372eca168c1a22.js (938 KiB)
+  sentry.b7d15a1493b9ba6a19d3.js (246 KiB)
+  4012.5bbe6ba53ec71b1c57ad.js (401 KiB)
+  7807.cfb77bdf2a2e33a06f1d.js (735 KiB)
+  5165.fd28148e0da1902aa9a2.js (329 KiB)
+  6637.16f1ea1dfc319148fa62.js (979 KiB)
+  359.98ff657be0d209749749.js (421 KiB)
+  5898.76a25781d0278394e937.js (459 KiB) @ http://localhost:4000/app.a4cadc27503cb5e289f5.js:52
+[  958422ms] [WARNING] [webpack-dev-server] WARNING
+entrypoint size limit: The following entrypoint(s) combined asset size exceeds the recommended limit (244 KiB). This can impact web performance.
+Entrypoints:
+  main (1010 KiB)
+      main.a4cadc27503cb5e289f5.css
+      app.a4cadc27503cb5e289f5.js
+      8792.a9e28a323a11deaebdaa.hot-update.js
+ @ http://localhost:4000/app.a4cadc27503cb5e289f5.js:52
+[  958426ms] [INFO] Simperium config: Production @ http://localhost:4000/app.a4cadc27503cb5e289f5.js:52
+[  958426ms] [INFO] Simperium config: Production @ http://localhost:4000/app.a4cadc27503cb5e289f5.js:52

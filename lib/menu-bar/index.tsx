@@ -49,15 +49,20 @@ export const MenuBar: FunctionComponent<Props> = ({
 
   return (
     <div className="menu-bar">
-      <IconButton
-        icon={<MenuIcon />}
-        onClick={toggleNavigation}
-        title={`Menu • ${CmdOrCtrl}+Shift+U`}
-      />
-      <div id="notes-title" className="notes-title" aria-hidden="true">
-        {collectionTitle}
+      <div className="menu-bar__drag-region">
+        <div className="menu-bar__left">
+          <IconButton
+            icon={<MenuIcon />}
+            onClick={toggleNavigation}
+            title={`Menu • ${CmdOrCtrl}+Shift+U`}
+          />
+          <div className="menu-bar__title-area" aria-hidden="true">
+            <div id="notes-title" className="menu-bar__title">
+              {collectionTitle}
+            </div>
+          </div>
+        </div>
       </div>
-      <span aria-hidden="true" />
     </div>
   );
 };

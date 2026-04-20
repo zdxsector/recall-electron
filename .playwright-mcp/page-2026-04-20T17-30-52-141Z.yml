@@ -1,0 +1,133 @@
+- generic [ref=e1]:
+  - generic [ref=e5]:
+    - navigation "Folders" [ref=e333]:
+      - generic [ref=e7]:
+        - button "Toggle sidebar" [ref=e334] [cursor=pointer]:
+          - img [ref=e11]
+        - generic [ref=e14]:
+          - button "All Notes" [ref=e335] [cursor=pointer]:
+            - img [ref=e18]
+            - text: All Notes
+          - button "Trash" [ref=e336] [cursor=pointer]:
+            - img [ref=e24]
+            - text: Trash
+          - button "Settings" [ref=e337] [cursor=pointer]:
+            - img [ref=e30]
+            - text: Settings
+        - generic [ref=e35]:
+          - generic [ref=e36]: Notebooks
+          - button "New notebook…" [ref=e338] [cursor=pointer]
+        - generic [ref=e39]:
+          - button "Keyboard Shortcuts" [ref=e339] [cursor=pointer]
+          - button "slybacalso.me" [ref=e340] [cursor=pointer]
+          - button "About" [ref=e341] [cursor=pointer]
+    - complementary "Notes list" [ref=e342]:
+      - generic [ref=e46]:
+        - generic "Menu • Cmd+Shift+U" [ref=e343]:
+          - button "Menu • Cmd+Shift+U" [active] [ref=e344] [cursor=pointer]:
+            - img [ref=e49]
+        - generic [ref=e53]: All Notes
+      - generic [ref=e54]:
+        - button "Focus search field" [ref=e345] [cursor=pointer]:
+          - img [ref=e56]
+        - searchbox "Search all notes and tags" [ref=e346]
+        - button "New Note" [ref=e347] [cursor=pointer]:
+          - img [ref=e61]
+      - grid "All Notes" [ref=e351]:
+        - rowgroup [ref=e352]:
+          - row "Pin note No Title Edit note No Title" [ref=e353] [cursor=pointer]:
+            - cell "Pin note No Title Edit note No Title" [ref=e354]:
+              - button "Pin note No Title" [ref=e356]:
+                - img [ref=e357]
+              - button "Edit note No Title" [ref=e360]:
+                - generic [ref=e362]: No Title
+    - main "Note editor" [ref=e349]:
+      - toolbar "note actions" [ref=e364]:
+        - generic "Toggle Focus Mode" [ref=e367]:
+          - button "Toggle Focus Mode" [ref=e368] [cursor=pointer]:
+            - img [ref=e369]
+        - generic [ref=e372]:
+          - generic "Delete note" [ref=e374]:
+            - button "Delete note" [ref=e375] [cursor=pointer]:
+              - img [ref=e376]
+          - generic "Insert Checklist • Ctrl+Shift+C" [ref=e380]:
+            - button "Insert Checklist • Ctrl+Shift+C" [ref=e381] [cursor=pointer]:
+              - img [ref=e382]
+          - generic "Info" [ref=e386]:
+            - button "Info" [ref=e387] [cursor=pointer]:
+              - img [ref=e388]
+          - generic "Actions" [ref=e392]:
+            - button "Actions" [ref=e393] [cursor=pointer]:
+              - img [ref=e394]
+      - generic [ref=e74]:
+        - paragraph [ref=e402]:
+          - generic [ref=e403]: Type / to insert...
+        - generic "List of tags for the current note, click a tag to remove it" [ref=e405]:
+          - generic [ref=e406]:
+            - generic [ref=e407]: Add tag…
+            - generic "Add tag…" [ref=e408]
+  - generic [ref=e421]:
+    - generic [ref=e422]:
+      - generic [ref=e423]: BASIC BLOCKS
+      - generic [ref=e424] [cursor=pointer]:
+        - generic "Lorem Ipsum text" [ref=e429]: Paragraph
+        - generic [ref=e431]: ⌘+0
+      - generic [ref=e432] [cursor=pointer]:
+        - generic "---" [ref=e437]: Horizontal Line
+        - generic [ref=e439]: ⌥+⌘+-
+      - generic [ref=e440] [cursor=pointer]:
+        - generic "--- Lorem Ipsum ---" [ref=e445]: Front Matter
+        - generic [ref=e447]: ⌥+⌘+Y
+    - generic [ref=e448]:
+      - generic [ref=e449]: HEADERS
+      - generic [ref=e450] [cursor=pointer]:
+        - generic "# Lorem Ipsum..." [ref=e455]: Header 1
+        - generic [ref=e457]: ⌘+1
+      - generic [ref=e458] [cursor=pointer]:
+        - generic "## Lorem Ipsum..." [ref=e463]: Header 2
+        - generic [ref=e465]: ⌘+2
+      - generic [ref=e466] [cursor=pointer]:
+        - generic "### Lorem Ipsum..." [ref=e471]: Header 3
+        - generic [ref=e473]: ⌘+3
+      - generic [ref=e474] [cursor=pointer]:
+        - generic "#### Lorem Ipsum..." [ref=e479]: Header 4
+        - generic [ref=e481]: ⌘+4
+      - generic [ref=e482] [cursor=pointer]:
+        - generic "##### Lorem Ipsum..." [ref=e487]: Header 5
+        - generic [ref=e489]: ⌘+5
+      - generic [ref=e490] [cursor=pointer]:
+        - generic "###### Lorem Ipsum..." [ref=e495]: Header 6
+        - generic [ref=e497]: ⌘+6
+    - generic [ref=e498]:
+      - generic [ref=e499]: ADVANCED BLOCKS
+      - generic [ref=e500] [cursor=pointer]:
+        - generic "|Lorem | Ipsum |" [ref=e505]: Table Block
+        - generic [ref=e507]: ⇧+⌘+T
+      - generic [ref=e508] [cursor=pointer]:
+        - generic "$$ Lorem Ipsum $$" [ref=e513]: Display Math
+        - generic [ref=e515]: ⌥+⌘+M
+      - generic [ref=e516] [cursor=pointer]:
+        - generic "<div> Lorem Ipsum </div>" [ref=e521]: HTML Block
+        - generic [ref=e523]: ⌥+⌘+J
+      - generic [ref=e524] [cursor=pointer]:
+        - 'generic "```java Lorem Ipsum ```" [ref=e529]': Code Block
+        - generic [ref=e531]: ⌥+⌘+C
+      - generic [ref=e532] [cursor=pointer]:
+        - generic ">Lorem Ipsum ..." [ref=e537]: Quote Block
+        - generic [ref=e539]: ⌥+⌘+Q
+    - generic [ref=e540]:
+      - generic [ref=e541]: LIST BLOCKS
+      - generic [ref=e542] [cursor=pointer]:
+        - generic "1. Lorem Ipsum ..." [ref=e547]: Order List
+        - generic [ref=e549]: ⌥+⌘+O
+      - generic [ref=e550] [cursor=pointer]:
+        - generic "- Lorem Ipsum ..." [ref=e555]: Bullet List
+        - generic [ref=e557]: ⌥+⌘+U
+      - generic [ref=e558] [cursor=pointer]:
+        - generic "- [x] Lorem Ipsum ..." [ref=e563]: To-do List
+        - generic [ref=e565]: ⌥+⌘+X
+    - generic [ref=e566]:
+      - generic [ref=e567]: DIAGRAMS
+      - generic "By vega-lite.js" [ref=e573] [cursor=pointer]: Vega Chart
+      - generic "By mermaid" [ref=e579] [cursor=pointer]: Mermaid
+      - generic "By plantuml" [ref=e585] [cursor=pointer]: Plantuml

@@ -1,0 +1,156 @@
+- generic [ref=e1]:
+  - generic [ref=e4]:
+    - navigation "Folders":
+      - generic:
+        - button "Toggle sidebar" [active] [ref=e9] [cursor=pointer]:
+          - img [ref=e10]
+        - generic [ref=e13]:
+          - button "All Notes" [ref=e15] [cursor=pointer]:
+            - img [ref=e17]
+            - text: All Notes
+          - button "Trash" [ref=e21] [cursor=pointer]:
+            - img [ref=e23]
+            - text: Trash
+          - button "Settings" [ref=e27] [cursor=pointer]:
+            - img [ref=e29]
+            - text: Settings
+        - generic [ref=e34]:
+          - generic [ref=e35]: Notebooks
+          - generic:
+            - generic [ref=e37]:
+              - button "▾ Notebooks" [ref=e38] [cursor=pointer]
+              - button "Delete notebook" [ref=e39] [cursor=pointer]:
+                - img [ref=e40]
+              - button "+" [ref=e43] [cursor=pointer]
+            - generic [ref=e46]:
+              - button "Inbox" [ref=e47] [cursor=pointer]:
+                - img [ref=e49]
+                - generic: Inbox
+              - button "Delete folder" [ref=e52] [cursor=pointer]:
+                - img [ref=e53]
+          - button "New notebook…" [ref=e57] [cursor=pointer]
+        - generic [ref=e58]:
+          - button "Keyboard Shortcuts" [ref=e59] [cursor=pointer]
+          - button "slybacalso.me" [ref=e60] [cursor=pointer]
+          - button "About" [ref=e61] [cursor=pointer]
+    - complementary "Notes list" [ref=e62]:
+      - generic [ref=e65]:
+        - generic "Menu • Cmd+Shift+U" [ref=e66]:
+          - button "Menu • Cmd+Shift+U" [ref=e67] [cursor=pointer]:
+            - img [ref=e68]
+        - generic [ref=e72]: Inbox
+      - generic [ref=e73]:
+        - button "Focus search field" [ref=e74] [cursor=pointer]:
+          - img [ref=e75]
+        - searchbox "Search all notes and tags" [ref=e78]
+        - button "New Note" [ref=e79] [cursor=pointer]:
+          - img [ref=e80]
+      - grid "Inbox" [ref=e85]:
+        - rowgroup [ref=e86]:
+          - row "Pin note Test Edit note Test" [ref=e87] [cursor=pointer]:
+            - cell "Pin note Test Edit note Test" [ref=e88]:
+              - button "Pin note Test" [ref=e90]:
+                - img [ref=e91]
+              - button "Edit note Test" [ref=e94]:
+                - generic [ref=e96]: Test
+    - main "Note editor" [ref=e98]:
+      - toolbar "note actions" [ref=e100]:
+        - generic "Toggle Focus Mode" [ref=e103]:
+          - button "Toggle Focus Mode" [ref=e104] [cursor=pointer]:
+            - img [ref=e105]
+        - generic [ref=e108]:
+          - generic "Delete note" [ref=e110]:
+            - button "Delete note" [ref=e111] [cursor=pointer]:
+              - img [ref=e112]
+          - generic "Insert Checklist • Ctrl+Shift+C" [ref=e116]:
+            - button "Insert Checklist • Ctrl+Shift+C" [ref=e117] [cursor=pointer]:
+              - img [ref=e118]
+          - generic "Info" [ref=e122]:
+            - button "Info" [ref=e123] [cursor=pointer]:
+              - img [ref=e124]
+          - generic "Actions" [ref=e128]:
+            - button "Actions" [ref=e129] [cursor=pointer]:
+              - img [ref=e130]
+      - generic [ref=e133]:
+        - generic [ref=e138]:
+          - heading "# Test" [level=1] [ref=e139]:
+            - generic [ref=e140]:
+              - generic: "#"
+              - text: Test
+          - paragraph [ref=e141]:
+            - generic [ref=e142]: this is a test
+          - generic [ref=e143]:
+            - generic [ref=e144]: c
+            - code [ref=e145]:
+              - generic "Copy content" [ref=e146] [cursor=pointer]
+              - generic [ref=e149]: This is working well.
+          - paragraph [ref=e150]
+        - generic "List of tags for the current note, click a tag to remove it" [ref=e153]:
+          - generic [ref=e154]:
+            - generic [ref=e155]: Add tag…
+            - generic "Add tag…" [ref=e156]
+  - generic [ref=e170]:
+    - generic [ref=e171]:
+      - generic [ref=e172]: BASIC BLOCKS
+      - generic [ref=e173] [cursor=pointer]:
+        - generic "Lorem Ipsum text" [ref=e178]: Paragraph
+        - generic [ref=e180]: ⌘+0
+      - generic [ref=e181] [cursor=pointer]:
+        - generic "---" [ref=e186]: Horizontal Line
+        - generic [ref=e188]: ⌥+⌘+-
+      - generic [ref=e189] [cursor=pointer]:
+        - generic "--- Lorem Ipsum ---" [ref=e194]: Front Matter
+        - generic [ref=e196]: ⌥+⌘+Y
+    - generic [ref=e197]:
+      - generic [ref=e198]: HEADERS
+      - generic [ref=e199] [cursor=pointer]:
+        - generic "# Lorem Ipsum..." [ref=e204]: Header 1
+        - generic [ref=e206]: ⌘+1
+      - generic [ref=e207] [cursor=pointer]:
+        - generic "## Lorem Ipsum..." [ref=e212]: Header 2
+        - generic [ref=e214]: ⌘+2
+      - generic [ref=e215] [cursor=pointer]:
+        - generic "### Lorem Ipsum..." [ref=e220]: Header 3
+        - generic [ref=e222]: ⌘+3
+      - generic [ref=e223] [cursor=pointer]:
+        - generic "#### Lorem Ipsum..." [ref=e228]: Header 4
+        - generic [ref=e230]: ⌘+4
+      - generic [ref=e231] [cursor=pointer]:
+        - generic "##### Lorem Ipsum..." [ref=e236]: Header 5
+        - generic [ref=e238]: ⌘+5
+      - generic [ref=e239] [cursor=pointer]:
+        - generic "###### Lorem Ipsum..." [ref=e244]: Header 6
+        - generic [ref=e246]: ⌘+6
+    - generic [ref=e247]:
+      - generic [ref=e248]: ADVANCED BLOCKS
+      - generic [ref=e249] [cursor=pointer]:
+        - generic "|Lorem | Ipsum |" [ref=e254]: Table Block
+        - generic [ref=e256]: ⇧+⌘+T
+      - generic [ref=e257] [cursor=pointer]:
+        - generic "$$ Lorem Ipsum $$" [ref=e262]: Display Math
+        - generic [ref=e264]: ⌥+⌘+M
+      - generic [ref=e265] [cursor=pointer]:
+        - generic "<div> Lorem Ipsum </div>" [ref=e270]: HTML Block
+        - generic [ref=e272]: ⌥+⌘+J
+      - generic [ref=e273] [cursor=pointer]:
+        - 'generic "```java Lorem Ipsum ```" [ref=e278]': Code Block
+        - generic [ref=e280]: ⌥+⌘+C
+      - generic [ref=e281] [cursor=pointer]:
+        - generic ">Lorem Ipsum ..." [ref=e286]: Quote Block
+        - generic [ref=e288]: ⌥+⌘+Q
+    - generic [ref=e289]:
+      - generic [ref=e290]: LIST BLOCKS
+      - generic [ref=e291] [cursor=pointer]:
+        - generic "1. Lorem Ipsum ..." [ref=e296]: Order List
+        - generic [ref=e298]: ⌥+⌘+O
+      - generic [ref=e299] [cursor=pointer]:
+        - generic "- Lorem Ipsum ..." [ref=e304]: Bullet List
+        - generic [ref=e306]: ⌥+⌘+U
+      - generic [ref=e307] [cursor=pointer]:
+        - generic "- [x] Lorem Ipsum ..." [ref=e312]: To-do List
+        - generic [ref=e314]: ⌥+⌘+X
+    - generic [ref=e315]:
+      - generic [ref=e316]: DIAGRAMS
+      - generic "By vega-lite.js" [ref=e322] [cursor=pointer]: Vega Chart
+      - generic "By mermaid" [ref=e328] [cursor=pointer]: Mermaid
+      - generic "By plantuml" [ref=e334] [cursor=pointer]: Plantuml

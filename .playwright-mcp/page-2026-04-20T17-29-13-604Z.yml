@@ -1,0 +1,39 @@
+- generic [ref=e5]:
+  - navigation "Folders" [ref=e333]:
+    - generic [ref=e7]:
+      - button "Toggle sidebar" [ref=e334] [cursor=pointer]:
+        - img [ref=e11]
+      - generic [ref=e14]:
+        - button "All Notes" [ref=e335] [cursor=pointer]:
+          - img [ref=e18]
+          - text: All Notes
+        - button "Trash" [ref=e336] [cursor=pointer]:
+          - img [ref=e24]
+          - text: Trash
+        - button "Settings" [active] [ref=e337] [cursor=pointer]:
+          - img [ref=e30]
+          - text: Settings
+      - generic [ref=e35]:
+        - generic [ref=e36]: Notebooks
+        - button "New notebook…" [ref=e338] [cursor=pointer]
+      - generic [ref=e39]:
+        - button "Keyboard Shortcuts" [ref=e339] [cursor=pointer]
+        - button "slybacalso.me" [ref=e340] [cursor=pointer]
+        - button "About" [ref=e341] [cursor=pointer]
+  - complementary "Notes list" [ref=e342]:
+    - generic [ref=e46]:
+      - generic "Menu • Cmd+Shift+U" [ref=e343]:
+        - button "Menu • Cmd+Shift+U" [ref=e344] [cursor=pointer]:
+          - img [ref=e49]
+      - generic [ref=e53]: All Notes
+    - generic [ref=e54]:
+      - button "Focus search field" [ref=e345] [cursor=pointer]:
+        - img [ref=e56]
+      - searchbox "Search all notes and tags" [ref=e346]
+      - button "New Note" [ref=e347] [cursor=pointer]:
+        - img [ref=e61]
+    - generic [ref=e65]:
+      - img [ref=e67]
+      - button "Create your first note" [ref=e348] [cursor=pointer]
+  - main "Note editor" [ref=e349]:
+    - img [ref=e75]

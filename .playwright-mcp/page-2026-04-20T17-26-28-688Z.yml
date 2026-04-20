@@ -1,0 +1,11 @@
+- iframe [ref=e2]:
+  - generic [ref=f1e2]:
+    - generic [ref=f1e3]: "Compiled with problems:"
+    - button "Dismiss" [ref=f1e4] [cursor=pointer]: ×
+    - generic [ref=f1e5]:
+      - generic [ref=f1e6]:
+        - generic [ref=f1e7]: WARNING
+        - generic [ref=f1e8]: "asset size limit: The following asset(s) exceed the recommended size limit (244 KiB). This can impact web performance. Assets: 9ff4cd0a41ae679059ae.ttf (333 KiB) d707da3273e928fefc1a.ttf (324 KiB) 62494923a230eb3b0bc5.ttf (248 KiB) 6a75d92543d7b52cebbd.ttf (246 KiB) app.9f33eaaf932f8bed310f.js (881 KiB) highlight.d19f31372eca168c1a22.js (938 KiB) sentry.b7d15a1493b9ba6a19d3.js (246 KiB) 4012.5bbe6ba53ec71b1c57ad.js (401 KiB) 7807.cfb77bdf2a2e33a06f1d.js (735 KiB) 5165.fd28148e0da1902aa9a2.js (329 KiB) 6637.fd03328dbad8f4db44e4.js (979 KiB) 359.98ff657be0d209749749.js (421 KiB) 5898.faad8c6c1d918de80b5e.js (459 KiB)"
+      - generic [ref=f1e9]:
+        - generic [ref=f1e10]: WARNING
+        - generic [ref=f1e11]: "entrypoint size limit: The following entrypoint(s) combined asset size exceeds the recommended limit (244 KiB). This can impact web performance. Entrypoints: main (1000 KiB) main.9f33eaaf932f8bed310f.css app.9f33eaaf932f8bed310f.js"

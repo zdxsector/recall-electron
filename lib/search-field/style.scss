@@ -5,17 +5,17 @@
   flex-direction: row;
   align-items: center;
   width: 100%;
-  padding: 6px 5px 5px 14px;
-  border-bottom: 1px solid var(--secondary-color);
-  height: $toolbar-height;
-  background-color: var(--background-color);
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--note-list-separator-color);
+  height: 40px;
+  background-color: var(--note-list-bg-color);
 
   input {
     appearance: none;
-    background-color: var(--background-color);
+    background-color: transparent;
     border: 0;
     color: var(--primary-color);
-    font-size: 16px;
+    font-size: 14px;
     min-width: 0; // Firefox
     text-overflow: ellipsis !important;
     width: 100%;

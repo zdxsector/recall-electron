@@ -1,19 +1,59 @@
 @use '../../scss/variables' as *;
 
 .navigation-bar {
-  background-color: var(--background-color);
+  background-color: var(--sidebar-bg-color);
   display: flex;
   flex-direction: column;
-  padding-top: $toolbar-height;
   height: 100%;
   width: 100%;
+}
+
+.navigation-bar__header {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  height: 52px;
+  padding: 0 12px;
+  flex: none;
+  -webkit-app-region: drag;
+
+  .is-macos & {
+    padding-left: 78px;
+  }
+}
+
+.navigation-bar__header-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  -webkit-app-region: no-drag;
+
+  button {
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--foreground-color);
+
+    &:hover {
+      background: var(--secondary-highlight-color);
+      color: var(--primary-color);
+    }
+
+    svg {
+      width: 16px;
+      height: 16px;
+    }
+  }
 }
 
 .navigation-bar__folders {
   display: flex;
   flex: none;
   flex-direction: column;
-  border-bottom: 1px solid var(--secondary-color);
+  padding: 0 12px;
 }
 
 .navigation-bar__tags {
@@ -23,20 +63,19 @@
   flex: 0 1 auto;
   overflow: hidden;
   min-height: 9em;
-  padding: 12px 0 0;
+  padding: 8px 0 0;
 }
 
 .navigation-bar__section-title {
   padding: 6px 16px;
-  font-size: 12px;
+  font-size: 11px;
+  font-weight: 600;
   color: var(--foreground-color);
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
 
 .navigation-bar__notebooks {
-  // Only allow vertical scrolling; long notebook names should truncate instead
-  // of forcing a horizontal scrollbar.
   overflow-y: auto;
   overflow-x: hidden;
   padding-bottom: 10px;
@@ -50,19 +89,20 @@
   display: flex;
   align-items: center;
   padding: 0 10px 0 10px;
-  min-width: 0; // allow flex children to shrink without overflow
+  min-width: 0;
 }
 
 .navigation-bar__notebook-toggle {
   flex: 1 1 auto;
-  min-width: 0; // required for ellipsis within flex containers
+  min-width: 0;
   text-align: left;
-  padding: 8px 6px;
+  padding: 6px 8px;
   color: var(--primary-color);
-  border-radius: 6px;
+  border-radius: 8px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  font-size: 13px;
 
   &:hover {
     background: var(--secondary-highlight-color);
@@ -75,9 +115,9 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 8px 6px;
+  padding: 6px 8px;
   color: var(--primary-color);
-  border-radius: 6px;
+  border-radius: 8px;
 }
 
 .navigation-bar__notebook-icon {
@@ -90,8 +130,8 @@
 .navigation-bar__notebook-add,
 .navigation-bar__notebook-delete {
   flex: none;
-  width: 28px;
-  height: 28px;
+  width: 24px;
+  height: 24px;
   border-radius: 6px;
   color: var(--foreground-color);
   display: inline-flex;
@@ -104,8 +144,8 @@
   }
 
   svg {
-    width: 16px;
-    height: 16px;
+    width: 14px;
+    height: 14px;
   }
 }
 
@@ -122,12 +162,13 @@
   flex: 1 1 auto;
   display: inline-flex;
   align-items: center;
-  gap: 10px;
-  padding: 8px 10px;
+  gap: 8px;
+  padding: 6px 10px;
   border-radius: 8px;
   color: var(--primary-color);
   text-align: left;
   width: 100%;
+  font-size: 13px;
 
   &:hover {
     background: var(--secondary-highlight-color);
@@ -145,8 +186,8 @@
   justify-content: center;
 
   svg {
-    width: 18px;
-    height: 18px;
+    width: 16px;
+    height: 16px;
   }
 }
 
@@ -159,12 +200,13 @@
 .navigation-bar__rename-input {
   width: 100%;
   max-width: 100%;
-  padding: 6px 8px;
+  padding: 4px 8px;
   border-radius: 6px;
   border: 1px solid var(--secondary-color);
   background: var(--background-color);
   color: var(--primary-color);
   outline: none;
+  font-size: 13px;
 }
 
 .navigation-bar__rename-input:focus {
@@ -173,8 +215,8 @@
 
 .navigation-bar__folder-delete {
   flex: none;
-  width: 28px;
-  height: 28px;
+  width: 24px;
+  height: 24px;
   margin-right: 10px;
   border-radius: 8px;
   color: var(--foreground-color);
@@ -184,8 +226,8 @@
   opacity: 0;
 
   svg {
-    width: 16px;
-    height: 16px;
+    width: 14px;
+    height: 14px;
   }
 }
 
@@ -199,13 +241,14 @@
 }
 
 .navigation-bar__untagged {
-  border-top: 1px solid var(--secondary-color);
+  border-top: 1px solid var(--sidebar-separator-color);
+  padding-top: 4px;
 }
 
 .navigation-bar__tools {
   flex: 1 0 auto;
   padding: 10px 0;
-  border-top: 1px solid var(--secondary-color);
+  border-top: 1px solid var(--sidebar-separator-color);
 }
 
 .navigation-bar__footer {
@@ -214,7 +257,8 @@
   flex: none;
   justify-content: flex-start;
   align-items: center;
-  padding: 0 20px 20px;
+  padding: 0 16px 16px;
+  font-size: 12px;
 }
 
 .navigation-bar__server-connection {
@@ -223,11 +267,12 @@
   flex: none;
   justify-content: flex-start;
   align-items: center;
-  padding: 0 20px;
+  padding: 0 16px;
 }
 
 .navigation-bar__footer-item {
   margin-right: 10px;
+  font-size: 12px;
 
   &:last-child {
     margin-right: 0;

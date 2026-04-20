@@ -30,6 +30,8 @@ $medium: 900px;
 body[data-theme='light'] {
   // macOS-inspired light palette
   --background-color: #ffffff;
+  --sidebar-bg-color: #f5f5f5;
+  --sidebar-separator-color: #e0e0e0;
   --foreground-color: #6e6e73;
   --primary-color: #1d1d1f;
   --secondary-color: #d1d1d6;
@@ -62,11 +64,16 @@ body[data-theme='light'] {
   --settings-fg-color: #1d1d1f;
   --alternative-highlight-color: #f2f2f7;
   --disabled-text-color: #c7c7cc;
+  --note-list-bg-color: #ffffff;
+  --note-list-separator-color: #e5e5ea;
+  --toolbar-bg-color: rgba(255, 255, 255, 0.85);
 }
 
 body[data-theme='dark'] {
   // macOS-inspired dark palette
   --background-color: #1c1c1e;
+  --sidebar-bg-color: #2c2c2e;
+  --sidebar-separator-color: #3a3a3c;
   --foreground-color: #8e8e93;
   --primary-color: #f2f2f7;
   --secondary-color: #3a3a3c;
@@ -98,4 +105,7 @@ body[data-theme='dark'] {
   --settings-fg-color: #f2f2f7;
   --alternative-highlight-color: #2c2c2e;
   --disabled-text-color: #636366;
+  --note-list-bg-color: #1c1c1e;
+  --note-list-separator-color: #3a3a3c;
+  --toolbar-bg-color: rgba(28, 28, 30, 0.85);
 }

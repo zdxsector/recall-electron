@@ -5,32 +5,44 @@
   display: none;
 }
 
+// When sidebar is collapsed on macOS, menu-bar becomes the leftmost header element
+// and needs padding to clear the traffic light window controls
+.is-macos .app-layout__nav-column[data-collapsed='true'] ~ .app-layout__source-column .menu-bar {
+  padding-left: 78px;
+}
+
 .menu-bar {
-  height: $toolbar-height;
-  padding: 0 15px;
-  border-bottom: 1px solid var(--secondary-color);
+  height: 52px;
+  padding: 0 12px;
+  border-bottom: 1px solid var(--note-list-separator-color);
   display: flex;
-  justify-content: space-between;
   align-items: center;
   flex: 0 0 auto;
-  background-color: var(--background-color);
+  background-color: var(--toolbar-bg-color);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
 
-  .notes-title {
-    font-size: 16px;
-    font-weight: 500;
-    flex: 0 1 auto;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    color: var(--primary-color);
-  }
+.menu-bar__drag-region {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  -webkit-app-region: drag;
+}
+
+.menu-bar__left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  -webkit-app-region: no-drag;
 
   .icon-button {
     flex: 0 0 auto;
   }
 
   .icon-button svg.icon-menu {
-    width: 24px;
-    height: 24px;
+    width: 20px;
+    height: 20px;
   }
 
   .button {
@@ -44,4 +56,17 @@
       cursor: default;
     }
   }
+}
+
+.menu-bar__title-area {
+  overflow: hidden;
+}
+
+.menu-bar__title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--primary-color);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }

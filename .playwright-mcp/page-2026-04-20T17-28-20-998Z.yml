@@ -1,0 +1,112 @@
+- generic [ref=e1]:
+  - generic [ref=e5]:
+    - navigation [ref=e88]:
+      - generic [ref=e7]:
+        - button [ref=e89] [cursor=pointer]:
+          - img [ref=e11]
+        - generic [ref=e14]:
+          - button [ref=e90] [cursor=pointer]:
+            - img [ref=e18]
+            - text: All Notes
+          - button [ref=e91] [cursor=pointer]:
+            - img [ref=e24]
+            - text: Trash
+          - button [ref=e92] [cursor=pointer]:
+            - img [ref=e30]
+            - text: Settings
+        - generic [ref=e35]:
+          - generic [ref=e36]: Notebooks
+          - button [ref=e93] [cursor=pointer]: New notebook…
+        - generic [ref=e39]:
+          - button [ref=e94] [cursor=pointer]: Keyboard Shortcuts
+          - button [ref=e95] [cursor=pointer]: slybacalso.me
+          - button [ref=e96] [cursor=pointer]: About
+    - complementary [ref=e97]:
+      - generic [ref=e46]:
+        - button [ref=e99] [cursor=pointer]:
+          - img [ref=e49]
+        - generic [ref=e53]: All Notes
+      - generic [ref=e54]:
+        - button [ref=e100] [cursor=pointer]:
+          - img [ref=e56]
+        - searchbox [ref=e101]
+        - button [ref=e102] [cursor=pointer]:
+          - img [ref=e61]
+      - generic [ref=e65]:
+        - img [ref=e67]
+        - button [ref=e103] [cursor=pointer]: Create your first note
+    - main [ref=e104]:
+      - img [ref=e75]
+  - dialog "SETTINGS" [active] [ref=e106]:
+    - generic [ref=e107]:
+      - generic [ref=e108]:
+        - heading "Settings" [level=2] [ref=e109]
+        - button "Close dialog" [ref=e111] [cursor=pointer]:
+          - img [ref=e112]
+      - generic [ref=e116]:
+        - tablist [ref=e117]:
+          - tab "display" [selected] [ref=e118] [cursor=pointer]
+          - tab "tools" [ref=e119] [cursor=pointer]
+        - generic [ref=e120]:
+          - tabpanel "display" [ref=e121]:
+            - generic [ref=e122]:
+              - generic [ref=e123]:
+                - heading "Note display" [level=3] [ref=e124]
+                - generic [ref=e125]:
+                  - generic [ref=e126]:
+                    - generic [ref=e127]: Comfy
+                    - radio "Comfy" [checked] [ref=e130] [cursor=pointer]
+                  - generic [ref=e131]:
+                    - generic [ref=e132]: Condensed
+                    - radio "Condensed" [ref=e135] [cursor=pointer]
+                  - generic [ref=e136]:
+                    - generic [ref=e137]: Expanded
+                    - radio "Expanded" [ref=e140] [cursor=pointer]
+              - generic [ref=e141]:
+                - heading "Line length" [level=3] [ref=e142]
+                - generic [ref=e143]:
+                  - generic [ref=e144]:
+                    - generic [ref=e145]: Narrow
+                    - radio "Narrow" [checked] [ref=e148] [cursor=pointer]
+                  - generic [ref=e149]:
+                    - generic [ref=e150]: Full
+                    - radio "Full" [ref=e153] [cursor=pointer]
+              - generic [ref=e154]:
+                - heading "Sort by" [level=3] [ref=e155]
+                - generic [ref=e156]:
+                  - generic [ref=e157]:
+                    - generic [ref=e158]: "Name: A-Z"
+                    - 'radio "Name: A-Z" [ref=e161] [cursor=pointer]'
+                  - generic [ref=e162]:
+                    - generic [ref=e163]: "Name: Z-A"
+                    - 'radio "Name: Z-A" [ref=e166] [cursor=pointer]'
+                  - generic [ref=e167]:
+                    - generic [ref=e168]: "Created: Newest"
+                    - 'radio "Created: Newest" [ref=e171] [cursor=pointer]'
+                  - generic [ref=e172]:
+                    - generic [ref=e173]: "Created: Oldest"
+                    - 'radio "Created: Oldest" [ref=e176] [cursor=pointer]'
+                  - generic [ref=e177]:
+                    - generic [ref=e178]: "Modified: Newest"
+                    - 'radio "Modified: Newest" [checked] [ref=e181] [cursor=pointer]'
+                  - generic [ref=e182]:
+                    - generic [ref=e183]: "Modified: Oldest"
+                    - 'radio "Modified: Oldest" [ref=e186] [cursor=pointer]'
+              - generic [ref=e187]:
+                - heading "Tags" [level=3] [ref=e188]
+                - generic [ref=e190]:
+                  - generic [ref=e191]: Sort Alphabetically
+                  - checkbox "Sort Alphabetically" [ref=e194]
+              - generic [ref=e195]:
+                - heading "Theme" [level=3] [ref=e196]
+                - generic [ref=e197]:
+                  - generic [ref=e198]:
+                    - generic [ref=e199]: System
+                    - radio "System" [checked] [ref=e202] [cursor=pointer]
+                  - generic [ref=e203]:
+                    - generic [ref=e204]: Light
+                    - radio "Light" [ref=e207] [cursor=pointer]
+                  - generic [ref=e208]:
+                    - generic [ref=e209]: Dark
+                    - radio "Dark" [ref=e212] [cursor=pointer]
+          - tabpanel "tools"
