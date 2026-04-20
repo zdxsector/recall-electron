@@ -35,7 +35,10 @@
 }
 
 .navigation-bar__notebooks {
-  overflow: auto;
+  // Only allow vertical scrolling; long notebook names should truncate instead
+  // of forcing a horizontal scrollbar.
+  overflow-y: auto;
+  overflow-x: hidden;
   padding-bottom: 10px;
 }
 
@@ -47,18 +50,41 @@
   display: flex;
   align-items: center;
   padding: 0 10px 0 10px;
+  min-width: 0; // allow flex children to shrink without overflow
 }
 
 .navigation-bar__notebook-toggle {
   flex: 1 1 auto;
+  min-width: 0; // required for ellipsis within flex containers
   text-align: left;
   padding: 8px 6px;
   color: var(--primary-color);
   border-radius: 6px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 
   &:hover {
     background: var(--secondary-highlight-color);
   }
+}
+
+.navigation-bar__notebook-edit {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 6px;
+  color: var(--primary-color);
+  border-radius: 6px;
+}
+
+.navigation-bar__notebook-icon {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .navigation-bar__notebook-add,

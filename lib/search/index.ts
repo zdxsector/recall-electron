@@ -9,6 +9,8 @@ import type * as T from '../types';
 import { showAllNotes } from '../state/ui/actions';
 
 const emptyList = [] as unknown[];
+const LARGE_NOTE_CONTENT_THRESHOLD = 200_000;
+const HUGE_NOTE_CONTENT_THRESHOLD = 1_000_000;
 
 // @TODO: Refactor search state into Redux for access
 //        and to prevent needing to recalculate separately
@@ -333,9 +335,8 @@ export const middleware: S.Middleware = (store) => {
   };
 
   let searchTimer: ReturnType<typeof setTimeout> | null = null;
-  const queueSearch = () => {
+  const queueSearchWithDelay = (delayMs: number) => {
     clearTimeout(searchTimer!);
-
     searchTimer = setTimeout(() => {
       const searchResults = setFilteredNotes(runSearch());
 
@@ -346,7 +347,106 @@ export const middleware: S.Middleware = (store) => {
           searchResults,
         },
       });
-    }, 30);
+    }, delayMs);
+  };
+  const queueSearch = () => queueSearchWithDelay(30);
+
+  // For very large notes, lowercasing/indexing on every EDIT_NOTE will freeze typing.
+  // Defer the expensive work until the user pauses.
+  const pendingContentWork = new Map<
+    T.EntityId,
+    {
+      timer: ReturnType<typeof setTimeout> | null;
+      idleHandle: number | null;
+      seq: number;
+    }
+  >();
+
+  const cancelPendingContentWork = (noteId: T.EntityId) => {
+    const w = pendingContentWork.get(noteId);
+    if (!w) return;
+    if (w.timer) clearTimeout(w.timer);
+    w.timer = null;
+    if (w.idleHandle != null) {
+      try {
+        (globalThis as any).cancelIdleCallback?.(w.idleHandle);
+      } catch {
+        // ignore
+      }
+      try {
+        clearTimeout(w.idleHandle as any);
+      } catch {
+        // ignore
+      }
+      w.idleHandle = null;
+    }
+  };
+
+  const scheduleIndexLargeNoteContent = (
+    noteId: T.EntityId,
+    content: string
+  ) => {
+    const note = searchState.notes.get(noteId);
+    if (!note) return;
+
+    const len = String(content ?? '').length;
+    const delayMs =
+      len >= HUGE_NOTE_CONTENT_THRESHOLD ? 1500 : len >= LARGE_NOTE_CONTENT_THRESHOLD ? 500 : 0;
+    if (delayMs <= 0) {
+      note.content = content.toLocaleLowerCase();
+      note.casedContent = content;
+      indexNote(noteId);
+      queueSearch();
+      return;
+    }
+
+    const prev = pendingContentWork.get(noteId) ?? {
+      timer: null,
+      idleHandle: null,
+      seq: 0,
+    };
+    prev.seq += 1;
+    pendingContentWork.set(noteId, prev);
+    cancelPendingContentWork(noteId);
+
+    const seq = prev.seq;
+    prev.timer = setTimeout(() => {
+      const compute = () => {
+        const w = pendingContentWork.get(noteId);
+        if (!w || w.seq !== seq) return;
+        const n = searchState.notes.get(noteId);
+        if (!n) return;
+        n.content = content.toLocaleLowerCase();
+        n.casedContent = content;
+        indexNote(noteId);
+        // Use a slightly longer delay for the subsequent full search to avoid
+        // ping-ponging with rapid edits.
+        queueSearchWithDelay(60);
+      };
+
+      if (
+        typeof (globalThis as any).requestIdleCallback === 'function' &&
+        len >= LARGE_NOTE_CONTENT_THRESHOLD
+      ) {
+        try {
+          prev.idleHandle = (globalThis as any).requestIdleCallback(
+            () => {
+              prev.idleHandle = null;
+              compute();
+            },
+            { timeout: 2000 }
+          );
+          return;
+        } catch {
+          // fall back
+        }
+      }
+
+      prev.idleHandle = setTimeout(() => {
+        prev.idleHandle = null;
+        compute();
+      }, 0) as unknown as number;
+    }, delayMs);
   };
 
   store.getState().data.notes.forEach((note, noteId) => {
@@ -387,19 +487,35 @@ export const middleware: S.Middleware = (store) => {
         return next(withSearch(action));
       }
 
-      case 'CREATE_NOTE_WITH_ID':
-        if (action.note?.tags && action.note?.tags.length > 0) {
+      case 'CREATE_NOTE_WITH_ID': {
+        // Preserve the current collection context when creating a new note.
+        // The note is already assigned the correct folderId/tags by the data middleware.
+        const noteFolderId = action.note?.folderId as T.FolderId | null;
+        const noteTags = action.note?.tags;
+
+        if (noteFolderId) {
+          // If note was created in a folder, stay in that folder view
+          searchState.collection = {
+            type: 'folder',
+            folderId: noteFolderId,
+          };
+        } else if (noteTags && noteTags.length > 0) {
+          // If note has tags (created in a tag view), stay in that tag view
           searchState.collection = {
             type: 'tag',
-            tagName: action.note.tags[0],
+            tagName: noteTags[0],
           };
-        } else {
+        } else if (searchState.collection.type === 'trash') {
+          // Don't stay in trash when creating a note
           searchState.collection = { type: 'all' };
         }
+        // Otherwise, preserve the current collection (e.g., 'all', 'untagged')
+
         searchState.notes.set(action.noteId, toSearchNote(action.note ?? {}));
         indexNote(action.noteId);
         queueSearch();
         return next(action);
+      }
       case 'IMPORT_NOTE_WITH_ID':
       case 'REMOTE_NOTE_UPDATE':
       case 'RESTORE_NOTE_REVISION':
@@ -416,9 +532,20 @@ export const middleware: S.Middleware = (store) => {
 
       case 'EDIT_NOTE': {
         const note = searchState.notes.get(action.noteId)!;
+        let deferHeavySearchWork = false;
         if ('undefined' !== typeof action.changes.content) {
-          note.content = action.changes.content.toLocaleLowerCase();
-          note.casedContent = action.changes.content;
+          const nextContent = action.changes.content ?? '';
+          // Always keep cased content current for title extraction, but avoid
+          // lowercasing/indexing huge notes on every keystroke.
+          note.casedContent = nextContent;
+          if (String(nextContent).length >= LARGE_NOTE_CONTENT_THRESHOLD) {
+            scheduleIndexLargeNoteContent(action.noteId, nextContent);
+            // Defer `withSearch` for huge docs; it runs a full search which can
+            // be very expensive while typing.
+            deferHeavySearchWork = true;
+          } else {
+            note.content = nextContent.toLocaleLowerCase();
+          }
         }
         if ('undefined' !== typeof action.changes.tags) {
           note.tags = new Set(action.changes.tags.map(t));
@@ -442,6 +569,9 @@ export const middleware: S.Middleware = (store) => {
           note.folderId =
             (action.changes.folderId as T.FolderId | null) ?? null;
         }
+        if (deferHeavySearchWork) {
+          return next(action);
+        }
         indexNote(action.noteId);
         return next(withSearch(action));
       }
@@ -453,12 +583,28 @@ export const middleware: S.Middleware = (store) => {
         };
         return next(withSearch(action));
 
-      case 'OPEN_FOLDER':
+      case 'OPEN_FOLDER': {
         searchState.collection = {
           type: 'folder',
           folderId: action.folderId,
         };
-        return next(withSearch(action));
+        // Check if currently opened note is in this folder
+        const { openedNote } = store.getState().ui;
+        const folderNotes = runSearch();
+        const noteInFolder = openedNote && folderNotes.includes(openedNote);
+        // Close the editor if the opened note is not in this folder (or folder is empty)
+        const searchAction = withSearch(action);
+        if (openedNote && !noteInFolder) {
+          return next({
+            ...searchAction,
+            meta: {
+              ...searchAction.meta,
+              nextNoteToOpen: null,
+            },
+          });
+        }
+        return next(searchAction);
+      }
 
       case 'PIN_NOTE': {
         const note = searchState.notes.get(action.noteId);

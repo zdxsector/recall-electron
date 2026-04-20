@@ -82,8 +82,8 @@ export const NotePreview: FunctionComponent<Props> = ({
           const tag = node as HTMLAnchorElement;
 
           // Intercept internal links
-          if (tag.href.startsWith('simplenote://note/')) {
-            const match = /^simplenote:\/\/note\/(.+)$/.exec(tag.href);
+          if (tag.href.startsWith('recall://note/')) {
+            const match = /^recall:\/\/note\/(.+)$/.exec(tag.href);
             if (!match) {
               return;
             }
@@ -186,8 +186,8 @@ const mapStateToProps: S.MapState<StateProps, OwnProps> = (state, props) => {
     noteId,
     notes: state.data.notes,
     searchQuery: state.ui.searchQuery,
-    // Always render Markdown preview when the markdown tag is set, regardless of edit mode.
-    showRenderedView: !!note?.systemTags.includes('markdown'),
+    // Always render Markdown preview since Muya is a markdown editor.
+    showRenderedView: true,
   };
 };
 

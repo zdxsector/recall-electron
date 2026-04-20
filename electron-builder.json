@@ -1,6 +1,6 @@
 {
-  "productName": "Simplenote",
-  "appId": "com.automattic.simplenote",
+  "productName": "Recall",
+  "appId": "com.automattic.recall",
   "generateUpdatesFilesForAllChannels": true,
   "directories": {
     "output": "./release",
@@ -10,7 +10,7 @@
   "mac": {
     "icon": "./resources/images/app-icon.icns",
     "category": "public.app-category.social-networking",
-    "artifactName": "Simplenote-macOS-${version}.${ext}",
+    "artifactName": "Recall-macOS-${version}.${ext}",
     "entitlements": "./resources/macos/entitlements.mac.plist",
     "entitlementsInherit": "./resources/macos/entitlements.mac.inherit.plist",
     "hardenedRuntime": true,
@@ -27,8 +27,8 @@
     "mergeASARs": false
   },
   "dmg": {
-    "title": "Simplenote Installer",
-    "artifactName": "Simplenote-macOS-${version}.${ext}",
+    "title": "Recall Installer",
+    "artifactName": "Recall-macOS-${version}.${ext}",
     "icon": "./resources/images/dmg-icon.icns",
     "iconSize": 150,
     "background": "./resources/images/dmg-background.png",
@@ -47,9 +47,8 @@
     ]
   },
   "win": {
-    "icon": "resources/images/simplenote.ico",
-    "certificateSubjectName": "Automattic, Inc.",
-    "artifactName": "Simplenote-win-${version}-${arch}.${ext}",
+    "icon": "resources/images/icon_512x512.png",
+    "artifactName": "Recall-win-${version}-${arch}.${ext}",
     "target": [
       {
         "target": "nsis",
@@ -58,12 +57,12 @@
     ]
   },
   "nsis": {
-    "artifactName": "Simplenote-win-${version}-${arch}.${ext}",
+    "artifactName": "Recall-win-${version}-${arch}.${ext}",
     "deleteAppDataOnUninstall": true,
     "oneClick": false
   },
   "linux": {
-    "artifactName": "Simplenote-linux-${version}-${arch}.${ext}",
+    "artifactName": "Recall-linux-${version}-${arch}.${ext}",
     "target": [
       {
         "target": "AppImage",
@@ -84,23 +83,25 @@
     ],
     "synopsis": "The simplest way to keep notes",
     "category": "Utility",
-    "executableName": "simplenote",
+    "executableName": "recall",
     "desktop": {
-      "Name": "Simplenote",
-      "Comment": "Simplenote for Linux",
-      "GenericName": "Note Taking Application",
-      "Type": "Application",
-      "Icon": "simplenote",
-      "StartupNotify": true,
-      "Categories": "Utility"
+      "entry": {
+        "Name": "Recall",
+        "Comment": "Recall for Linux",
+        "GenericName": "Note Taking Application",
+        "Type": "Application",
+        "Icon": "recall",
+        "StartupNotify": true,
+        "Categories": "Utility"
+      }
     },
     "vendor": "Automattic, Inc.",
-    "maintainer": "Automattic, Inc. <support@simplenote.com>"
+    "maintainer": "Automattic, Inc. <support@recall.com>"
   },
   "protocols": [
     {
-      "name": "simplenote",
-      "schemes": ["simplenote"]
+      "name": "recall",
+      "schemes": ["recall"]
     }
   ],
   "deb": {

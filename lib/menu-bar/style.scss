@@ -1,5 +1,10 @@
 @use '../../scss/variables' as *;
 
+// Hide menu bar on Windows since navigation is in the custom title bar
+.is-windows .menu-bar {
+  display: none;
+}
+
 .menu-bar {
   height: $toolbar-height;
   padding: 0 15px;

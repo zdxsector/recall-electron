@@ -21,6 +21,7 @@ import * as T from '../types';
 
 type StateProps = {
   collection: T.Collection;
+  collectionTitle: string;
   filteredNotes: T.EntityId[];
   isSmallScreen: boolean;
   keyboardShortcuts: boolean;
@@ -152,24 +153,6 @@ const createCompositeNoteList = (
   ];
 };
 
-const sidebarTitle = (
-  collection: T.Collection,
-  openedTag: T.TagName | null
-) => {
-  switch (collection.type) {
-    case 'tag':
-      return openedTag;
-    case 'folder':
-      return 'Folder';
-    case 'trash':
-      return 'Trash';
-    case 'untagged':
-      return 'Untagged Notes';
-    default:
-      return 'All Notes';
-  }
-};
-
 export class NoteList extends Component<Props> {
   static displayName = 'NoteList';
 
@@ -203,6 +186,10 @@ export class NoteList extends Component<Props> {
     }),
     lastNoteDisplay: null,
     windowWidth: null,
+    lastFilteredNotes: null as T.EntityId[] | null,
+    lastSearchQuery: null as string | null,
+    lastTagResultsFound: null as number | null,
+    shouldRecomputeHeights: false,
   };
 
   list = createRef<List>();
@@ -211,15 +198,28 @@ export class NoteList extends Component<Props> {
     state.heightCache.clear(0);
     state.heightCache.clear(1);
     state.heightCache.clear(2);
+
+    const filteredNotesChanged = props.filteredNotes !== state.lastFilteredNotes;
+    const searchQueryChanged = props.searchQuery !== state.lastSearchQuery;
+    const tagResultsFoundChanged =
+      props.tagResultsFound !== state.lastTagResultsFound;
+
     if (
       props.noteDisplay !== state.lastNoteDisplay ||
-      props.windowWidth !== state.windowWidth
+      props.windowWidth !== state.windowWidth ||
+      filteredNotesChanged ||
+      searchQueryChanged ||
+      tagResultsFoundChanged
     ) {
       state.heightCache.clearAll();
 
       return {
         lastNoteDisplay: props.noteDisplay,
         windowWidth: props.windowWidth,
+        lastFilteredNotes: props.filteredNotes,
+        lastSearchQuery: props.searchQuery,
+        lastTagResultsFound: props.tagResultsFound,
+        shouldRecomputeHeights: true,
       };
     }
 
@@ -232,6 +232,20 @@ export class NoteList extends Component<Props> {
 
   componentWillUnmount() {
     this.toggleShortcuts(false);
+  }
+
+  componentDidUpdate() {
+    if (this.state.shouldRecomputeHeights) {
+      try {
+        this.list.current?.recomputeRowHeights?.();
+        this.list.current?.forceUpdateGrid?.();
+      } catch {
+        // ignore
+      } finally {
+        // eslint-disable-next-line react/no-did-update-set-state
+        this.setState({ shouldRecomputeHeights: false });
+      }
+    }
   }
 
   handleShortcut = (event: KeyboardEvent) => {
@@ -289,11 +303,11 @@ export class NoteList extends Component<Props> {
   render() {
     const {
       collection,
+      collectionTitle,
       filteredNotes,
       noteDisplay,
       onEmptyTrash,
       openedNote,
-      openedTag,
       searchQuery,
       showTrash,
       tagResultsFound,
@@ -339,7 +353,7 @@ export class NoteList extends Component<Props> {
                     // reference the existing #notes-title element instead of
                     // computing the label, but is not currently possible due to
                     // a limitation with react-virtualized. https://git.io/JqLvR
-                    aria-label={sidebarTitle(collection, openedTag)}
+                    aria-label={collectionTitle}
                     ref={this.list}
                     estimatedRowSize={24 + 18 + 21 * 4}
                     height={height}
@@ -366,6 +380,7 @@ export class NoteList extends Component<Props> {
 const mapStateToProps: S.MapState<StateProps> = (state) => {
   return {
     collection: state.ui.collection,
+    collectionTitle: selectors.collectionTitle(state),
     isSmallScreen: selectors.isSmallScreen(state),
     keyboardShortcuts: state.settings.keyboardShortcuts,
     noteDisplay: state.settings.noteDisplay,

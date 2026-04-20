@@ -8,7 +8,7 @@ import * as selectors from '../state/selectors';
 
 import * as S from '../state';
 import * as T from '../types';
-import SimplenoteCompactLogo from '../icons/simplenote-compact';
+import RecallCompactLogo from '../icons/recall-compact';
 
 type StateProps = {
   allTags: Map<T.TagHash, T.Tag>;
@@ -23,7 +23,6 @@ type StateProps = {
 };
 
 type DispatchProps = {
-  toggleMarkdown: (noteId: T.EntityId, shouldEnableMarkdown: boolean) => any;
   toggleNoteList: () => any;
 };
 
@@ -31,6 +30,12 @@ type Props = DispatchProps & StateProps;
 
 export class NoteEditor extends Component<Props> {
   static displayName = 'NoteEditor';
+
+  // Class property declarations for focus management
+  private editorHasFocus?: () => boolean;
+  private focusNoteEditor?: () => void;
+  private focusTagField?: () => void;
+  private _tagFieldHasFocus?: () => boolean;
 
   componentDidMount() {
     this.toggleShortcuts(true);
@@ -40,8 +45,6 @@ export class NoteEditor extends Component<Props> {
     this.toggleShortcuts(false);
   }
 
-  markdownEnabled = () => this.props.note?.systemTags.includes('markdown');
-
   handleShortcut = (event: KeyboardEvent) => {
     if (!this.props.keyboardShortcuts) {
       return;
@@ -49,17 +52,8 @@ export class NoteEditor extends Component<Props> {
 
     const { ctrlKey, metaKey, shiftKey } = event;
     const key = event.key.toLowerCase();
-    const { note, noteId, toggleMarkdown } = this.props;
 
     const cmdOrCtrl = ctrlKey || metaKey;
-
-    // toggle Markdown enabled
-    if (note && cmdOrCtrl && shiftKey && 'm' === key) {
-      toggleMarkdown(noteId, !this.markdownEnabled());
-      event.stopPropagation();
-      event.preventDefault();
-      return false;
-    }
 
     // toggle between tag editor and note editor
     if (shiftKey && cmdOrCtrl && 'y' === key && this.props.isEditorActive) {
@@ -90,9 +84,9 @@ export class NoteEditor extends Component<Props> {
 
   storeFocusTagField = (f) => (this.focusTagField = f);
 
-  storeTagFieldHasFocus = (f) => (this.tagFieldHasFocus = f);
+  storeTagFieldHasFocus = (f: () => boolean) => (this._tagFieldHasFocus = f);
 
-  tagFieldHasFocus = () => this.tagFieldHasFocus && this.tagFieldHasFocus();
+  tagFieldHasFocus = () => this._tagFieldHasFocus?.() ?? false;
 
   toggleShortcuts = (doEnable: boolean) => {
     if (doEnable) {
@@ -108,7 +102,7 @@ export class NoteEditor extends Component<Props> {
     if (!note) {
       return (
         <div className="note-detail-placeholder">
-          <SimplenoteCompactLogo />
+          <RecallCompactLogo />
         </div>
       );
     }
@@ -148,7 +142,6 @@ const mapStateToProps: S.MapState<StateProps> = (state) => ({
 
 const mapDispatchToProps: S.MapDispatch<DispatchProps> = {
   toggleNoteList: actions.ui.toggleNoteList,
-  toggleMarkdown: actions.data.markdownNote,
 };
 
 export default connect(mapStateToProps, mapDispatchToProps)(NoteEditor);

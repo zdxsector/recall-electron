@@ -5,12 +5,18 @@ import enmlToMarkdown from '../enml-to-markdown';
 describe('enmlToMarkdown', () => {
   it('should render the correct Markdown', () => {
     return new Promise((done) => {
+      const normalizeLineBreaks = (s: string) =>
+        String(s ?? '').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+
       const testResult = (result) => {
         fs.readFile(
           path.join(__dirname, './correct-markdown.txt'),
           'utf8',
           (err, correctMarkdown) => {
-            expect(result).toBe(correctMarkdown.trim());
+            if (err) throw err;
+            expect(normalizeLineBreaks(result).trim()).toBe(
+              normalizeLineBreaks(correctMarkdown).trim()
+            );
             done();
           }
         );
@@ -19,7 +25,10 @@ describe('enmlToMarkdown', () => {
       fs.readFile(
         path.join(__dirname, './mock-enml.txt'),
         'utf8',
-        (err, enml) => testResult(enmlToMarkdown(enml))
+        (err, enml) => {
+          if (err) throw err;
+          testResult(enmlToMarkdown(enml));
+        }
       );
     });
   });

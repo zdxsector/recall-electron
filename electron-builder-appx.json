@@ -1,13 +1,13 @@
 {
-  "productName": "Simplenote",
-  "appId": "com.automattic.simplenote",
+  "productName": "Recall",
+  "appId": "com.automattic.recall",
   "directories": {
     "output": "./release",
     "buildResources": "./resources"
   },
   "files": ["desktop", "dist", "shared"],
   "win": {
-    "icon": "resources/images/simplenote.ico",
+    "icon": "resources/images/icon_512x512.png",
     "target": [
       {
         "target": "appx",
@@ -16,18 +16,18 @@
     ]
   },
   "appx": {
-    "applicationId": "Simplenote",
-    "identityName": "22490Automattic.Simplenote",
+    "applicationId": "Recall",
+    "identityName": "22490Automattic.Recall",
     "publisher": "CN=E2E5A157-746D-4B04-9116-ABE5CB928306",
     "publisherDisplayName": "Automattic, Inc.",
     "backgroundColor": "transparent",
     "showNameOnTiles": true,
-    "artifactName": "Simplenote-win-store-${version}-${arch}.${ext}"
+    "artifactName": "Recall-win-store-${version}-${arch}.${ext}"
   },
   "protocols": [
     {
-      "name": "simplenote",
-      "schemes": ["simplenote"]
+      "name": "recall",
+      "schemes": ["recall"]
     }
   ]
 }

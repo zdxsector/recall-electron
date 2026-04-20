@@ -1,6 +1,6 @@
 import React, { Component } from 'react';
 import { connect } from 'react-redux';
-import SimplenoteLogo from '../../icons/simplenote';
+import RecallLogo from '../../icons/recall';
 import CrossIcon from '../../icons/cross';
 import TopRightArrowIcon from '../../icons/arrow-top-right';
 import Dialog from '../../dialog';
@@ -22,41 +22,41 @@ export class AboutDialog extends Component<Props> {
       <div className="about">
         <Dialog hideTitleBar onDone={closeDialog} title="About">
           <div className="about-top">
-            <SimplenoteLogo />
+            <RecallLogo />
 
-            <h1>Simplenote</h1>
+            <h1>Recall</h1>
             <small>Version {appVersion}</small>
           </div>
 
           <ul className="about-links">
-            <li>
+            {/* <li>
               <a
                 target="_blank"
-                href="https://simplenote.com/blog/"
+                href="https://recall.com/blog/"
                 rel="noopener noreferrer"
               >
                 <span className="about-links-title">Blog</span>
                 <br />
-                simplenote.com/blog/
+                recall.com/blog/
               </a>
               <TopRightArrowIcon />
             </li>
             <li>
               <a
                 target="_blank"
-                href="https://twitter.com/simplenoteapp"
+                href="https://twitter.com/recallapp"
                 rel="noopener noreferrer"
               >
                 <span className="about-links-title">Twitter</span>
                 <br />
-                @simplenoteapp
+                @recallapp
               </a>
               <TopRightArrowIcon />
-            </li>
+            </li> */}
             <li>
               <a
                 target="_blank"
-                href="https://github.com/Automattic/simplenote-electron"
+                href="https://github.com/zdxsector/recall-electron"
                 rel="noopener noreferrer"
               >
                 <span className="about-links-title">Contribute</span>
@@ -65,7 +65,7 @@ export class AboutDialog extends Component<Props> {
               </a>
               <TopRightArrowIcon />
             </li>
-            <li>
+            {/* <li>
               <a
                 target="_blank"
                 href="https://automattic.com/work-with-us/"
@@ -76,44 +76,16 @@ export class AboutDialog extends Component<Props> {
                 Are you a developer? We&rsquo;re hiring.
               </a>
               <TopRightArrowIcon />
-            </li>
+            </li> */}
           </ul>
 
           <div className="about-bottom">
             <p>
-              <a
-                target="_blank"
-                href="https://simplenote.com/privacy/"
-                rel="noopener noreferrer"
-              >
-                Privacy Policy
-              </a>{' '}
-              &nbsp;&bull;&nbsp;{' '}
-              <a
-                target="_blank"
-                href="https://simplenote.com/terms/"
-                rel="noopener noreferrer"
-              >
-                Terms of Service
-              </a>
-            </p>
-            <p>
-              <a
-                target="_blank"
-                href="https://automattic.com/privacy/#california-consumer-privacy-act-ccpa"
-                rel="noopener noreferrer"
-              >
-                Privacy Notice for California Users
-              </a>
-            </p>
-            <p>
-              <a
-                target="_blank"
-                href="https://automattic.com/"
-                rel="noopener noreferrer"
-              >
-                &copy; {thisYear} Automattic, Inc.
-              </a>
+              I made this to be fully offline for you. You
+              do not need to be worry about the developer
+              because he is alright. If you have heart to 
+              support the developer email me at 
+              sponsor@slybacalso.me
             </p>
           </div>
 

@@ -1,5 +1,6 @@
 import React, {
   forwardRef,
+  useCallback,
   useEffect,
   useImperativeHandle,
   useMemo,
@@ -21,6 +22,7 @@ import {
   TableDragBar,
   TableRowColumMenu,
 } from '@muyajs/core';
+import { replaceBlockByLabel } from '@muyajs/core/ui/paragraphQuickInsertMenu/config';
 
 type Props = {
   noteId: string;
@@ -34,6 +36,8 @@ type Props = {
 export type MuyaEditorHandle = {
   focus: () => void;
   hasFocus: () => boolean;
+  insertText: (text: string) => void;
+  insertChecklist: () => void;
 };
 
 let muyaPluginsRegistered = false;
@@ -60,6 +64,48 @@ const ensureMuyaPlugins = () => {
 const canCall = (obj: any, methodName: string) =>
   obj && typeof obj[methodName] === 'function';
 
+// Configurable debounce delay for content changes (ms)
+const CONTENT_CHANGE_DEBOUNCE_MS = 60;
+
+// Large-document performance controls. These only kick in for very large notes
+// to preserve the current "live update while typing" feel for normal notes.
+const LARGE_DOC_THRESHOLD_CHARS = 200_000;
+const HUGE_DOC_THRESHOLD_CHARS = 1_000_000;
+
+type FlushReason =
+  | 'input'
+  | 'muya-change'
+  | 'keydown'
+  | 'paste'
+  | 'blur'
+  | 'unmount'
+  | 'note-switch'
+  | 'external-value';
+
+const isLargeDoc = (len: number) => len >= LARGE_DOC_THRESHOLD_CHARS;
+const isHugeDoc = (len: number) => len >= HUGE_DOC_THRESHOLD_CHARS;
+
+const getDebounceMsForDoc = (len: number): number => {
+  if (len < LARGE_DOC_THRESHOLD_CHARS) return CONTENT_CHANGE_DEBOUNCE_MS;
+  if (len < HUGE_DOC_THRESHOLD_CHARS) return 350;
+  // Multi-megabyte notes: keep editor responsive by flushing only on idle.
+  return 1200;
+};
+
+// For very large docs, avoid exporting markdown more frequently than this.
+const getMinEmitIntervalMsForDoc = (len: number): number => {
+  if (len < LARGE_DOC_THRESHOLD_CHARS) return 0;
+  if (len < HUGE_DOC_THRESHOLD_CHARS) return 500;
+  return 1500;
+};
+
+// Ensure state doesn't get stale forever if the user types continuously in a huge doc.
+const getMaxUnflushedMsForDoc = (len: number): number => {
+  if (len < LARGE_DOC_THRESHOLD_CHARS) return 0;
+  if (len < HUGE_DOC_THRESHOLD_CHARS) return 6000;
+  return 10_000;
+};
+
 const MuyaEditor = forwardRef<MuyaEditorHandle, Props>(
   ({ noteId, value, onChange, note, folders, notebooks }, ref) => {
     const wrapperRef = useRef<HTMLDivElement | null>(null);
@@ -67,6 +113,15 @@ const MuyaEditor = forwardRef<MuyaEditorHandle, Props>(
     const muyaDomRef = useRef<HTMLElement | null>(null);
     const lastKnownValueRef = useRef<string>(value);
     const lastEmittedValueRef = useRef<string | null>(null);
+    const inputTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const maxFlushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const idleFlushHandleRef = useRef<number | null>(null);
+    const lastEmittedAtRef = useRef<number>(0);
+    const lastInputAtRef = useRef<number>(0);
+    const pendingFlushReasonRef = useRef<FlushReason | null>(null);
+    const isMountedRef = useRef<boolean>(true);
+    const lastUndoRedoShortcutAtRef = useRef<number>(0);
+    const lastSelectionRangeRef = useRef<Range | null>(null);
 
     const materializeForEditor = (markdown: string): string => {
       try {
@@ -111,6 +166,30 @@ const MuyaEditor = forwardRef<MuyaEditorHandle, Props>(
       el?.focus();
     };
 
+    const focusPreservingSelection = () => {
+      const root = wrapperRef.current;
+      if (!root) return;
+      const el = root.querySelector('[contenteditable="true"]') as
+        | HTMLElement
+        | null;
+      const selection = document.getSelection();
+      const lastRange = lastSelectionRangeRef.current;
+      if (
+        selection &&
+        lastRange &&
+        root.contains(lastRange.startContainer) &&
+        root.contains(lastRange.endContainer)
+      ) {
+        try {
+          selection.removeAllRanges();
+          selection.addRange(lastRange);
+        } catch {
+          // ignore and fallback to focus only
+        }
+      }
+      el?.focus();
+    };
+
     const hasFocus = () => {
       const root = wrapperRef.current;
       if (!root) return false;
@@ -118,14 +197,93 @@ const MuyaEditor = forwardRef<MuyaEditorHandle, Props>(
       return !!active && root.contains(active);
     };
 
+    const insertText = (text: string) => {
+      focusPreservingSelection();
+      // Prefer execCommand because it triggers the same input pipeline Muya listens to.
+      // (Deprecated but still widely supported in Electron.)
+      try {
+        if (document.queryCommandSupported?.('insertText')) {
+          document.execCommand('insertText', false, text);
+          return;
+        }
+      } catch {
+        // ignore and fall back
+      }
+
+      const sel = window.getSelection();
+      if (!sel || sel.rangeCount === 0) {
+        return;
+      }
+      const range = sel.getRangeAt(0);
+      range.deleteContents();
+      range.insertNode(document.createTextNode(text));
+      range.collapse(false);
+      sel.removeAllRanges();
+      sel.addRange(range);
+    };
+
+    const insertChecklist = () => {
+      focusPreservingSelection();
+      const muya = muyaRef.current;
+      const selection = muya?.editor?.selection?.getSelection?.();
+      const anchorBlock = selection?.anchorBlock as any;
+      const parentBlock = anchorBlock?.parent;
+
+      // If we can, convert the current paragraph to a task list item so it renders
+      // as a checkbox rather than raw "- [ ]" text.
+      if (
+        muya &&
+        parentBlock &&
+        typeof parentBlock.blockName === 'string' &&
+        parentBlock.blockName === 'paragraph'
+      ) {
+        try {
+          replaceBlockByLabel({
+            block: parentBlock,
+            muya,
+            label: 'task-list',
+            text: anchorBlock?.text ?? '',
+          });
+          return;
+        } catch {
+          // fall back to inserting markdown
+        }
+      }
+
+      insertText('- [ ] ');
+    };
+
     useImperativeHandle(
       ref,
       () => ({
         focus,
         hasFocus,
+        insertText,
+        insertChecklist,
       }),
       []
     );
+
+    // Track last selection inside the editor so toolbar insertions can
+    // restore caret position even after focus moves away.
+    useEffect(() => {
+      const handleSelectionChange = () => {
+        const root = wrapperRef.current;
+        if (!root) return;
+        const selection = document.getSelection();
+        if (!selection || selection.rangeCount === 0) return;
+        const range = selection.getRangeAt(0);
+        if (
+          root.contains(range.startContainer) &&
+          root.contains(range.endContainer)
+        ) {
+          lastSelectionRangeRef.current = range.cloneRange();
+        }
+      };
+      document.addEventListener('selectionchange', handleSelectionChange);
+      return () =>
+        document.removeEventListener('selectionchange', handleSelectionChange);
+    }, []);
 
     // Mount/recreate Muya when switching notes.
     useEffect(() => {
@@ -153,9 +311,11 @@ const MuyaEditor = forwardRef<MuyaEditorHandle, Props>(
         muya.init();
       }
 
+      // Mark component as mounted for async safety
+      isMountedRef.current = true;
+
       // Ensure we propagate changes on every edit so the note list title can
       // update live while typing/backspacing (Muya may prevent native input events).
-      let inputTimer: ReturnType<typeof setTimeout> | null = null;
 
       const exportMarkdown = (): string => {
         const muyaInst = muyaRef.current;
@@ -184,18 +344,107 @@ const MuyaEditor = forwardRef<MuyaEditorHandle, Props>(
         return (editable as HTMLElement | null)?.innerText ?? '';
       };
 
-      const flushFromMuya = () => {
+      const cancelIdleFlush = () => {
+        const h = idleFlushHandleRef.current;
+        if (h == null) return;
+        try {
+          (window as any).cancelIdleCallback?.(h);
+        } catch {
+          // ignore
+        }
+        try {
+          // Safe even if `h` came from requestIdleCallback.
+          clearTimeout(h as any);
+        } catch {
+          // ignore
+        }
+        idleFlushHandleRef.current = null;
+      };
+
+      const scheduleIdleFlush = (fn: () => void, timeoutMs: number) => {
+        cancelIdleFlush();
+        const ric = (window as any).requestIdleCallback as
+          | ((cb: (deadline: any) => void, opts?: any) => number)
+          | undefined;
+        if (typeof ric === 'function') {
+          idleFlushHandleRef.current = ric(
+            () => {
+              idleFlushHandleRef.current = null;
+              fn();
+            },
+            { timeout: timeoutMs }
+          );
+          return;
+        }
+        // Fallback when requestIdleCallback isn't available.
+        idleFlushHandleRef.current = window.setTimeout(() => {
+          idleFlushHandleRef.current = null;
+          fn();
+        }, Math.min(250, timeoutMs)) as unknown as number;
+      };
+
+      const flushFromMuya = (reason: FlushReason = 'input') => {
+        // Safety check: don't emit changes if component is unmounted
+        if (
+          !isMountedRef.current &&
+          reason !== 'unmount' &&
+          reason !== 'note-switch'
+        ) {
+          return;
+        }
+
+        pendingFlushReasonRef.current = null;
+
         const raw = String(exportMarkdown() ?? '');
         const nextValue = normalizeForStorage(raw);
         if (nextValue === lastKnownValueRef.current) return;
         lastKnownValueRef.current = nextValue;
         lastEmittedValueRef.current = nextValue;
+        lastEmittedAtRef.current = Date.now();
         onChange(nextValue);
       };
 
-      const scheduleFlush = () => {
-        if (inputTimer) clearTimeout(inputTimer);
-        inputTimer = setTimeout(flushFromMuya, 60);
+      const scheduleFlush = (reason: FlushReason = 'input') => {
+        if (!isMountedRef.current) return;
+
+        pendingFlushReasonRef.current = reason;
+        lastInputAtRef.current = Date.now();
+
+        const knownLen = (lastKnownValueRef.current ?? '').length;
+        const debounceMs = getDebounceMsForDoc(knownLen);
+        const minEmitMs = getMinEmitIntervalMsForDoc(knownLen);
+        const maxUnflushedMs = getMaxUnflushedMsForDoc(knownLen);
+
+        // For huge documents, prefer running the expensive export on idle time.
+        const useIdle = isHugeDoc(knownLen);
+
+        const now = Date.now();
+        const sinceEmit = now - (lastEmittedAtRef.current || 0);
+        const earliestIn = Math.max(0, minEmitMs - sinceEmit);
+        const delay = Math.max(debounceMs, earliestIn);
+
+        if (inputTimerRef.current) clearTimeout(inputTimerRef.current);
+        inputTimerRef.current = setTimeout(() => {
+          const r = pendingFlushReasonRef.current ?? reason;
+          if (useIdle) {
+            // Give the main thread a chance to stay responsive while typing.
+            scheduleIdleFlush(() => flushFromMuya(r), Math.max(1000, delay));
+          } else {
+            flushFromMuya(r);
+          }
+        }, delay);
+
+        // Safety: if user keeps typing forever, still flush occasionally so
+        // titles/previews/sync don't lag behind indefinitely.
+        if (maxUnflushedMs > 0) {
+          if (maxFlushTimerRef.current) clearTimeout(maxFlushTimerRef.current);
+          maxFlushTimerRef.current = setTimeout(() => {
+            // If user typed recently, attempt an idle flush.
+            if (!isMountedRef.current) return;
+            const r = pendingFlushReasonRef.current ?? reason;
+            scheduleIdleFlush(() => flushFromMuya(r), 2000);
+          }, maxUnflushedMs);
+        }
       };
 
       const onInputCapture = (e: Event) => {
@@ -208,13 +457,139 @@ const MuyaEditor = forwardRef<MuyaEditorHandle, Props>(
             return;
           }
         }
-        scheduleFlush();
+        scheduleFlush('input');
+      };
+
+      // Handle keyboard events for special keys (Backspace, Delete, Enter)
+      // These may be intercepted by Muya but we need to ensure changes propagate
+      const onKeyDownCapture = (e: KeyboardEvent) => {
+        if (!wrapperRef.current?.contains(e.target as Node)) {
+          return;
+        }
+
+        // Ignore modifier-only key presses (Control, Meta, Shift, Alt)
+        // to prevent interference with selection or unintended side effects
+        const modifierOnlyKeys = ['control', 'meta', 'shift', 'alt'];
+        if (modifierOnlyKeys.includes(e.key?.toLowerCase?.())) {
+          // Important: stop propagation so Muya (and any other editor handlers)
+          // don't run any selection/caret normalization on modifier-only presses.
+          // This avoids cases where pressing Ctrl alone can unexpectedly clear or
+          // replace the current selection in some Electron/Chromium builds.
+          e.stopPropagation();
+          // stopImmediatePropagation is supported in browsers/Electron; guard for safety.
+          (e as any).stopImmediatePropagation?.();
+          return;
+        }
+
+        const cmdOrCtrl = e.ctrlKey || e.metaKey;
+        const key = e.key?.toLowerCase?.() ?? '';
+
+        // Let Muya handle Ctrl/Cmd+A with its two-stage selectAll behavior:
+        // 1. First Ctrl+A: Select all text in current block (useful for code blocks)
+        // 2. Second Ctrl+A: Select all content across all blocks
+        // This integrates properly with Muya's editing model so Backspace works.
+        if (cmdOrCtrl && !e.altKey && key === 'a') {
+          // Don't intercept - let the event bubble to Muya's handler
+          return;
+        }
+
+        // Allow native browser shortcuts (copy, cut, paste) to pass through
+        // without any interference - these should work natively without our intervention
+        if (cmdOrCtrl && !e.altKey) {
+          // Native clipboard/selection shortcuts - let browser handle them
+          if (['c', 'x', 'v'].includes(key)) {
+            // Schedule flush after cut/paste to capture changes
+            if (key === 'x' || key === 'v') {
+              scheduleFlush('keydown');
+            }
+            return;
+          }
+
+          // Muya performs some structural edits (notably with images) via its own JSON ops,
+          // which won't participate in the browser's native undo stack. Route undo/redo
+          // through Muya's history to make Ctrl/Cmd+Z reliable.
+          if (key === 'z') {
+            try {
+              // Ensure the editor is focused before undo/redo so Muya can resolve selection.
+              focus();
+              if (e.shiftKey) {
+                canCall(muyaRef.current, 'redo') && muyaRef.current.redo();
+              } else {
+                canCall(muyaRef.current, 'undo') && muyaRef.current.undo();
+              }
+              lastUndoRedoShortcutAtRef.current = Date.now();
+            } finally {
+              // Prevent Electron menu/browser undo from running in parallel.
+              e.preventDefault();
+              e.stopPropagation();
+              scheduleFlush('keydown');
+            }
+            return;
+          }
+
+          // Windows/Linux also commonly use Ctrl+Y for redo.
+          if (key === 'y') {
+            try {
+              focus();
+              canCall(muyaRef.current, 'redo') && muyaRef.current.redo();
+              lastUndoRedoShortcutAtRef.current = Date.now();
+            } finally {
+              e.preventDefault();
+              e.stopPropagation();
+              scheduleFlush('keydown');
+            }
+            return;
+          }
+        }
+
+        // Schedule flush for keys that typically modify content
+        // For Backspace and Delete in lists, flush immediately to avoid state desync
+        if (['Backspace', 'Delete'].includes(e.key)) {
+          // Check if we're in a list context by looking at the DOM
+          const activeElement = document.activeElement;
+          const isInList = activeElement?.closest?.(
+            '.mu-bullet-list, .mu-order-list, .mu-task-list, .mu-list-item'
+          );
+          
+          if (isInList) {
+            // Immediate flush for list operations to prevent state desync
+            // that can cause "cannot erase next bullet item" issues
+            if (inputTimerRef.current) clearTimeout(inputTimerRef.current);
+            // Use a very short delay to allow Muya to complete its internal operations
+            inputTimerRef.current = setTimeout(
+              () => flushFromMuya('keydown'),
+              10
+            );
+          } else {
+            scheduleFlush('keydown');
+          }
+        } else if (['Enter', 'Tab'].includes(e.key)) {
+          scheduleFlush('keydown');
+        }
+      };
+
+      const onKeyUpCapture = (e: KeyboardEvent) => {
+        if (!wrapperRef.current?.contains(e.target as Node)) {
+          return;
+        }
+        const modifierOnlyKeys = ['control', 'meta', 'shift', 'alt'];
+        if (modifierOnlyKeys.includes(e.key?.toLowerCase?.())) {
+          e.stopPropagation();
+          (e as any).stopImmediatePropagation?.();
+        }
       };
 
       // Muya emits internal change events even when it prevents default DOM input
       // (e.g., some backspace/delete behaviors). Listen to these so Redux stays
       // in sync and the note list title updates correctly.
-      const onMuyaChange = () => scheduleFlush();
+      // Use a shorter delay for better responsiveness, especially for list operations.
+      const onMuyaChange = () => {
+        if (inputTimerRef.current) clearTimeout(inputTimerRef.current);
+        inputTimerRef.current = setTimeout(
+          () => scheduleFlush('muya-change'),
+          30
+        );
+      };
       if (canCall(muya, 'on')) {
         muya.on('json-change', onMuyaChange);
         muya.on('content-change', onMuyaChange);
@@ -227,6 +602,10 @@ const MuyaEditor = forwardRef<MuyaEditorHandle, Props>(
           reader.onerror = () => reject(reader.error);
           reader.readAsDataURL(file);
         });
+
+      // PERFORMANCE: Read file as ArrayBuffer (faster than base64 for binary transfer)
+      const readAsArrayBuffer = (file: File): Promise<ArrayBuffer> =>
+        file.arrayBuffer();
 
       const insertTextAtCursor = (text: string) => {
         focus();
@@ -265,6 +644,25 @@ const MuyaEditor = forwardRef<MuyaEditorHandle, Props>(
           notebooks,
           mimeType,
           dataUrl,
+        })) as { rel: string; fileUrl: string } | null;
+      };
+
+      // PERFORMANCE: Save from raw ArrayBuffer, bypassing base64 encoding entirely
+      const saveBufferToAssets = async (
+        mimeType: string,
+        buffer: ArrayBuffer
+      ) => {
+        const saveFn = window.electron?.saveNoteAssetFromBuffer;
+        if (typeof saveFn !== 'function') {
+          return null;
+        }
+        return (await saveFn({
+          noteId,
+          note,
+          folders,
+          notebooks,
+          mimeType,
+          buffer: new Uint8Array(buffer),
         })) as { rel: string; fileUrl: string } | null;
       };
 
@@ -364,8 +762,18 @@ const MuyaEditor = forwardRef<MuyaEditorHandle, Props>(
             if (!canSaveAssets) return;
             // Take over synchronously before any async work so Muya never sees this paste.
             takeOverPasteEvent(e);
-            const dataUrl = await readAsDataUrl(file);
-            const saved = await saveDataUrlToAssets(mimeType, dataUrl);
+            // PERFORMANCE: Use ArrayBuffer API to skip base64 encoding entirely
+            const canSaveBuffer =
+              typeof window.electron?.saveNoteAssetFromBuffer === 'function';
+            let saved: { rel: string; fileUrl: string } | null = null;
+            if (canSaveBuffer) {
+              const buffer = await readAsArrayBuffer(file);
+              saved = await saveBufferToAssets(mimeType, buffer);
+            } else {
+              // Fallback to data URL if buffer API not available
+              const dataUrl = await readAsDataUrl(file);
+              saved = await saveDataUrlToAssets(mimeType, dataUrl);
+            }
             if (saved?.fileUrl) {
               insertTextAtCursor(`![pasted-image](${saved.fileUrl})`);
             } else {
@@ -392,8 +800,17 @@ const MuyaEditor = forwardRef<MuyaEditorHandle, Props>(
                       : 'image/png');
             if (!canSaveAssets) return;
             takeOverPasteEvent(e);
-            const dataUrl = await readAsDataUrl(fileOnlyImage);
-            const saved = await saveDataUrlToAssets(mimeType, dataUrl);
+            // PERFORMANCE: Use ArrayBuffer API to skip base64 encoding entirely
+            const canSaveBuffer =
+              typeof window.electron?.saveNoteAssetFromBuffer === 'function';
+            let saved: { rel: string; fileUrl: string } | null = null;
+            if (canSaveBuffer) {
+              const buffer = await readAsArrayBuffer(fileOnlyImage);
+              saved = await saveBufferToAssets(mimeType, buffer);
+            } else {
+              const dataUrl = await readAsDataUrl(fileOnlyImage);
+              saved = await saveDataUrlToAssets(mimeType, dataUrl);
+            }
             if (saved?.fileUrl) {
               insertTextAtCursor(`![pasted-image](${saved.fileUrl})`);
             } else {
@@ -612,15 +1029,87 @@ const MuyaEditor = forwardRef<MuyaEditorHandle, Props>(
       // Attach to document capture so we still receive events even if Muya stops propagation.
       document.addEventListener('input', onInputCapture, true);
       document.addEventListener('paste', onPasteCapture, true);
+      document.addEventListener('keydown', onKeyDownCapture, true);
+      document.addEventListener('keyup', onKeyUpCapture, true);
+
+      // Flush on blur so edits are committed promptly when the user leaves the editor.
+      const onBlurCapture = (e: FocusEvent) => {
+        if (!wrapperRef.current?.contains(e.target as Node)) return;
+        // For large docs, commit immediately on blur (no idle delay).
+        if (inputTimerRef.current) clearTimeout(inputTimerRef.current);
+        cancelIdleFlush();
+        flushFromMuya('blur');
+      };
+      document.addEventListener('blur', onBlurCapture, true);
+
+      // Support Electron menu/context-menu editor commands (Undo/Redo/Select All/etc).
+      // Menu accelerators may not reach the editor as key events, so we must handle IPC.
+      const onEditorCommand = (command: any) => {
+        const action = String(command?.action ?? '');
+        if (!action) return;
+        if (!muyaRef.current) return;
+        switch (action) {
+          case 'undo':
+            // Some Electron builds fire both the renderer keydown and the menu
+            // accelerator. Avoid applying undo twice.
+            if (Date.now() - lastUndoRedoShortcutAtRef.current < 150) return;
+            focus();
+            canCall(muyaRef.current, 'undo') && muyaRef.current.undo();
+            scheduleFlush();
+            return;
+          case 'redo':
+            if (Date.now() - lastUndoRedoShortcutAtRef.current < 150) return;
+            focus();
+            canCall(muyaRef.current, 'redo') && muyaRef.current.redo();
+            scheduleFlush();
+            return;
+          case 'selectAll':
+            // Use Muya's selectAll for proper integration with editing model
+            focus();
+            if (canCall(muyaRef.current, 'selectAll')) {
+              muyaRef.current.selectAll();
+            }
+            return;
+          default:
+            return;
+        }
+      };
+      window.electron?.receive?.('editorCommand', onEditorCommand);
 
       // Cleanup if supported.
       return () => {
+        // Mark as unmounted to prevent async callbacks from firing
+        isMountedRef.current = false;
+
+        // Remove all editorCommand listeners (preload provides coarse removal).
+        window.electron?.removeListener?.('editorCommand');
+
         document.removeEventListener('input', onInputCapture, true);
         document.removeEventListener('paste', onPasteCapture, true);
-        if (inputTimer) clearTimeout(inputTimer);
+        document.removeEventListener('keydown', onKeyDownCapture, true);
+        document.removeEventListener('keyup', onKeyUpCapture, true);
+        document.removeEventListener('blur', onBlurCapture, true);
+
+        // Clear any pending debounced updates
+        if (inputTimerRef.current) {
+          clearTimeout(inputTimerRef.current);
+          inputTimerRef.current = null;
+        }
+        if (maxFlushTimerRef.current) {
+          clearTimeout(maxFlushTimerRef.current);
+          maxFlushTimerRef.current = null;
+        }
+        cancelIdleFlush();
+
         if (canCall(muya, 'off')) {
           muya.off('json-change', onMuyaChange);
           muya.off('content-change', onMuyaChange);
+        }
+        // Ensure we commit any pending edits before destroying the editor.
+        try {
+          flushFromMuya('unmount');
+        } catch {
+          // ignore
         }
         if (canCall(muyaRef.current, 'destroy')) {
           muyaRef.current.destroy();
@@ -650,12 +1139,14 @@ const MuyaEditor = forwardRef<MuyaEditorHandle, Props>(
       if (canCall(muya, 'setContent')) {
         muya.setContent(materializeForEditor(nextValue));
         lastKnownValueRef.current = nextValue;
+        lastEmittedValueRef.current = null;
         return;
       }
 
       if (canCall(muya, 'setMarkdown')) {
         muya.setMarkdown(materializeForEditor(nextValue));
         lastKnownValueRef.current = nextValue;
+        lastEmittedValueRef.current = null;
         return;
       }
 

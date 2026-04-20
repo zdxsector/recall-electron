@@ -1,12 +1,12 @@
-type ImporterName = 'simplenote' | 'evernote' | 'text-files';
+type ImporterName = 'recall' | 'evernote' | 'text-files';
 
 type Importer = {
   name: ImporterName;
   fileTypes: Array<String>;
 };
 
-const simplenoteImporter: Importer = {
-  name: 'simplenote',
+const recallImporter: Importer = {
+  name: 'recall',
   fileTypes: ['json', 'zip'],
 };
 
@@ -21,15 +21,15 @@ const textImporter: Importer = {
 };
 
 export const importers: Array<Importer> = [
-  simplenoteImporter,
+  recallImporter,
   evernoteImporter,
   textImporter,
 ];
 
 export const getImporter = (name: String): Importer => {
   switch (name) {
-    case 'simplenote':
-      return simplenoteImporter;
+    case 'recall':
+      return recallImporter;
 
     case 'evernote':
       return evernoteImporter;
@@ -47,10 +47,10 @@ export const forFilename = (file: String): Importer => {
 
   switch (fileExtension) {
     case 'json':
-      return simplenoteImporter;
+      return recallImporter;
 
     case 'zip':
-      return simplenoteImporter;
+      return recallImporter;
 
     case 'enex':
       return evernoteImporter;
@@ -71,9 +71,9 @@ export const forFilename = (file: String): Importer => {
  */
 export const load = (name: ImporterName): Promise<object> => {
   switch (name) {
-    case 'simplenote':
+    case 'recall':
       return import(
-        /* webpackChunkName: 'utils-import-simplenote' */ '../../utils/import/simplenote'
+        /* webpackChunkName: 'utils-import-recall' */ '../../utils/import/recall'
       );
 
     case 'evernote':

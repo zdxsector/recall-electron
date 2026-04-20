@@ -57,18 +57,26 @@ optgroup {
 
 .app {
   display: flex;
+  flex-direction: column;
   position: absolute;
   top: 0;
   left: 0;
   width: 100%;
   height: 100%;
+  background-color: var(--background-color);
 }
 
-.simplenote-app {
+.recall-app {
   display: flex;
   position: relative;
   width: 100%;
-  height: 100%;
+  flex: 1;
+  min-height: 0; // Allow flex shrinking
+
+  // On Windows with custom title bar, the main content fills remaining space
+  &.is-windows {
+    height: auto;
+  }
 }
 
 .login__draggable-area {
@@ -93,6 +101,12 @@ optgroup {
   &[data-current-match='true'] {
     background-color: var(--search-selection-color);
   }
+}
+
+// On macOS, the current find match is a bright highlight (often yellow)
+// with dark text for contrast. Ensure readability in dark mode.
+body[data-theme='dark'] .search-match[data-current-match='true'] {
+  color: var(--background-color);
 }
 
 /* stylelint-disable-next-line selector-class-pattern */

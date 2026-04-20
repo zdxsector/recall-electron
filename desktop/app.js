@@ -9,6 +9,7 @@ const {
   Menu,
   session,
   nativeTheme,
+  screen,
 } = require('electron');
 
 const path = require('path');
@@ -46,7 +47,7 @@ module.exports = function main() {
   // ---------------------------------------------------------------------------
   // IPC helpers for renderer/preload (replaces removed `remote` module).
   // ---------------------------------------------------------------------------
-  ipcMain.on('simplenote:getPath', (event, name) => {
+  ipcMain.on('recall:getPath', (event, name) => {
     try {
       // Restrict to the one path we need for note persistence.
       if (name !== 'documents') {
@@ -59,7 +60,7 @@ module.exports = function main() {
     }
   });
 
-  ipcMain.on('simplenote:showMessageBoxSync', (event, options) => {
+  ipcMain.on('recall:showMessageBoxSync', (event, options) => {
     try {
       const win = BrowserWindow.fromWebContents(event.sender);
       event.returnValue = dialog.showMessageBoxSync(win, options || {});
@@ -72,9 +73,9 @@ module.exports = function main() {
     setTimeout(updater.ping.bind(updater), config.updater.delay);
     app.on('open-url', function (event, url) {
       event.preventDefault();
-      if (url.startsWith('simplenote://auth')) {
+      if (url.startsWith('recall://auth')) {
         mainWindow.webContents.send('wpLogin', url);
-      } else if (url.startsWith('simplenote://login')) {
+      } else if (url.startsWith('recall://login')) {
         mainWindow.webContents.send('tokenLogin', url);
       }
     });
@@ -97,8 +98,13 @@ module.exports = function main() {
       defaultHeight: 768,
     });
 
+    const isWindows = process.platform === 'win32';
+
+    // Check if system prefers dark mode for initial window colors
+    const prefersDark = nativeTheme.shouldUseDarkColors;
+    
     mainWindow = new BrowserWindow({
-      backgroundColor: '#fff',
+      backgroundColor: prefersDark ? '#1c1c1e' : '#fff',
       x: mainWindowState.x,
       y: mainWindowState.y,
       width: mainWindowState.width,
@@ -106,6 +112,17 @@ module.exports = function main() {
       minWidth: 370,
       minHeight: 520,
       show: false,
+      // Custom title bar on Windows: use native overlay controls (minimize/maximize/close)
+      // with transparent background so the custom title bar shows through.
+      ...(isWindows && {
+        titleBarStyle: 'hidden',
+        titleBarOverlay: {
+          // Transparent background - the custom title bar CSS provides the actual background
+          color: '#00000000',
+          symbolColor: prefersDark ? '#ffffff' : '#1c1c1e',
+          height: 40,
+        },
+      }),
       webPreferences: {
         contextIsolation: true,
         nodeIntegration: false,
@@ -144,35 +161,177 @@ module.exports = function main() {
       );
       if ('theme' in settings) {
         nativeTheme.themeSource = settings.theme;
+        // Update titleBarOverlay symbol color when theme changes (Windows only)
+        // Background is transparent, so only symbol color needs updating
+        if (
+          isWindows &&
+          mainWindow &&
+          typeof mainWindow.setTitleBarOverlay === 'function'
+        ) {
+          try {
+            // Determine isDark based on theme setting directly, since
+            // nativeTheme.shouldUseDarkColors may not update immediately
+            let isDark;
+            if (settings.theme === 'light') {
+              isDark = false;
+            } else if (settings.theme === 'dark') {
+              isDark = true;
+            } else {
+              // 'system' - follow system preference
+              isDark = nativeTheme.shouldUseDarkColors;
+            }
+            mainWindow.setTitleBarOverlay({
+              symbolColor: isDark ? '#ffffff' : '#1c1c1e',
+            });
+          } catch {
+            // ignore
+          }
+        }
       }
     });
 
     ipcMain.on('clearCookies', function () {
       // Removes any cookies stored in the app. We're particularly interested in
       // removing the WordPress.com cookies that may have been set during sign in.
-      session.defaultSession.cookies.get({}, (error, cookies) => {
-        cookies.forEach((cookie) => {
-          // Reconstruct the url to pass to the cookies.remove function
-          let cookieUrl = '';
-          cookieUrl += cookie.secure ? 'https://' : 'http://';
-          cookieUrl += cookie.domain.charAt(0) === '.' ? 'www' : '';
-          cookieUrl += cookie.domain;
-          cookieUrl += cookie.path;
-
-          session.defaultSession.cookies.remove(
-            cookieUrl,
-            cookie.name,
-            () => {} // Ignore callback
+      (async () => {
+        try {
+          const cookies = await session.defaultSession.cookies.get({});
+          await Promise.all(
+            cookies.map((cookie) => {
+              // Reconstruct the url to pass to cookies.remove
+              const protocol = cookie.secure ? 'https://' : 'http://';
+              const host =
+                cookie.domain && cookie.domain.charAt(0) === '.'
+                  ? `www${cookie.domain}`
+                  : cookie.domain;
+              const cookieUrl = `${protocol}${host}${cookie.path || '/'}`;
+              return session.defaultSession.cookies.remove(cookieUrl, cookie.name);
+            })
           );
-        });
-      });
-      mainWindow.reload();
+        } catch {
+          // ignore
+        }
+
+        try {
+          mainWindow && mainWindow.reload();
+        } catch {
+          // ignore
+        }
+      })();
     });
 
     ipcMain.on('setAutoHideMenuBar', function (event, autoHideMenuBar) {
       mainWindow.setAutoHideMenuBar(autoHideMenuBar || false);
       mainWindow.setMenuBarVisibility(!autoHideMenuBar);
     });
+
+    // Backwards-compatible no-op for old renderer builds that call this.
+    // When using a fully custom frameless title bar, Windows titleBarOverlay is not used.
+    ipcMain.on('window:setTitleBarOverlay', function (event, overlay) {
+      try {
+        if (
+          process.platform !== 'win32' ||
+          !mainWindow ||
+          typeof mainWindow.setTitleBarOverlay !== 'function'
+        ) {
+          return;
+        }
+
+        const next = {};
+        if (overlay && typeof overlay === 'object') {
+          if (typeof overlay.color === 'string' && overlay.color.trim()) {
+            next.color = overlay.color.trim();
+          }
+          if (
+            typeof overlay.symbolColor === 'string' &&
+            overlay.symbolColor.trim()
+          ) {
+            next.symbolColor = overlay.symbolColor.trim();
+          }
+          if (Number.isFinite(overlay.height)) {
+            // Clamp to a sensible range.
+            next.height = Math.max(24, Math.min(80, Math.round(overlay.height)));
+          }
+        }
+
+        if (Object.keys(next).length > 0) {
+          mainWindow.setTitleBarOverlay(next);
+        }
+      } catch {
+        // ignore
+      }
+    });
+
+    // Window control handlers for custom title bar (Windows)
+    // Use the sender's BrowserWindow instead of the captured `mainWindow` reference.
+    // This avoids "click does nothing" issues if the reference is stale or if multiple windows exist.
+    ipcMain.on('window:minimize', (event) => {
+      try {
+        const win = BrowserWindow.fromWebContents(event.sender);
+        win && win.minimize();
+      } catch {
+        // ignore
+      }
+    });
+
+    ipcMain.on('window:maximize', (event) => {
+      try {
+        const win = BrowserWindow.fromWebContents(event.sender);
+        if (!win) return;
+        if (win.isMaximized()) {
+          win.unmaximize();
+        } else {
+          win.maximize();
+        }
+      } catch {
+        // ignore
+      }
+    });
+
+    ipcMain.on('window:close', (event) => {
+      try {
+        const win = BrowserWindow.fromWebContents(event.sender);
+        win && win.close();
+      } catch {
+        // ignore
+      }
+    });
+
+    ipcMain.handle('window:isMaximized', (event) => {
+      try {
+        const win = BrowserWindow.fromWebContents(event.sender);
+        return win ? win.isMaximized() : false;
+      } catch {
+        return false;
+      }
+    });
+
+    // Notify renderer when window maximize state changes
+    if (mainWindow) {
+      mainWindow.on('maximize', () => {
+        mainWindow.webContents.send('window:maximized', true);
+      });
+      mainWindow.on('unmaximize', () => {
+        mainWindow.webContents.send('window:maximized', false);
+      });
+    }
+
+    // Update titleBarOverlay symbol color when system theme changes (Windows only)
+    // Background is transparent, so only symbol color needs updating
+    if (isWindows) {
+      nativeTheme.on('updated', () => {
+        if (mainWindow && typeof mainWindow.setTitleBarOverlay === 'function') {
+          try {
+            const isDark = nativeTheme.shouldUseDarkColors;
+            mainWindow.setTitleBarOverlay({
+              symbolColor: isDark ? '#ffffff' : '#1c1c1e',
+            });
+          } catch {
+            // ignore
+          }
+        }
+      });
+    }
 
     ipcMain.on('wpLogin', function (event, wpLoginUrl) {
       shell.openExternal(wpLoginUrl);
@@ -257,10 +416,10 @@ module.exports = function main() {
     }
     // Protocol handler for platforms other than macOS
     // argv: An array of the second instance’s (command line / deep linked) arguments
-    // The last index of argv is the full deeplink url (simplenote://SOME_URL)
-    if (argv[argv.length - 1].startsWith('simplenote://auth')) {
+    // The last index of argv is the full deeplink url (recall://SOME_URL)
+    if (argv[argv.length - 1].startsWith('recall://auth')) {
       mainWindow.webContents.send('wpLogin', argv[argv.length - 1]);
-    } else if (argv[argv.length - 1].startsWith('simplenote://login')) {
+    } else if (argv[argv.length - 1].startsWith('recall://login')) {
       mainWindow.webContents.send('tokenLogin', argv[argv.length - 1]);
     }
   });
@@ -269,9 +428,9 @@ module.exports = function main() {
     return app.quit();
   }
 
-  if (!app.isDefaultProtocolClient('simplenote')) {
-    // Define custom protocol handler. This allows for deeplinking into the app from simplenote://
-    app.setAsDefaultProtocolClient('simplenote');
+  if (!app.isDefaultProtocolClient('recall')) {
+    // Define custom protocol handler. This allows for deeplinking into the app from recall://
+    app.setAsDefaultProtocolClient('recall');
   }
 
   // Quit when all windows are closed.
@@ -298,6 +457,6 @@ module.exports = function main() {
   // This method will be called when Electron has finished
   // initialization and is ready to create browser windows.
   app.on('ready', activateWindow);
-  app.on('ready', () => app.setAppUserModelId('com.automattic.simplenote'));
+  app.on('ready', () => app.setAppUserModelId('com.automattic.recall'));
   app.on('activate', activateWindow);
 };

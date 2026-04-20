@@ -8,6 +8,7 @@ import Modal from 'react-modal';
 import classNames from 'classnames';
 import AboutDialog from './dialogs/about';
 import ErrorBoundary from './error-boundary';
+import FramelessTitleBar from './windows-title-bar/frameless';
 
 import '../scss/style.scss';
 
@@ -129,7 +130,7 @@ class AppWithoutAuth extends Component<Props, State> {
     this.setState({ authStatus: 'submitting' }, async () => {
       try {
         const response = await fetch(
-          'https://app.simplenote.com/account/request-login',
+          'https://app.recall.com/account/request-login',
           {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -166,7 +167,7 @@ class AppWithoutAuth extends Component<Props, State> {
     this.setState({ authStatus: 'completing-login' }, async () => {
       try {
         const response = await fetch(
-          'https://app.simplenote.com/account/complete-login',
+          'https://app.recall.com/account/complete-login',
           {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -198,7 +199,7 @@ class AppWithoutAuth extends Component<Props, State> {
     this.setState({ authStatus: 'submitting' }, async () => {
       try {
         const response = await fetch(
-          'https://app.simplenote.com/account/request-signup',
+          'https://app.recall.com/account/request-signup',
           {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -225,6 +226,7 @@ class AppWithoutAuth extends Component<Props, State> {
   render() {
     return (
       <div className="app">
+        <FramelessTitleBar />
         <ErrorBoundary>
           <AuthApp
             accountCreationRequested={

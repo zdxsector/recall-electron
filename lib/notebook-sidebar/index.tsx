@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { connect } from 'react-redux';
 
 import actions from '../state/actions';
@@ -62,6 +62,33 @@ export const NotebookSidebar = ({
     null
   );
   const [draftName, setDraftName] = useState<string>('');
+
+  // Refs for input fields - used for reliable focus in Electron
+  const notebookInputRef = useRef<HTMLInputElement>(null);
+  const folderInputRef = useRef<HTMLInputElement>(null);
+
+  // Focus input when editing starts - autoFocus is unreliable in Electron
+  useEffect(() => {
+    if (editingNotebookId !== null) {
+      // Small delay ensures DOM is ready and window has focus
+      const timer = setTimeout(() => {
+        notebookInputRef.current?.focus();
+        notebookInputRef.current?.select();
+      }, 50);
+      return () => clearTimeout(timer);
+    }
+  }, [editingNotebookId]);
+
+  useEffect(() => {
+    if (editingFolderId !== null) {
+      // Small delay ensures DOM is ready and window has focus
+      const timer = setTimeout(() => {
+        folderInputRef.current?.focus();
+        folderInputRef.current?.select();
+      }, 50);
+      return () => clearTimeout(timer);
+    }
+  }, [editingFolderId]);
 
   const confirmDelete = (title: string, message: string) => {
     const electronConfirm = (window as any).electron?.confirm;
@@ -172,7 +199,7 @@ export const NotebookSidebar = ({
   const onDeleteNotebook = (notebookId: T.NotebookId, name: string) => {
     const ok = confirmDelete(
       'Delete notebook',
-      `Delete notebook "${name}"? This will delete all folders inside it.`
+      `Delete notebook "${name}"? All folders and notes inside will be moved to Trash.`
     );
     if (!ok) return;
     deleteNotebook(notebookId);
@@ -181,7 +208,7 @@ export const NotebookSidebar = ({
   const onDeleteFolder = (folderId: T.FolderId, name: string) => {
     const ok = confirmDelete(
       'Delete folder',
-      `Delete folder "${name}" and all subfolders?`
+      `Delete folder "${name}" and all subfolders? Notes inside will be moved to Trash.`
     );
     if (!ok) return;
     deleteFolder(folderId);
@@ -225,27 +252,20 @@ export const NotebookSidebar = ({
           }`}
           style={{ paddingLeft: 12 + depth * 12 }}
         >
-          <button
-            type="button"
-            className="navigation-bar__folder-item"
-            onClick={() => openFolder(folderId)}
-            onDoubleClick={() => {
-              setEditingFolderId(folderId);
-              setEditingNotebookId(null);
-              setDraftName(folder.name);
-            }}
-          >
-            <span className="navigation-bar__folder-icon">
-              <FolderIcon />
-            </span>
-            {editingFolderId === folderId ? (
+          {editingFolderId === folderId ? (
+            // NOTE: do not nest inputs inside buttons (invalid HTML + flaky typing/focus in Electron)
+            <div className="navigation-bar__folder-item">
+              <span className="navigation-bar__folder-icon">
+                <FolderIcon />
+              </span>
               <input
+                ref={folderInputRef}
                 className="navigation-bar__rename-input"
-                autoFocus
                 value={draftName}
                 onChange={(e) => setDraftName(e.target.value)}
-                onClick={(e) => e.stopPropagation()}
                 onKeyDown={(e) => {
+                  // keep keystrokes inside the input
+                  e.stopPropagation();
                   if (e.key === 'Enter') {
                     e.preventDefault();
                     commitFolderRename(folderId, folder.name);
@@ -257,12 +277,26 @@ export const NotebookSidebar = ({
                 }}
                 onBlur={() => commitFolderRename(folderId, folder.name)}
               />
-            ) : (
+            </div>
+          ) : (
+            <button
+              type="button"
+              className="navigation-bar__folder-item"
+              onClick={() => openFolder(folderId)}
+              onDoubleClick={() => {
+                setEditingFolderId(folderId);
+                setEditingNotebookId(null);
+                setDraftName(folder.name);
+              }}
+            >
+              <span className="navigation-bar__folder-icon">
+                <FolderIcon />
+              </span>
               <span className="navigation-bar__folder-label">
                 {folder.name}
               </span>
-            )}
-          </button>
+            </button>
+          )}
           <button
             type="button"
             className="navigation-bar__folder-delete"
@@ -295,25 +329,20 @@ export const NotebookSidebar = ({
           return (
             <div key={String(notebookId)} className="navigation-bar__notebook">
               <div className="navigation-bar__notebook-header">
-                <button
-                  type="button"
-                  className="navigation-bar__notebook-toggle"
-                  onClick={() => toggleNotebookExpanded(notebookId)}
-                  onDoubleClick={() => {
-                    setEditingNotebookId(notebookId);
-                    setEditingFolderId(null);
-                    setDraftName(notebook.name);
-                  }}
-                >
-                  {isExpanded ? '▾' : '▸'}{' '}
-                  {editingNotebookId === notebookId ? (
+                {editingNotebookId === notebookId ? (
+                  // NOTE: do not nest inputs inside buttons (invalid HTML + flaky typing/focus in Electron)
+                  <div className="navigation-bar__notebook-edit">
+                    <span className="navigation-bar__notebook-icon">
+                      {isExpanded ? '▾' : '▸'}
+                    </span>
                     <input
+                      ref={notebookInputRef}
                       className="navigation-bar__rename-input"
-                      autoFocus
                       value={draftName}
                       onChange={(e) => setDraftName(e.target.value)}
-                      onClick={(e) => e.stopPropagation()}
                       onKeyDown={(e) => {
+                        // keep keystrokes inside the input
+                        e.stopPropagation();
                         if (e.key === 'Enter') {
                           e.preventDefault();
                           commitNotebookRename(notebookId, notebook.name);
@@ -327,10 +356,21 @@ export const NotebookSidebar = ({
                         commitNotebookRename(notebookId, notebook.name)
                       }
                     />
-                  ) : (
-                    notebook.name
-                  )}
-                </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    className="navigation-bar__notebook-toggle"
+                    onClick={() => toggleNotebookExpanded(notebookId)}
+                    onDoubleClick={() => {
+                      setEditingNotebookId(notebookId);
+                      setEditingFolderId(null);
+                      setDraftName(notebook.name);
+                    }}
+                  >
+                    {isExpanded ? '▾' : '▸'} {notebook.name}
+                  </button>
+                )}
                 <button
                   type="button"
                   className="navigation-bar__notebook-delete"

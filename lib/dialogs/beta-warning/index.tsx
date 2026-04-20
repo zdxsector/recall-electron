@@ -1,6 +1,6 @@
 import React, { Component } from 'react';
 import { connect } from 'react-redux';
-import SimplenoteLogo from '../../icons/simplenote';
+import RecallLogo from '../../icons/recall';
 import CrossIcon from '../../icons/cross';
 import Dialog from '../../dialog';
 import { closeDialog } from '../../state/ui/actions';
@@ -21,13 +21,13 @@ export class BetaWarning extends Component<Props> {
       <div className="about">
         <Dialog hideTitleBar onDone={closeDialog} title="Beta Release">
           <div className="about-top">
-            <SimplenoteLogo />
+            <RecallLogo />
 
-            <h1>Simplenote</h1>
+            <h1>Recall</h1>
           </div>
 
           <p style={{ textAlign: 'center' }}>
-            This is a beta release of Simplenote.
+            This is a beta release of Recall.
           </p>
 
           <p style={{ textAlign: 'center' }}>

@@ -7,8 +7,22 @@ import DevBadge from './components/dev-badge';
 import DialogRenderer from './dialog-renderer';
 import EmailVerification from './email-verification';
 import AlternateLoginPrompt from './alternate-login-prompt';
+import WindowsTitleBar from './windows-title-bar';
 import { isElectron, isMac } from './utils/platform';
 import classNames from 'classnames';
+
+// Check platform at runtime rather than module load time
+const getIsWindowsElectron = () => {
+  try {
+    // Prefer preload-provided flag, but fall back to UA checks (preload can fail).
+    if (!!window?.electron?.isWindows) {
+      return true;
+    }
+    return /Electron/i.test(navigator.userAgent) && /Win/i.test(navigator.appVersion);
+  } catch {
+    return false;
+  }
+};
 import {
   createNote,
   closeNote,
@@ -64,9 +78,38 @@ type Props = OwnProps & StateProps & DispatchProps;
 class AppComponent extends Component<Props> {
   static displayName = 'App';
 
+  syncWindowsTitleBarOverlay = () => {
+    try {
+      if (!window?.electron?.isWindows) {
+        return;
+      }
+      // Preload may not expose this in non-Electron contexts.
+      if (typeof window.electron.setTitleBarOverlay !== 'function') {
+        return;
+      }
+
+      // Read the *actual* theme colors from CSS variables.
+      // This makes the native controls background follow theme immediately.
+      const styles = window.getComputedStyle(document.body);
+      const color = styles.getPropertyValue('--background-color').trim();
+      const symbolColor = styles.getPropertyValue('--primary-color').trim();
+
+      // Defer one frame so the new `data-theme` styles are applied first.
+      window.requestAnimationFrame(() => {
+        window.electron.setTitleBarOverlay({
+          color: color || undefined,
+          symbolColor: symbolColor || undefined,
+        });
+      });
+    } catch {
+      // ignore
+    }
+  };
+
   componentDidMount() {
     window.electron?.send('setAutoHideMenuBar', this.props.autoHideMenuBar);
     document.body.dataset.theme = this.props.theme;
+    this.syncWindowsTitleBarOverlay();
 
     this.toggleShortcuts(true);
 
@@ -76,6 +119,7 @@ class AppComponent extends Component<Props> {
 
   componentDidUpdate() {
     document.body.dataset.theme = this.props.theme;
+    this.syncWindowsTitleBarOverlay();
   }
 
   componentWillUnmount() {
@@ -199,12 +243,17 @@ class AppComponent extends Component<Props> {
       'touch-enabled': 'ontouchstart' in document.body,
     });
 
-    const mainClasses = classNames('simplenote-app', {
+    const isWindowsElectron = getIsWindowsElectron();
+    
+    const mainClasses = classNames('recall-app', {
       'is-electron': isElectron,
+      'is-windows': isWindowsElectron,
     });
 
+    // Always render WindowsTitleBar on Windows Electron - it handles its own visibility
     return (
       <div className={appClasses}>
+        <WindowsTitleBar />
         {showEmailVerification && <EmailVerification />}
         {showAlternateLoginPrompt && <AlternateLoginPrompt />}
         {isDevConfig && (

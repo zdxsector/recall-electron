@@ -17,14 +17,13 @@
   .app-layout__source-column,
   .tag-field,
   .note-toolbar-wrapper,
-  .react-monaco-editor-container,
   .search-results {
     display: none;
   }
 
   /* Firefox only prints the first page if any divs are display: flex */
   .app,
-  .simplenote-app,
+  .recall-app,
   .app-layout,
   .app-layout__note-column,
   .note-editor,

@@ -2,9 +2,12 @@ import React, { Component, createRef, FormEvent, KeyboardEvent } from 'react';
 import { connect } from 'react-redux';
 import SmallCrossIcon from '../icons/cross-small';
 import SmallSearchIcon from '../icons/search-small';
+import NewNoteIcon from '../icons/new-note';
 import { State } from '../state';
 import * as selectors from '../state/selectors';
-import { focusSearchField, search } from '../state/ui/actions';
+import { CmdOrCtrl } from '../utils/platform';
+import { withoutTags } from '../utils/filter-notes';
+import { createNote, focusSearchField, search } from '../state/ui/actions';
 
 import { registerSearchField } from '../state/ui/search-field-middleware';
 
@@ -20,6 +23,7 @@ type StateProps = {
 
 type DispatchProps = {
   focusSearchField: () => any;
+  onNewNote: (content: string) => any;
   onSearch: (query: string) => any;
 };
 
@@ -29,9 +33,14 @@ export class SearchField extends Component<Props> {
   static displayName = 'SearchField';
 
   inputField = createRef<HTMLInputElement>();
+  unregisterSearchField?: () => void;
 
   componentDidMount() {
-    registerSearchField(this.focus);
+    this.unregisterSearchField = registerSearchField(this.focus);
+  }
+
+  componentWillUnmount() {
+    this.unregisterSearchField?.();
   }
 
   blur = () => {
@@ -101,6 +110,15 @@ export class SearchField extends Component<Props> {
             <SmallCrossIcon />
           </button>
         )}
+        <button
+          type="button"
+          aria-label="New Note"
+          className="icon-button search-field__new-note"
+          title={`New Note • ${CmdOrCtrl}+Shift+I`}
+          onClick={() => this.props.onNewNote(withoutTags(searchQuery))}
+        >
+          <NewNoteIcon />
+        </button>
       </div>
     );
   }
@@ -113,6 +131,7 @@ const mapStateToProps: S.MapState<StateProps> = (state: State) => ({
 
 const mapDispatchToProps: S.MapDispatch<DispatchProps> = (dispatch) => ({
   focusSearchField: () => dispatch(focusSearchField()),
+  onNewNote: (content: string) => dispatch(createNote(content)),
   onSearch: (query: string) => {
     dispatch(search(query));
   },

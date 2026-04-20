@@ -5,7 +5,9 @@
  * - exist as the first non-whitespace on a line
  * - take one of the following forms ( - [ ] | - [x] | - [X])
  */
-export const checkboxRegex: RegExp = /^(\s*)- \[( |x|X)\](\s)/gm;
+// Note: allow end-of-line after the closing bracket so `- [ ]` (no trailing space)
+// still counts as a checkbox line (common when trimming for titles/previews).
+export const checkboxRegex: RegExp = /^(\s*)- \[( |x|X)\](\s|$)/gm;
 
 export const withCheckboxCharacters = (s: string): string =>
   s.replace(

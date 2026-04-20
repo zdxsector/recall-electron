@@ -12,9 +12,9 @@ const buildHelpMenu = (mainWindow, isAuthenticated) => {
   isAuthenticated = isAuthenticated || false;
   const submenu = [
     {
-      label: 'Help && &Support',
+      label: 'slybacalso.me',
       accelerator: platform.isLinux() ? 'F1' : null,
-      click: () => shell.openExternal('https://simplenote.com/help'),
+      click: () => shell.openExternal('https://slybacalso.me/'),
     },
     {
       label: '&Keyboard Shortcuts',
