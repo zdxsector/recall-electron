@@ -22,7 +22,9 @@ const stripInvisibleChars = (value: string): string =>
   String(value ?? '').replace(INVISIBLE_CHARS_RE, '');
 
 export const normalizeNoteTitleForDisplay = (value: unknown): string => {
-  const normalized = stripInvisibleChars(String(value ?? '')).trim();
+  const normalized = stripInvisibleChars(String(value ?? ''))
+    .replace(/<[^>]*>?/g, '')
+    .trim();
   return normalized || untitledNoteTitle;
 };
 

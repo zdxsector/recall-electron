@@ -180,6 +180,7 @@
     "redux-localstorage": "0.4.1",
     "regenerator-runtime": "0.14.1",
     "remove-markdown": "0.6.0",
+    "safer-buffer": "2.1.2",
     "sanitize-filename": "1.6.3",
     "sax": "1.4.1",
     "semver": "7.7.1",

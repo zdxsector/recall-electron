@@ -1,12 +1,10 @@
-import React, { Component, CSSProperties, createRef } from 'react';
+import React, { Component, CSSProperties } from 'react';
 import { connect } from 'react-redux';
 import classNames from 'classnames';
-import { escapeRegExp } from 'lodash';
 
 import PublishIcon from '../icons/published-small';
 import SmallPinnedIcon from '../icons/pinned-small';
 import SmallSyncIcon from '../icons/sync-small';
-import FileSmallIcon from '../icons/file-small';
 import { decorateWith, makeFilterDecorator } from './decorators';
 import { getTerms } from '../utils/filter-notes';
 import {
@@ -14,321 +12,51 @@ import {
   noteTitleAndPreview,
 } from '../utils/note-utils';
 import { withCheckboxCharacters } from '../utils/task-transform';
-import { renderNoteToHtml } from '../utils/render-note-to-html';
 
 import actions from '../state/actions';
 
 import * as S from '../state';
 import * as T from '../types';
 
-const IMAGE_LINE_ONLY_RE = /^\s*!\[([^\]]*)\]\(\s*([^)]+?)\s*\)\s*$/;
-const HTML_IMAGE_LINE_ONLY_RE = /^\s*<img\b[^>]*>\s*$/i;
-const HTML_IMAGE_SRC_RE = /\bsrc\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/i;
-const HTML_IMAGE_ALT_RE = /\balt\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/i;
-const TASK_LINE_RE = /^\s*-\s*\[(?: |x|X)\]\s*(.*)$/;
-const MAX_TITLE_THUMBNAIL_LINES = 4;
-const MAX_RENDERED_PREVIEW_LINES = 30;
-const MAX_RENDERED_PREVIEW_CHARS = 2500;
-const LARGE_RENDERED_PREVIEW_DOC_THRESHOLD = 200_000;
+const MD_IMAGE_RE = /!\[([^\]]*)\]\(([^)]+?)\)/;
+const HTML_IMG_SRC_RE = /<img\b[^>]*\bsrc\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/i;
+const HTML_IMG_ALT_RE = /\balt\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/i;
+const THUMBNAIL_SEARCH_LIMIT = 2000;
 
-const FENCE_RE = /^(\s*)(`{3,}|~{3,})(.*)$/;
-const isFenceLine = (line: string) => FENCE_RE.test(String(line ?? ''));
+const CODE_FENCE_BLOCK_RE = /```[\s\S]*?```/g;
+const INLINE_CODE_RE = /`([^`]+)`/g;
 
-type ReadLineResult = { line: string; nextOffset: number; done: boolean };
-const readNextLine = (content: string, offset: number): ReadLineResult => {
-  const s = String(content ?? '');
-  if (offset >= s.length) {
-    return { line: '', nextOffset: s.length, done: true };
+const formatNoteDate = (epochSeconds: number): string => {
+  if (!epochSeconds || epochSeconds <= 0) return '';
+  const date = new Date(epochSeconds * 1000);
+  const now = new Date();
+
+  if (date.toDateString() === now.toDateString()) {
+    return date.toLocaleTimeString(undefined, {
+      hour: 'numeric',
+      minute: '2-digit',
+    });
   }
-  const nl = s.indexOf('\n', offset);
-  const end = nl === -1 ? s.length : nl;
-  let line = s.slice(offset, end);
-  if (line.endsWith('\r')) line = line.slice(0, -1);
-  return {
-    line,
-    nextOffset: nl === -1 ? s.length : end + 1,
-    done: nl === -1,
-  };
-};
 
-const findTitleLine = (
-  content: string
-): { idx: number; trimmedLine: string } => {
-  let firstImageIdx: number | null = null;
-  let firstImageLine = '';
-  let offset = 0;
-  let idx = 0;
-  while (true) {
-    const { line, nextOffset, done } = readNextLine(content, offset);
-    offset = nextOffset;
-    const trimmed = String(line ?? '').trim();
-    if (trimmed) {
-      const imgMatch = IMAGE_LINE_ONLY_RE.exec(trimmed);
-      if (imgMatch || HTML_IMAGE_LINE_ONLY_RE.test(trimmed)) {
-        if (firstImageIdx === null) {
-          firstImageIdx = idx;
-          firstImageLine = trimmed;
-        }
-      } else {
-        // Skip empty checklist items (e.g. `- [ ]`) so we don't treat them as the
-        // note title line. This avoids showing `- [ ]` as the title and keeps the
-        // list preview aligned with the editor's content.
-        const taskMatch = TASK_LINE_RE.exec(trimmed);
-        if (!(taskMatch && !String(taskMatch[1] ?? '').trim())) {
-          return { idx, trimmedLine: trimmed };
-        }
-      }
-    }
-
-    if (done) break;
-    idx++;
+  const yesterday = new Date(now);
+  yesterday.setDate(yesterday.getDate() - 1);
+  if (date.toDateString() === yesterday.toDateString()) {
+    return 'Yesterday';
   }
-  return firstImageIdx === null
-    ? { idx: -1, trimmedLine: '' }
-    : { idx: firstImageIdx, trimmedLine: firstImageLine };
-};
 
-const unwrapSearchMatchSpans = (root: HTMLElement) => {
-  root.querySelectorAll('span.search-match').forEach((el) => {
-    const parent = el.parentNode;
-    if (!parent) return;
-    parent.replaceChild(document.createTextNode(el.textContent ?? ''), el);
-    parent.normalize();
+  const msPerDay = 86_400_000;
+  const daysAgo = Math.floor((now.getTime() - date.getTime()) / msPerDay);
+  if (daysAgo < 7) {
+    return date.toLocaleDateString(undefined, { weekday: 'long' });
+  }
+
+  return date.toLocaleDateString(undefined, {
+    month: 'numeric',
+    day: 'numeric',
+    year: '2-digit',
   });
 };
 
-const applySearchHighlights = (root: HTMLElement, searchQuery: string) => {
-  const q = String(searchQuery ?? '').trim();
-  if (!q) return;
-
-  // Remove any prior highlights so we can re-apply cleanly.
-  unwrapSearchMatchSpans(root);
-
-  const terms = getTerms(q).map((t) => String(t ?? '').trim()).filter(Boolean);
-  if (terms.length === 0) return;
-
-  // Larger terms first to reduce "partial highlight" when alternatives overlap.
-  terms.sort((a, b) => b.length - a.length);
-  const pattern = new RegExp(terms.map(escapeRegExp).join('|'), 'gi');
-
-  const shouldSkipTextNode = (node: Text) => {
-    const parent = node.parentElement;
-    if (!parent) return true;
-    // Keep code/math/diagrams readable and avoid disturbing syntax highlighting DOM.
-    if (
-      parent.closest(
-        'pre, code, svg, math, .katex, .mermaid, .vega, .plantuml, .token'
-      )
-    ) {
-      return true;
-    }
-    // Avoid highlighting inside UI controls (shouldn't exist, but be defensive).
-    if (parent.closest('button, input, textarea, select')) return true;
-    return false;
-  };
-
-  const walker = document.createTreeWalker(
-    root,
-    NodeFilter.SHOW_TEXT,
-    {
-      acceptNode: (n) => {
-        const node = n as Text;
-        const value = node.nodeValue ?? '';
-        if (!value || !value.trim()) return NodeFilter.FILTER_REJECT;
-        if (shouldSkipTextNode(node)) return NodeFilter.FILTER_REJECT;
-        pattern.lastIndex = 0;
-        return pattern.test(value)
-          ? NodeFilter.FILTER_ACCEPT
-          : NodeFilter.FILTER_REJECT;
-      },
-    } as unknown as NodeFilter
-  );
-
-  const nodes: Text[] = [];
-  while (walker.nextNode()) {
-    nodes.push(walker.currentNode as Text);
-  }
-
-  for (const textNode of nodes) {
-    const text = textNode.nodeValue ?? '';
-    pattern.lastIndex = 0;
-    let lastIdx = 0;
-    let match: RegExpExecArray | null;
-    const frag = document.createDocumentFragment();
-
-    while ((match = pattern.exec(text)) !== null) {
-      const start = match.index ?? 0;
-      const matched = match[0] ?? '';
-      if (!matched) break;
-
-      if (start > lastIdx) {
-        frag.appendChild(document.createTextNode(text.slice(lastIdx, start)));
-      }
-
-      const span = document.createElement('span');
-      span.className = 'search-match';
-      span.textContent = matched;
-      frag.appendChild(span);
-
-      lastIdx = start + matched.length;
-      if (pattern.lastIndex === start) {
-        // Safety: avoid infinite loops in unexpected regex edge cases.
-        pattern.lastIndex++;
-      }
-    }
-
-    if (lastIdx < text.length) {
-      frag.appendChild(document.createTextNode(text.slice(lastIdx)));
-    }
-
-    textNode.parentNode?.replaceChild(frag, textNode);
-  }
-};
-
-const getRenderedPreviewSource = (
-  content: string,
-  searchQuery?: string
-): string => {
-  const raw = String(content ?? '');
-  if (!raw) return '';
-
-  const { idx: titleIdx, trimmedLine: titleLine } = findTitleLine(raw);
-  if (titleIdx < 0) return '';
-
-  // If the "title line" is image-only (e.g. note is only images),
-  // include it in the preview so users can still see the image.
-  const titleIsImageOnly =
-    IMAGE_LINE_ONLY_RE.test(titleLine) ||
-    HTML_IMAGE_LINE_ONLY_RE.test(titleLine);
-
-  let startIdx = titleIsImageOnly ? titleIdx : titleIdx + 1;
-
-  // If we're searching, try to center the preview around the first match so the
-  // user sees relevant context rather than always the top of the note.
-  const term = (getTerms(String(searchQuery ?? ''))[0] ?? '').trim();
-  // For huge documents, scanning the entire note just to "center the preview"
-  // can be very expensive and is not worth impacting typing performance.
-  if (term && raw.length < LARGE_RENDERED_PREVIEW_DOC_THRESHOLD) {
-    const needle = term.toLowerCase();
-    const findMatchFrom = (fromIdx: number): number | null => {
-      let offset = 0;
-      let idx = 0;
-      while (true) {
-        const { line, nextOffset, done } = readNextLine(raw, offset);
-        offset = nextOffset;
-        if (idx >= Math.max(0, fromIdx)) {
-          if (String(line ?? '').toLowerCase().includes(needle)) return idx;
-        }
-        if (done) break;
-        idx++;
-      }
-      return null;
-    };
-    const matchIdx = findMatchFrom(startIdx) ?? findMatchFrom(0);
-    if (matchIdx !== null) startIdx = Math.max(startIdx, Math.max(0, matchIdx - 1));
-  }
-
-  let chars = 0;
-  const slice: string[] = [];
-  // If we enter a fenced code block, keep including lines until we close it,
-  // otherwise previews can show raw/unrendered block tokens (e.g. mermaid/math).
-  let openFence: { marker: string } | null = null;
-
-  // Seek to startIdx without allocating a full lines array.
-  let offset = 0;
-  let idx = 0;
-  while (idx < startIdx) {
-    const r = readNextLine(raw, offset);
-    offset = r.nextOffset;
-    if (r.done) return '';
-    idx++;
-  }
-
-  // Skip leading blank lines at the preview start.
-  while (true) {
-    const probe = readNextLine(raw, offset);
-    if (probe.done) return '';
-    if (String(probe.line ?? '').trim()) break;
-    offset = probe.nextOffset;
-    idx++;
-  }
-
-  // Collect preview lines with caps.
-  while (true) {
-    const r = readNextLine(raw, offset);
-    offset = r.nextOffset;
-    const line = String(r.line ?? '');
-    const trimmed = line.trim();
-    // Skip empty task list items (e.g. trailing "- [ ]" with no text) so the
-    // list preview doesn’t show an extra blank checkbox row.
-    const taskMatch = TASK_LINE_RE.exec(trimmed);
-    if (taskMatch && !String(taskMatch[1] ?? '').trim()) {
-      if (r.done) break;
-      idx++;
-      continue;
-    }
-    slice.push(line);
-    chars += line.length + 1;
-
-    // Track fenced code blocks to avoid cutting mid-block.
-    const fenceMatch = FENCE_RE.exec(line);
-    if (fenceMatch) {
-      const marker = fenceMatch[2] ?? '';
-      if (!openFence) {
-        openFence = { marker };
-      } else if (openFence.marker === marker) {
-        openFence = null;
-      }
-    }
-
-    if (slice.length >= MAX_RENDERED_PREVIEW_LINES) break;
-    if (chars >= MAX_RENDERED_PREVIEW_CHARS) break;
-    if (r.done) break;
-    idx++;
-  }
-
-  // If we cut off while still inside a fence, continue until we close it,
-  // with a hard safety cap to prevent huge previews.
-  if (openFence) {
-    const safetyMaxExtraLines = 40;
-    let remaining = safetyMaxExtraLines;
-    while (remaining > 0) {
-      const r = readNextLine(raw, offset);
-      offset = r.nextOffset;
-      const line = String(r.line ?? '');
-      slice.push(line);
-      remaining--;
-      const fenceMatch = FENCE_RE.exec(line);
-      if (fenceMatch && (fenceMatch[2] ?? '') === openFence.marker) {
-        openFence = null;
-        break;
-      }
-      if (r.done) break;
-    }
-  }
-
-  return slice.join('\n').trim();
-};
-
-const extractMarkdownImageSrc = (raw: string): string => {
-  const trimmed = String(raw ?? '').trim();
-  if (!trimmed) return '';
-  // Support the <url> form and optional title: ![alt](<url> "title")
-  if (trimmed.startsWith('<')) {
-    const closeIdx = trimmed.indexOf('>');
-    if (closeIdx > 1) {
-      return trimmed.slice(1, closeIdx).trim();
-    }
-  }
-  // Otherwise, treat the first whitespace-delimited token as the URL.
-  return trimmed.split(/\s+/)[0] ?? '';
-};
-
-const extractHtmlAttribute = (re: RegExp, s: string): string | null => {
-  const m = re.exec(String(s ?? ''));
-  const value = (m?.[1] ?? m?.[2] ?? m?.[3] ?? '').trim();
-  return value || null;
-};
 
 type OwnProps = {
   invalidateHeight: () => any;
@@ -358,49 +86,16 @@ type Props = OwnProps & StateProps & DispatchProps;
 export class NoteCell extends Component<Props> {
   createdAt: number;
   updateScheduled: ReturnType<typeof setTimeout> | undefined;
-  renderedPreviewRef = createRef<HTMLDivElement>();
-  renderedPreviewScheduled: ReturnType<typeof setTimeout> | undefined;
-  renderedPreviewSeq = 0;
 
   constructor(props: Props) {
     super(props);
-
-    // prevent bouncing note updates on app boot
     this.createdAt = Date.now();
   }
 
-  componentDidMount() {
-    this.scheduleRenderedPreview();
-  }
-
   componentDidUpdate(prevProps: Props) {
-    const prevNote = prevProps.note;
-    const nextNote = this.props.note;
-
-    // react-virtualized can reuse row components; ensure we refresh previews when
-    // the identity/context of the note changes (not only its content).
-    // IMPORTANT: Redux updates note objects immutably, so `prevNote !== nextNote`
-    // will be true on every content edit. Treating that as an identity change
-    // causes us to clear the preview DOM on every keystroke (visible "flash").
-    // Only consider the row "identity" changed when the note id changes.
     const noteIdentityChanged = prevProps.noteId !== this.props.noteId;
-    const folderContextChanged = prevNote?.folderId !== nextNote?.folderId;
-
-    if (noteIdentityChanged || folderContextChanged) {
-      this.props.invalidateHeight();
-    }
-
-    if (prevProps.note?.content !== this.props.note?.content) {
-      this.props.invalidateHeight();
-    }
-
-    if (
-      prevProps.isOpened !== this.props.isOpened ||
-      prevProps.displayMode !== this.props.displayMode ||
-      prevProps.searchQuery !== this.props.searchQuery
-    ) {
-      this.props.invalidateHeight();
-    }
+    const folderContextChanged =
+      prevProps.note?.folderId !== this.props.note?.folderId;
 
     if (
       noteIdentityChanged ||
@@ -410,21 +105,9 @@ export class NoteCell extends Component<Props> {
       prevProps.displayMode !== this.props.displayMode ||
       prevProps.searchQuery !== this.props.searchQuery
     ) {
-      // Prevent stale rendered HTML from briefly showing for another note.
-      // Only clear when switching notes, not when content changes to avoid flashing.
-      if (noteIdentityChanged || folderContextChanged) {
-        const node = this.renderedPreviewRef.current;
-        if (node) node.innerHTML = '';
-        // Bump seq so any in-flight async preview work is ignored.
-        this.renderedPreviewSeq++;
-      }
-      // When only content changes (not note identity), don't clear the preview
-      // to avoid flashing. The new content will smoothly replace the old content.
-      this.scheduleRenderedPreview();
+      this.props.invalidateHeight();
     }
 
-    // make sure we reset our update indicator
-    // otherwise it won't re-animate on the next update
     if (this.props.lastUpdated < 1000 && !this.updateScheduled) {
       this.updateScheduled = setTimeout(() => this.forceUpdate(), 1000);
     }
@@ -432,170 +115,10 @@ export class NoteCell extends Component<Props> {
 
   componentWillUnmount() {
     clearTimeout(this.updateScheduled);
-    clearTimeout(this.renderedPreviewScheduled);
-  }
-
-  shouldShowRenderedPreview() {
-    const { displayMode, note } = this.props;
-    if (!note) return false;
-    if ('condensed' === displayMode) return false;
-    // Prefer a Muya-rendered preview so the list matches what the editor displays.
-    // When searching we still render, and we apply search-term highlights to the
-    // rendered HTML so results remain scannable.
-    return true;
-  }
-
-  scheduleRenderedPreview() {
-    clearTimeout(this.renderedPreviewScheduled);
-    this.renderedPreviewScheduled = setTimeout(
-      () => this.renderRenderedPreview(),
-      90
-    );
-  }
-
-  async renderRenderedPreview() {
-    const node = this.renderedPreviewRef.current;
-    if (!node) return;
-
-    if (!this.shouldShowRenderedPreview()) {
-      node.innerHTML = '';
-      return;
-    }
-
-    const { note, noteId, folders, notebooks } = this.props;
-    const source = getRenderedPreviewSource(
-      note?.content ?? '',
-      this.props.searchQuery
-    );
-    if (!source) {
-      node.innerHTML = '';
-      return;
-    }
-
-    const seq = ++this.renderedPreviewSeq;
-
-    try {
-      const html = await renderNoteToHtml(source);
-      if (seq !== this.renderedPreviewSeq) return;
-
-      const htmlWithSafeCheckboxes = String(html ?? '').replace(
-        /<input\b[^>]*type=(?:"checkbox"|'checkbox'|checkbox)[^>]*>/gi,
-        (tag) => {
-          const isChecked =
-            /\bchecked\b/i.test(tag) ||
-            /\bdata-checked\s*=\s*(?:"true"|'true'|true)/i.test(tag) ||
-            /\baria-checked\s*=\s*(?:"true"|'true'|true)/i.test(tag);
-          return `<span class="note-list-task-checkbox${
-            isChecked ? ' is-checked' : ''
-          }" aria-hidden="true"></span>`;
-        }
-      );
-
-      node.innerHTML = htmlWithSafeCheckboxes;
-
-      // Ensure preview content isn't interactive inside the list item button.
-      node.querySelectorAll('a').forEach((a) => {
-        const span = document.createElement('span');
-        span.textContent = a.textContent ?? '';
-        a.replaceWith(span);
-      });
-      node.querySelectorAll('input').forEach((input) => {
-        try {
-          const el = input as HTMLInputElement;
-          const type = (el.getAttribute('type') ?? '').toLowerCase();
-
-          // IMPORTANT: Inputs inside a <button> are invalid HTML and Chromium can
-          // drop/ignore them, which makes task lists render as bullet lists.
-          // Replace checkbox inputs with a non-interactive span that we can style.
-          if (type === 'checkbox') {
-            const span = document.createElement('span');
-            span.className = `note-list-task-checkbox${
-              el.checked ? ' is-checked' : ''
-            }`;
-            span.setAttribute('aria-hidden', 'true');
-            el.replaceWith(span);
-            return;
-          }
-
-          // Any other inputs should be inert in the list.
-          el.disabled = true;
-          el.readOnly = true;
-          el.tabIndex = -1;
-        } catch {
-          // ignore
-        }
-      });
-
-      // Materialize assets/<name> image URLs into file:// URLs.
-      const resolveFn = window.electron?.resolveNoteAssetFileUrl;
-      if (typeof resolveFn === 'function') {
-        node.querySelectorAll('img').forEach((img) => {
-          try {
-            const raw = (img.getAttribute('src') ?? '').trim();
-            if (!raw) return;
-
-            const normalized = raw.replace(/^(\.\/|\/)/, '');
-            if (!normalized.startsWith('assets/')) return;
-
-            const resolved = resolveFn({
-              noteId,
-              note,
-              folders,
-              notebooks,
-              rel: normalized,
-            });
-            if (resolved) img.setAttribute('src', resolved);
-          } catch {
-            // ignore
-          }
-        });
-      }
-
-      // Keep previews lightweight and fixed-size thumbnails.
-      node.querySelectorAll('img').forEach((img) => {
-        img.setAttribute('loading', 'lazy');
-        img.setAttribute('draggable', 'false');
-        // Remove any width/height attributes from the editor so CSS controls sizing
-        img.removeAttribute('width');
-        img.removeAttribute('height');
-        img.style.removeProperty('width');
-        img.style.removeProperty('height');
-      });
-
-      // Highlight search terms inside rendered HTML (matches list UX expectations).
-      const q = (this.props.searchQuery ?? '').trim();
-      if (q) {
-        try {
-          applySearchHighlights(node, q);
-        } catch {
-          // ignore highlight errors
-        }
-      }
-
-      // Apply syntax highlighting to code blocks
-      const codeElements = node.querySelectorAll('pre code');
-      if (codeElements.length) {
-        try {
-          const { default: highlight } = await import(
-            /* webpackChunkName: 'highlight' */ 'highlight.js'
-          );
-          if (seq !== this.renderedPreviewSeq) return;
-          codeElements.forEach((el) =>
-            highlight.highlightElement(el as HTMLElement)
-          );
-        } catch {
-          // ignore highlight errors
-        }
-      }
-    } catch {
-      if (seq !== this.renderedPreviewSeq) return;
-      node.innerHTML = '';
-    }
   }
 
   render() {
     const {
-      displayMode,
       hasPendingChanges,
       isOffline,
       isOpened,
@@ -627,88 +150,64 @@ export class NoteCell extends Component<Props> {
     const pinnerLabel = isPinned ? `Unpin note ${title}` : `Pin note ${title}`;
 
     const decorators = getTerms(searchQuery).map(makeFilterDecorator);
-    const showRenderedPreview = this.shouldShowRenderedPreview();
 
-    // If an image appears in the first 4 non-empty editor lines, show a thumbnail in the title row.
-    // Skip this when searching so contextual text previews remain clear.
-    const shouldShowTitleThumbnail = !(searchQuery ?? '').trim();
-    const titleThumbnail = (() => {
-      if (!shouldShowTitleThumbnail) return null;
+    const dateStr = formatNoteDate(note.modificationDate);
+
+    const cleanPreview = withCheckboxCharacters(preview)
+      .replace(CODE_FENCE_BLOCK_RE, '')
+      .replace(INLINE_CODE_RE, '$1')
+      .replace(/\n+/g, ' ')
+      .trim();
+
+    const shouldShowThumbnail = !(searchQuery ?? '').trim();
+    const thumbnail = (() => {
+      if (!shouldShowThumbnail) return null;
 
       const content = String(note.content ?? '');
-      const candidateLines: string[] = [];
-      for (const line of content.split(/\r?\n/)) {
-        const trimmed = String(line).trim();
-        if (!trimmed) continue;
-        candidateLines.push(trimmed);
-        if (candidateLines.length >= MAX_TITLE_THUMBNAIL_LINES) break;
-      }
-
       let alt = 'Image';
       let rawSrc = '';
-      for (const line of candidateLines) {
-        const md = IMAGE_LINE_ONLY_RE.exec(line);
-        if (md) {
-          alt = (md[1] ?? '').trim() || 'Image';
-          rawSrc = extractMarkdownImageSrc(md[2] ?? '').replace(/^<|>$/g, '');
-          break;
-        }
-        if (HTML_IMAGE_LINE_ONLY_RE.test(line)) {
-          const src = extractHtmlAttribute(HTML_IMAGE_SRC_RE, line);
-          if (!src) continue;
-          rawSrc = src.replace(/^<|>$/g, '');
-          alt = extractHtmlAttribute(HTML_IMAGE_ALT_RE, line) || alt;
-          break;
+
+      const md = MD_IMAGE_RE.exec(content);
+      if (md && md.index < THUMBNAIL_SEARCH_LIMIT) {
+        alt = (md[1] ?? '').trim() || 'Image';
+        rawSrc = (md[2] ?? '').trim().replace(/^<|>$/g, '');
+      }
+
+      if (!rawSrc) {
+        const html = HTML_IMG_SRC_RE.exec(content);
+        if (html && html.index < THUMBNAIL_SEARCH_LIMIT) {
+          rawSrc = ((html[1] ?? html[2] ?? html[3]) || '').trim().replace(/^<|>$/g, '');
+          const altMatch = HTML_IMG_ALT_RE.exec(content);
+          if (altMatch) {
+            alt = ((altMatch[1] ?? altMatch[2] ?? altMatch[3]) || '').trim() || alt;
+          }
         }
       }
 
+      if (!rawSrc) return null;
+      rawSrc = rawSrc.replace(/^["']+|["']+$/g, '');
       if (!rawSrc) return null;
       const normalizedSrc = rawSrc.replace(/^(\.\/|\/)/, '');
 
       const resolveFn = window.electron?.resolveNoteAssetFileUrl;
       const resolvedSrc =
         normalizedSrc.startsWith('assets/') && typeof resolveFn === 'function'
-          ? resolveFn({
-              noteId,
-              note,
-              folders,
-              notebooks,
-              rel: normalizedSrc,
-            }) || rawSrc
+          ? resolveFn({ noteId, note, folders, notebooks, rel: normalizedSrc }) ||
+            rawSrc
           : rawSrc;
 
-      // Avoid rendering very large data: thumbnails in the list (can be huge and cause jank).
-      const isHttp = /^https?:\/\//i.test(resolvedSrc);
-      const isFile = /^file:\/\//i.test(resolvedSrc);
-      const isSmallDataImage =
-        /^data:image\//i.test(resolvedSrc) && resolvedSrc.length <= 8_192;
-      const showThumb = isFile || isHttp || isSmallDataImage;
+      if (!resolvedSrc) return null;
 
-      return (
-        <span className="note-list-item-title-thumbnail">
-          {showThumb ? (
-            <img
-              className="note-list-item-image-thumb"
-              src={resolvedSrc}
-              alt={alt}
-              loading="lazy"
-            />
-          ) : (
-            <span className="note-list-item-image-fallback" aria-hidden="true">
-              <FileSmallIcon />
-            </span>
-          )}
-        </span>
-      );
+      return { src: resolvedSrc, alt };
     })();
 
-    const hasTitleThumbnail = !!titleThumbnail;
+    const hasThumbnail = !!thumbnail;
     const classes = classNames('note-list-item', {
       'note-list-item-selected': isOpened,
       'note-list-item-pinned': isPinned,
       'note-recently-updated': recentlyUpdated,
       'published-note': isPublished,
-      'note-list-item-has-title-thumbnail': hasTitleThumbnail,
+      'note-list-item-has-thumbnail': hasThumbnail,
     });
 
     return (
@@ -731,47 +230,31 @@ export class NoteCell extends Component<Props> {
           >
             <div className="note-list-item-title">
               <span className="note-list-item-title-text">
-                {decorateWith(decorators, withCheckboxCharacters(title))}
+                {decorateWith(decorators, title)}
               </span>
-              {titleThumbnail}
             </div>
-            {'expanded' === displayMode &&
-              (showRenderedPreview ? (
-                <div
-                  className="note-list-item-excerpt note-list-item-excerpt-rendered"
-                  ref={this.renderedPreviewRef}
-                />
-              ) : (
-                preview.length > 0 && (
-                  <div className="note-list-item-excerpt">
-                    {withCheckboxCharacters(preview)
-                      .split('\n')
-                      .map((line, index) => (
-                        <React.Fragment key={index}>
-                          {index > 0 && <br />}
-                          {decorateWith(decorators, line.slice(0, 200))}
-                        </React.Fragment>
-                      ))}
-                  </div>
-                )
-              ))}
-            {'comfy' === displayMode &&
-              (showRenderedPreview ? (
-                <div
-                  className="note-list-item-excerpt note-list-item-excerpt-rendered"
-                  ref={this.renderedPreviewRef}
-                />
-              ) : (
-                preview.length > 0 && (
-                  <div className="note-list-item-excerpt">
-                    {decorateWith(
-                      decorators,
-                      withCheckboxCharacters(preview).slice(0, 200)
-                    )}
-                  </div>
-                )
-              ))}
+            <div className="note-list-item-date-preview">
+              <span className="note-list-item-date">{dateStr}</span>
+              {cleanPreview && (
+                <span className="note-list-item-preview-text">
+                  {decorateWith(decorators, cleanPreview.slice(0, 200))}
+                </span>
+              )}
+            </div>
           </button>
+
+          {hasThumbnail && (
+            <div className="note-list-item-thumbnail-right">
+              <img
+                className="note-list-item-thumb-img"
+                src={thumbnail.src}
+                alt={thumbnail.alt}
+                loading="lazy"
+                draggable={false}
+              />
+            </div>
+          )}
+
           <div className="note-list-item-status-right">
             {hasPendingChanges && (
               <span
@@ -799,7 +282,6 @@ const mapStateToProps: S.MapState<StateProps, OwnProps> = (
   { noteId }
 ) => ({
   displayMode: state.settings.noteDisplay,
-  // In offline mode we consider notes always locally saved; no pending sync.
   hasPendingChanges: false,
   isOffline: false,
   isOpened: state.ui.openedNote === noteId,

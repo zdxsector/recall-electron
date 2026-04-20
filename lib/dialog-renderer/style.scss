@@ -5,6 +5,8 @@
   justify-content: center;
   align-items: center;
   background: var(--overlay-color);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
 }
 
 .dialog-renderer__content {

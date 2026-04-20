@@ -28,3 +28,95 @@ Entrypoints:
  @ http://localhost:4000/app.a4cadc27503cb5e289f5.js:52
 [     110ms] [INFO] Simperium config: Production @ http://localhost:4000/app.a4cadc27503cb5e289f5.js:52
 [     110ms] [INFO] Simperium config: Production @ http://localhost:4000/app.a4cadc27503cb5e289f5.js:52
+[  333253ms] [ERROR] WebSocket connection to 'ws://localhost:4000/ws' failed:  @ http://localhost:4000/app.a4cadc27503cb5e289f5.js:52
+[  333253ms] [ERROR] [webpack-dev-server] Event @ http://localhost:4000/app.a4cadc27503cb5e289f5.js:52
+[  333256ms] [INFO] [webpack-dev-server] Disconnected! @ http://localhost:4000/app.a4cadc27503cb5e289f5.js:52
+[  333256ms] [INFO] [webpack-dev-server] Trying to reconnect... @ http://localhost:4000/app.a4cadc27503cb5e289f5.js:52
+[  334273ms] [ERROR] WebSocket connection to 'ws://localhost:4000/ws' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:4000/app.a4cadc27503cb5e289f5.js:52
+[  334274ms] [ERROR] [webpack-dev-server] Event @ http://localhost:4000/app.a4cadc27503cb5e289f5.js:52
+[  334274ms] [INFO] [webpack-dev-server] Trying to reconnect... @ http://localhost:4000/app.a4cadc27503cb5e289f5.js:52
+[  336345ms] [ERROR] WebSocket connection to 'ws://localhost:4000/ws' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:4000/app.a4cadc27503cb5e289f5.js:52
+[  336346ms] [ERROR] [webpack-dev-server] Event @ http://localhost:4000/app.a4cadc27503cb5e289f5.js:52
+[  336346ms] [INFO] [webpack-dev-server] Trying to reconnect... @ http://localhost:4000/app.a4cadc27503cb5e289f5.js:52
+[  340390ms] [ERROR] WebSocket connection to 'ws://localhost:4000/ws' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:4000/app.a4cadc27503cb5e289f5.js:52
+[  340390ms] [ERROR] [webpack-dev-server] Event @ http://localhost:4000/app.a4cadc27503cb5e289f5.js:52
+[  340390ms] [INFO] [webpack-dev-server] Trying to reconnect... @ http://localhost:4000/app.a4cadc27503cb5e289f5.js:52
+[  348491ms] [ERROR] WebSocket connection to 'ws://localhost:4000/ws' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:4000/app.a4cadc27503cb5e289f5.js:52
+[  348491ms] [ERROR] [webpack-dev-server] Event @ http://localhost:4000/app.a4cadc27503cb5e289f5.js:52
+[  348491ms] [INFO] [webpack-dev-server] Trying to reconnect... @ http://localhost:4000/app.a4cadc27503cb5e289f5.js:52
+[  379070ms] [WARNING] [webpack-dev-server] Warnings while compiling. @ http://localhost:4000/app.a4cadc27503cb5e289f5.js:52
+[  379071ms] [WARNING] [webpack-dev-server] WARNING
+asset size limit: The following asset(s) exceed the recommended size limit (244 KiB).
+This can impact web performance.
+Assets: 
+  d707da3273e928fefc1a.ttf (324 KiB)
+  9ff4cd0a41ae679059ae.ttf (333 KiB)
+  62494923a230eb3b0bc5.ttf (248 KiB)
+  6a75d92543d7b52cebbd.ttf (246 KiB)
+  app.6d4bc1caf8b11519046a.js (881 KiB)
+  highlight.d19f31372eca168c1a22.js (938 KiB)
+  sentry.b7d15a1493b9ba6a19d3.js (246 KiB)
+  4012.5bbe6ba53ec71b1c57ad.js (401 KiB)
+  7807.cfb77bdf2a2e33a06f1d.js (735 KiB)
+  5165.fd28148e0da1902aa9a2.js (329 KiB)
+  6637.f7526caaa54bdf8b3816.js (979 KiB)
+  359.98ff657be0d209749749.js (421 KiB)
+  5898.48227267ca8ae3c46f65.js (459 KiB) @ http://localhost:4000/app.a4cadc27503cb5e289f5.js:52
+[  379071ms] [WARNING] [webpack-dev-server] WARNING
+entrypoint size limit: The following entrypoint(s) combined asset size exceeds the recommended limit (244 KiB). This can impact web performance.
+Entrypoints:
+  main (1000 KiB)
+      main.6d4bc1caf8b11519046a.css
+      app.6d4bc1caf8b11519046a.js
+ @ http://localhost:4000/app.a4cadc27503cb5e289f5.js:52
+[  379075ms] [INFO] [webpack-dev-server] App hot update... @ http://localhost:4000/app.a4cadc27503cb5e289f5.js:52
+[  379075ms] [LOG] [HMR] Checking for updates on the server... @ http://localhost:4000/app.a4cadc27503cb5e289f5.js:52
+[  379530ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:4000/main.a4cadc27503cb5e289f5.hot-update.json:0
+[  379531ms] [WARNING] [HMR] Cannot find update. Need to do a full reload! @ http://localhost:4000/app.a4cadc27503cb5e289f5.js:52
+[  379531ms] [WARNING] [HMR] (Probably because of restarting the webpack-dev-server) @ http://localhost:4000/app.a4cadc27503cb5e289f5.js:52
+[  379643ms] [INFO] [webpack-dev-server] Server started: Hot Module Replacement enabled, Live Reloading enabled, Progress disabled, Overlay enabled. @ http://localhost:4000/app.6d4bc1caf8b11519046a.js:52
+[  379644ms] [LOG] [HMR] Waiting for update signal from WDS... @ http://localhost:4000/app.6d4bc1caf8b11519046a.js:52
+[  379672ms] [WARNING] [webpack-dev-server] Warnings while compiling. @ http://localhost:4000/app.6d4bc1caf8b11519046a.js:52
+[  379673ms] [WARNING] [webpack-dev-server] WARNING
+asset size limit: The following asset(s) exceed the recommended size limit (244 KiB).
+This can impact web performance.
+Assets: 
+  d707da3273e928fefc1a.ttf (324 KiB)
+  9ff4cd0a41ae679059ae.ttf (333 KiB)
+  62494923a230eb3b0bc5.ttf (248 KiB)
+  6a75d92543d7b52cebbd.ttf (246 KiB)
+  app.6d4bc1caf8b11519046a.js (881 KiB)
+  highlight.d19f31372eca168c1a22.js (938 KiB)
+  sentry.b7d15a1493b9ba6a19d3.js (246 KiB)
+  4012.5bbe6ba53ec71b1c57ad.js (401 KiB)
+  7807.cfb77bdf2a2e33a06f1d.js (735 KiB)
+  5165.fd28148e0da1902aa9a2.js (329 KiB)
+  6637.f7526caaa54bdf8b3816.js (979 KiB)
+  359.98ff657be0d209749749.js (421 KiB)
+  5898.48227267ca8ae3c46f65.js (459 KiB) @ http://localhost:4000/app.6d4bc1caf8b11519046a.js:52
+[  379673ms] [WARNING] [webpack-dev-server] WARNING
+entrypoint size limit: The following entrypoint(s) combined asset size exceeds the recommended limit (244 KiB). This can impact web performance.
+Entrypoints:
+  main (1000 KiB)
+      main.6d4bc1caf8b11519046a.css
+      app.6d4bc1caf8b11519046a.js
+ @ http://localhost:4000/app.6d4bc1caf8b11519046a.js:52
+[  379679ms] [INFO] Simperium config: Production @ http://localhost:4000/app.6d4bc1caf8b11519046a.js:52
+[  379679ms] [INFO] Simperium config: Production @ http://localhost:4000/app.6d4bc1caf8b11519046a.js:52
+[  408776ms] [INFO] [webpack-dev-server] Disconnected! @ http://localhost:4000/app.6d4bc1caf8b11519046a.js:52
+[  408778ms] [INFO] [webpack-dev-server] Trying to reconnect... @ http://localhost:4000/app.6d4bc1caf8b11519046a.js:52
+[  409866ms] [ERROR] WebSocket connection to 'ws://localhost:4000/ws' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:4000/app.6d4bc1caf8b11519046a.js:52
+[  409867ms] [ERROR] [webpack-dev-server] Event @ http://localhost:4000/app.6d4bc1caf8b11519046a.js:52
+[  409867ms] [INFO] [webpack-dev-server] Trying to reconnect... @ http://localhost:4000/app.6d4bc1caf8b11519046a.js:52
+[  411917ms] [ERROR] WebSocket connection to 'ws://localhost:4000/ws' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:4000/app.6d4bc1caf8b11519046a.js:52
+[  411917ms] [ERROR] [webpack-dev-server] Event @ http://localhost:4000/app.6d4bc1caf8b11519046a.js:52
+[  411918ms] [INFO] [webpack-dev-server] Trying to reconnect... @ http://localhost:4000/app.6d4bc1caf8b11519046a.js:52
+[  416021ms] [ERROR] WebSocket connection to 'ws://localhost:4000/ws' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:4000/app.6d4bc1caf8b11519046a.js:52
+[  416021ms] [ERROR] [webpack-dev-server] Event @ http://localhost:4000/app.6d4bc1caf8b11519046a.js:52
+[  416021ms] [INFO] [webpack-dev-server] Trying to reconnect... @ http://localhost:4000/app.6d4bc1caf8b11519046a.js:52
+[  424065ms] [ERROR] WebSocket connection to 'ws://localhost:4000/ws' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:4000/app.6d4bc1caf8b11519046a.js:52
+[  424065ms] [ERROR] [webpack-dev-server] Event @ http://localhost:4000/app.6d4bc1caf8b11519046a.js:52
+[  424065ms] [INFO] [webpack-dev-server] Trying to reconnect... @ http://localhost:4000/app.6d4bc1caf8b11519046a.js:52
+[  440107ms] [ERROR] WebSocket connection to 'ws://localhost:4000/ws' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:4000/app.6d4bc1caf8b11519046a.js:52
+[  440107ms] [ERROR] [webpack-dev-server] Event @ http://localhost:4000/app.6d4bc1caf8b11519046a.js:52
+[  440107ms] [INFO] [webpack-dev-server] Trying to reconnect... @ http://localhost:4000/app.6d4bc1caf8b11519046a.js:52

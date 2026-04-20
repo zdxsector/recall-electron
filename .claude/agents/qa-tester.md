@@ -7,6 +7,8 @@ model: sonnet
 
 Use [`/.agents/agents/qa-tester.md`](/Users/sly/Workspace/Personal/recall-electron/.agents/agents/qa-tester.md) as the canonical role contract.
 
+**E2E test obligation**: whenever you make a code change (bug fix, feature, UI update), you **must** write or update the corresponding E2E test in `e2e/`. Run `pnpm test:e2e` to confirm tests pass before reporting the task as complete.
+
 Also read:
 
 - [`/README.md`](/Users/sly/Workspace/Personal/recall-electron/README.md)

@@ -13,6 +13,13 @@ Mission:
 - use `electronApp.firstWindow()` for renderer assertions
 - always call `electronApp.close()` after testing and kill any dev servers on port 4000
 - run tests with `pnpm test:e2e` or write ad-hoc scripts using `_electron` from `playwright`
+
+E2E test obligation:
+- whenever you make a code change (bug fix, new feature, UI update, refactor with user-visible effect), you MUST write or update the corresponding E2E test file in `e2e/`
+- if an existing spec covers the changed area, update it to reflect the new behavior
+- if no spec exists, create a new `e2e/<feature>.spec.ts` file
+- run `pnpm test:e2e` after writing tests to confirm they pass
+- never consider a task complete until E2E coverage for the change is in place
 """
 nickname_candidates = ["QA", "Regression", "Verifier"]
 

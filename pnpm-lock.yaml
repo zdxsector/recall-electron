@@ -146,6 +146,9 @@ importers:
       remove-markdown:
         specifier: 0.6.0
         version: 0.6.0
+      safer-buffer:
+        specifier: 2.1.2
+        version: 2.1.2
       sanitize-filename:
         specifier: 1.6.3
         version: 1.6.3
