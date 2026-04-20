@@ -8,8 +8,6 @@ import * as selectors from '../state/selectors';
 
 import * as S from '../state';
 import * as T from '../types';
-import RecallCompactLogo from '../icons/recall-compact';
-
 type StateProps = {
   allTags: Map<T.TagHash, T.Tag>;
   isEditorActive: boolean;
@@ -100,11 +98,7 @@ export class NoteEditor extends Component<Props> {
     const { hasSearchQuery, hasSearchMatchesInNote, note, noteId } = this.props;
 
     if (!note) {
-      return (
-        <div className="note-detail-placeholder">
-          <RecallCompactLogo />
-        </div>
-      );
+      return <div className="note-detail-placeholder" />;
     }
 
     const isTrashed = !!note.deleted;

@@ -1,7 +1,6 @@
 import React, { Component, createRef } from 'react';
 import { connect } from 'react-redux';
 import NoteContentEditor from '../note-content-editor';
-import RecallCompactLogo from '../icons/recall-compact';
 
 import * as S from '../state';
 import * as T from '../types';
@@ -40,9 +39,7 @@ export class NoteDetail extends Component<Props> {
     return (
       <div className="note-detail-wrapper">
         {!openedNote ? (
-          <div className="note-detail-placeholder">
-            <RecallCompactLogo />
-          </div>
+          <div className="note-detail-placeholder" />
         ) : (
           <NoteContentEditor
             key={openedNote}
