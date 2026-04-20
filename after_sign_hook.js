@@ -8,6 +8,12 @@ module.exports = async function (params) {
     return;
   }
 
+  // Skip notarization when SKIP_NOTARIZE is set (ad-hoc / local builds).
+  if (process.env.SKIP_NOTARIZE === 'true') {
+    console.log('SKIP_NOTARIZE=true — skipping notarization.'); // eslint-disable-line no-console
+    return;
+  }
+
   const appStoreConnectKeyPath = path.join(
     process.env.HOME,
     '.configure',
@@ -20,34 +26,27 @@ module.exports = async function (params) {
   if (fs.existsSync(envPath)) {
     dotenv.config({ path: envPath });
   } else {
-    // eslint-disable-next-line no-console
-    console.log(
-      `No env file found at ${envPath}. Looking for required env vars individually...`
-    );
-    let errors = [];
+    let missing = [];
     if (process.env.APP_STORE_CONNECT_API_KEY_KEY_ID === undefined) {
-      errors.push(
-        'APP_STORE_CONNECT_API_KEY_KEY_ID value not found in env. Please set it.'
-      );
+      missing.push('APP_STORE_CONNECT_API_KEY_KEY_ID');
     }
     if (process.env.APP_STORE_CONNECT_API_KEY_ISSUER_ID === undefined) {
-      errors.push(
-        'APP_STORE_CONNECT_API_KEY_ISSUER_ID value not found in env. Please set it.'
-      );
+      missing.push('APP_STORE_CONNECT_API_KEY_ISSUER_ID');
     }
-    if (fs.existsSync(appStoreConnectKeyPath) === false) {
-      errors.push(
-        `Key file not found at ${appStoreConnectKeyPath}. Please add it.`
-      );
+    if (!fs.existsSync(appStoreConnectKeyPath)) {
+      missing.push(`Key file at ${appStoreConnectKeyPath}`);
     }
 
-    if (errors.length > 0) {
-      throw new Error(
-        `Could not begin signing macOS build. Errors: ${errors.join('\n')}`
+    if (missing.length > 0) {
+      // eslint-disable-next-line no-console
+      console.log(
+        `Notarization credentials not found (${missing.join(', ')}). ` +
+          'Skipping notarization. Set SKIP_NOTARIZE=true to silence this warning, ' +
+          'or provide credentials for production builds.'
       );
-    } else {
-      console.log('All required env vars found. Moving on...'); // eslint-disable-line no-console
+      return;
     }
+    console.log('All required env vars found. Moving on...'); // eslint-disable-line no-console
   }
 
   // Same appId in electron-builder.
