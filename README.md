@@ -16,8 +16,8 @@ Successor of [simplenote](https://github.com/Automattic/simplenote-electron) for
 
 1. Clone the repo: `git clone https://github.com/Automattic/recall-electron.git`
 2. `cd recall-electron`
-3. `npm install --legacy-peer-deps`
-4. `npm run dev`
+3. `pnpm install --no-frozen-lockfile --config.legacy-peer-deps=true`
+4. `pnpm dev`
 5. The dev server will start on [http://localhost:4000](http://localhost:4000), and the Electron app will launch automatically.
 6. For all logging from Electron to be printed to the terminal (e.g. `console.log` statements within `app.js`), you might need to set `env ELECTRON_ENABLE_LOGGING=1`.
 
@@ -31,7 +31,7 @@ _Note: Recall API features such as sharing and publishing will not work with dev
 
 ## Testing
 
-Unit tests are run with `npm test`.
+Unit tests are run with `pnpm test`.
 
 ## Dependencies
 

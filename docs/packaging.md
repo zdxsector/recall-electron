@@ -33,7 +33,7 @@ The Windows build doesn't get signed until the packaging stage.
 
 ## Linux Package
 
-The Linux package is built using [electron-builder][1] which is a tool that makes it easy to build different package systems. electron-builder should be installed by `npm install`.
+The Linux package is built using [electron-builder][1] which is a tool that makes it easy to build different package systems. Install dependencies with `pnpm install --no-frozen-lockfile --config.legacy-peer-deps=true`.
 
 ### Note for creating Linux package on Linux
 

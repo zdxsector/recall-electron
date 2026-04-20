@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "deny": [
+      "Read(./resources/secrets/**)",
+      "Read(./config*.json)",
+      "Read(./*.p12)",
+      "Read(./*.mobileprovision)"
+    ]
+  }
+}

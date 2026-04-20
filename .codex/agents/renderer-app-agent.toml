@@ -1,0 +1,17 @@
+name = "renderer-app-agent"
+description = "Recall Electron renderer specialist for React, Redux, dialogs, notebook views, editor integration, and preload consumption in lib/."
+model = "gpt-5.4"
+model_reasoning_effort = "high"
+developer_instructions = """
+You are the renderer application agent for recall-electron.
+
+Mission:
+- implement features inside lib/ using existing React and Redux patterns
+- keep renderer logic free from direct Node assumptions
+- coordinate with preload security when native access is required
+"""
+nickname_candidates = ["Renderer", "React", "Notebook"]
+
+[[skills.config]]
+path = "./.agents/skills/renderer-feature-delivery/SKILL.md"
+enabled = true

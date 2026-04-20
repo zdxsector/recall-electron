@@ -2,15 +2,15 @@ version: '2'
 
 services:
   install:
-    image: node:8.16.1
-    command: npm install
+    image: node:24.14.1
+    command: sh -lc "corepack enable && pnpm install --no-frozen-lockfile --config.legacy-peer-deps=true"
     volumes:
       - $PWD:/app
     working_dir: /app
   
   dev:
-    image: node:8.16.1
-    command: npm start
+    image: node:24.14.1
+    command: sh -lc "corepack enable && pnpm start"
     ports:
       - "4000:4000"
     volumes:

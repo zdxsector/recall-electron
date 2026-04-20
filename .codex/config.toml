@@ -1,0 +1,11 @@
+model = "gpt-5.4"
+model_reasoning_effort = "high"
+profile = "default"
+
+[profiles.default]
+approval_policy = "never"
+sandbox_mode = "danger-full-access"
+
+[project]
+name = "recall-electron"
+instructions_file = "AGENTS.md"

@@ -13,8 +13,8 @@ THIS_DIR := $(shell cd $(dir $(THIS_MAKEFILE_PATH));pwd)
 CONF_FILE_ENCRYPTED=./resources/secrets/config.json.enc
 CONF_FILE=./config-local.json
 
-NPM ?= $(NODE) $(shell which npm)
-NPM_BIN = $(shell npm bin)
+PNPM ?= pnpm
+PNPM_BIN = $(shell $(PNPM) bin 2>/dev/null)
 
 ELECTRON_VERSION := $(shell node -e "console.log(require('./package.json').devDependencies.electron)")
 
@@ -63,21 +63,21 @@ endif
 # Main targets
 .PHONY: start
 start:
-	@NODE_ENV=$(NODE_ENV) DEV_SERVER=$(DEV_SERVER) npx electron . --inspect --watchDir=./desktop
+	@NODE_ENV=$(NODE_ENV) DEV_SERVER=$(DEV_SERVER) $(PNPM) exec electron . --inspect --watchDir=./desktop
 
 .PHONY: dev
 dev:
-	@NODE_ENV=development DEV_SERVER=true npx concurrently -c gray.dim "make dev-server" "wait-on http://localhost:4000 && make start"
+	@NODE_ENV=development DEV_SERVER=true $(PNPM) exec concurrently -c gray.dim "make dev-server" "wait-on http://localhost:4000 && make start"
 
 .PHONY: dev-server
 dev-server:
 	@$(MAKE) build NODE_ENV=$(NODE_ENV)
 
-	@NODE_ENV=$(NODE_ENV) npx webpack serve --config ./webpack.config.js --static dist --host $(HOST) --port $(PORT) --hot
+	@NODE_ENV=$(NODE_ENV) $(PNPM) exec webpack serve --config ./webpack.config.js --static dist --host $(HOST) --port $(PORT) --hot
 
 .PHONY: test
 test:
-	@npx jest --config=./jest.config.js
+	@$(PNPM) exec jest --config=./jest.config.js
 
 
 # Build web app
@@ -98,7 +98,7 @@ endif
 # Build utils
 .PHONY: build-app
 build-app:
-	@NODE_ENV=$(NODE_ENV) npx webpack $(if $(IS_PRODUCTION),--mode production) --config ./webpack.config.js
+	@NODE_ENV=$(NODE_ENV) $(PNPM) exec webpack $(if $(IS_PRODUCTION),--mode production) --config ./webpack.config.js
 
 .PHONY: build-if-not-exists
 build-if-not-exists: config.json
@@ -124,15 +124,15 @@ build-if-changed: build-if-not-exists
 # Build binaries only
 .PHONY: osx
 osx: config-release build-if-changed
-	@npx electron-builder -m --dir
+	@$(PNPM) exec electron-builder -m --dir
 
 .PHONY: linux
 linux: config-release build-if-changed
-	@npx electron-builder -l --dir
+	@$(PNPM) exec electron-builder -l --dir
 
 .PHONY: win32
 win32: config-release build-if-changed
-	@npx electron-builder -w --dir
+	@$(PNPM) exec electron-builder -w --dir
 
 
 # Build installers
@@ -142,33 +142,32 @@ package: build-if-changed
 .PHONY: package-win32
 package-win32:
 	@echo "Packaging exe..."
-	@npx electron-builder --win -p $(PUBLISH)
+	@$(PNPM) exec electron-builder --win -p $(PUBLISH)
 	# Note: the configuration required to generate a code signed exe via the `nsis` target will conflict with the `appx` configuration.
 	# In practice, "certificateSubjectName": "Automattic, Inc." is required to sign the exe, but if that setting is present and so are the `appx` settings, there will be a failure.
 	# Hence the need for a separate configuration here.
 	# See also in https://github.com/electron-userland/electron-builder/issues/6698
 	@echo "Packaging appx — with dedicated configuration to work around code signing conflicts..."
-	@npx electron-builder --win -p $(PUBLISH) --config=./electron-builder-appx.json
+	@$(PNPM) exec electron-builder --win -p $(PUBLISH) --config=./electron-builder-appx.json
 
 .PHONY: package-osx
 package-osx: build-if-changed
-	@npx electron-builder --mac -p $(PUBLISH)
+	@$(PNPM) exec electron-builder --mac -p $(PUBLISH)
 
 .PHONY: package-linux
 package-linux: build-if-changed
-	@npx electron-builder --linux -p $(PUBLISH)
+	@$(PNPM) exec electron-builder --linux -p $(PUBLISH)
 
 
-# NPM
+# PNPM
 .PHONY:
 install: node_modules
 
 node_modules/%:
-	@npm install $(notdir $@) --legacy-peer-deps
+	@$(PNPM) add $(notdir $@) --config.legacy-peer-deps=true
 
 node_modules: package.json
-	@npm prune --legacy-peer-deps
-	@npm install --legacy-peer-deps
+	@$(PNPM) install --no-frozen-lockfile --config.legacy-peer-deps=true
 	@touch node_modules
 
 
@@ -185,18 +184,18 @@ config-release: config.json install
 
 .PHONY: format
 format:
-	@npx prettier --write "**/*.{js,jsx,json,sass,scss,ts,tsx}"
+	@$(PNPM) exec prettier --write "**/*.{js,jsx,json,sass,scss,ts,tsx}"
 
 .PHONY: lint
 lint: lint-js lint-scss
 
 .PHONY: lint-scss
 lint-scss:
-	@npx stylelint "**/*.scss"
+	@$(PNPM) exec stylelint "**/*.scss"
 
 .PHONY: lint-js
 lint-js:
-	@npx eslint
+	@$(PNPM) exec eslint
 
 
 # encrypted config file

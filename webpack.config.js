@@ -143,6 +143,7 @@ module.exports = () => {
         includeAliases: [
           'Buffer',
           'buffer',
+          'events',
           'path',
           'process',
           'stream',

@@ -7,26 +7,28 @@
   },
   "productName": "Recall",
   "version": "2.24.0-beta.1",
+  "packageManager": "pnpm@10.31.0",
   "main": "desktop/index.js",
   "license": "GPL-2.0",
   "homepage": "https://recall.com",
   "scripts": {
-    "dev": "npm run dev:cross",
-    "dev:cross": "concurrently -c gray.dim \"npm run dev:server\" \"wait-on http://localhost:4000 && npm run start:dev\"",
-    "dev:server": "npm run build:app && webpack serve --config ./webpack.config.js --static dist --host 0.0.0.0 --port 4000 --hot",
-    "start": "cross-env NODE_ENV=development npx electron . --inspect --watchDir=./desktop",
-    "start:dev": "cross-env NODE_ENV=development DEV_SERVER=true npx electron . --inspect --watchDir=./desktop",
+    "preinstall": "node -e \"const ua=process.env.npm_config_user_agent||''; if(!ua.includes('pnpm')){console.error('This repository is pnpm-only. Run: pnpm install --no-frozen-lockfile --config.legacy-peer-deps=true'); process.exit(1)}\"",
+    "dev": "pnpm run dev:cross",
+    "dev:cross": "concurrently -c gray.dim \"pnpm run dev:server\" \"wait-on http://localhost:4000 && pnpm run start:dev\"",
+    "dev:server": "pnpm run build:app && webpack serve --config ./webpack.config.js --static dist --host 0.0.0.0 --port 4000 --hot",
+    "start": "cross-env NODE_ENV=development pnpm exec electron . --inspect --watchDir=./desktop",
+    "start:dev": "cross-env NODE_ENV=development DEV_SERVER=true pnpm exec electron . --inspect --watchDir=./desktop",
     "test": "jest --config=./jest.config.js",
-    "lint": "npm run lint:js && npm run lint:scss",
+    "lint": "pnpm run lint:js && pnpm run lint:scss",
     "lint:js": "eslint",
     "lint:scss": "stylelint \"**/*.scss\"",
     "format": "prettier --write \"**/*.{js,jsx,json,sass,scss,ts,tsx}\"",
-    "build": "npm run build:app",
+    "build": "pnpm run build:app",
     "build:app": "webpack --config ./webpack.config.js",
     "build:prod": "cross-env NODE_ENV=production webpack --mode production --config ./webpack.config.js",
-    "package:win": "npm run build:prod && electron-builder --win",
-    "package:mac": "npm run build:prod && electron-builder --mac",
-    "package:linux": "npm run build:prod && electron-builder --linux",
+    "package:win": "pnpm run build:prod && electron-builder --win",
+    "package:mac": "pnpm run build:prod && electron-builder --mac",
+    "package:linux": "pnpm run build:prod && electron-builder --linux",
     "deploy": "./bin/deploy.sh",
     "prepare": "git config --local core.hooksPath .githooks"
   },
@@ -36,7 +38,7 @@
   },
   "engines": {
     "node": ">= 24.13.0",
-    "npm": ">= 11.6.2"
+    "pnpm": ">= 10.31.0"
   },
   "browserslist": [
     "> 1%",
@@ -127,6 +129,7 @@
     "webpack-dev-server": "5.0.4"
   },
   "dependencies": {
+    "@babel/runtime": "7.29.2",
     "@automattic/color-studio": "4.1.0",
     "@emotion/react": "11.14.0",
     "@emotion/styled": "11.14.0",
@@ -181,6 +184,7 @@
     "string-replace-to-array": "2.1.1",
     "turndown": "7.2.0",
     "unorm": "1.6.0",
+    "uuid": "10.0.0",
     "valid-url": "1.0.9",
     "winston": "3.17.0"
   },

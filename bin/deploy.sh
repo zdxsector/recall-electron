@@ -37,7 +37,7 @@ case $1 in
 esac
 
 # Install Node Modules
-npm install --legacy-peer-deps
+pnpm install --no-frozen-lockfile --config.legacy-peer-deps=true
 
 # Temporarily move config-local so it doesn't get overwritten
 mv config-local.json config-local.original.json
