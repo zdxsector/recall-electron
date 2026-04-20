@@ -62,6 +62,7 @@
     "oneClick": false
   },
   "linux": {
+    "icon": "./resources/images/icon_512x512.png",
     "artifactName": "Recall-linux-${version}-${arch}.${ext}",
     "target": [
       {
