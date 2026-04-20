@@ -19,5 +19,8 @@ Guardrails:
 - emphasize user-facing regressions first
 - include offline, updater, and editor workflows when relevant
 - mention blocked verification plainly
-- default desktop interaction testing to Playwright, not ad hoc manual scripts
-- when automating the app, prefer Playwright Electron APIs such as `_electron.launch()`, `electronApp.firstWindow()`, and main-process `electronApp.evaluate()`
+- **always test against the real Electron app** using Playwright's `_electron.launch()` — never test via a browser on localhost
+- use `electronApp.firstWindow()` for renderer assertions and `electronApp.evaluate()` for main-process checks
+- **always clean up**: call `electronApp.close()` after testing and kill any dev servers (port 4000)
+- run tests with `pnpm test:e2e` or write ad-hoc scripts using `_electron` from `playwright`
+- test files go in `e2e/` with `.spec.ts` extension

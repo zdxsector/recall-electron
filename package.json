@@ -20,6 +20,8 @@
     "start": "cross-env NODE_ENV=development pnpm exec electron . --inspect --watchDir=./desktop",
     "start:dev": "cross-env NODE_ENV=development DEV_SERVER=true pnpm exec electron . --inspect --watchDir=./desktop",
     "test": "jest --config=./jest.config.js",
+    "test:e2e": "pnpm run build:app && pnpm exec playwright test",
+    "test:e2e:headed": "pnpm run build:app && pnpm exec playwright test --headed",
     "lint": "pnpm run lint:js && pnpm run lint:scss",
     "lint:js": "eslint",
     "lint:scss": "stylelint \"**/*.scss\"",
@@ -64,6 +66,7 @@
     "@eslint/compat": "1.2.6",
     "@eslint/eslintrc": "3.2.0",
     "@eslint/js": "9.20.0",
+    "@playwright/test": "^1.59.1",
     "@testing-library/react": "12.1.5",
     "@types/debug": "4.1.12",
     "@types/file-saver": "2.0.7",
@@ -110,6 +113,7 @@
     "jest-environment-jsdom": "29.7.0",
     "jest-localstorage-mock": "2.4.26",
     "mini-css-extract-plugin": "2.9.2",
+    "playwright": "^1.59.1",
     "postcss": "8.5.2",
     "postcss-loader": "8.1.1",
     "prettier": "3.5.0",
@@ -130,8 +134,8 @@
     "webpack-dev-server": "5.0.4"
   },
   "dependencies": {
-    "@babel/runtime": "7.29.2",
     "@automattic/color-studio": "4.1.0",
+    "@babel/runtime": "7.29.2",
     "@emotion/react": "11.14.0",
     "@emotion/styled": "11.14.0",
     "@mui/material": "6.4.6",
@@ -193,6 +197,8 @@
     "websocket": "1.0.35"
   },
   "pnpm": {
-    "onlyBuiltDependencies": ["electron"]
+    "onlyBuiltDependencies": [
+      "electron"
+    ]
   }
 }

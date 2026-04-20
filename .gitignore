@@ -20,3 +20,9 @@ lib/state/data/test_account.json
 
 .chum-mem
 .chum-cache/
+
+# Playwright
+e2e/screenshots/
+test-results/
+playwright-report/
+.playwright-mcp/
