@@ -12,8 +12,20 @@
   -webkit-app-region: drag;
 
   .is-macos .is-focus-mode & {
-    padding-left: 78px;
+    padding-left: 93px;
   }
+
+  // Single-column mode: note-column is absolutely positioned at left:0
+  @media only screen and (max-width: $single-column) {
+    .is-macos & {
+      padding-left: 93px;
+    }
+  }
+}
+
+// When sidebar is collapsed, note-toolbar may be at left:0 and needs traffic light clearance
+.is-macos .app-layout__nav-column[data-collapsed='true'] ~ .app-layout__note-column .note-toolbar-wrapper {
+  padding-left: 93px;
 }
 
 .note-toolbar-wrapper .offline-badge {

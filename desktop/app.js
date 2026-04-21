@@ -17,7 +17,6 @@ const windowStateKeeper = require('electron-window-state');
 
 const config = require('./config');
 const createMenuTemplate = require('./menus');
-const importNotes = require('./evernote-import');
 const platform = require('./detect/platform');
 const updater = require('./updater');
 const { isDev } = require('./env');
@@ -130,6 +129,7 @@ module.exports = function main() {
       webPreferences: {
         contextIsolation: true,
         nodeIntegration: false,
+        sandbox: false,
         preload: path.join(__dirname, './preload.js'),
       },
     });
@@ -342,6 +342,7 @@ module.exports = function main() {
     });
 
     ipcMain.on('importNotes', function (event, filePath) {
+      const importNotes = require('./evernote-import');
       importNotes(filePath, mainWindow);
     });
 

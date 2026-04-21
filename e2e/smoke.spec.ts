@@ -17,12 +17,14 @@ test.beforeAll(async () => {
 
   window = await electronApp.firstWindow();
   await window.waitForLoadState('domcontentloaded');
-  await window.waitForTimeout(2000);
+  await window.locator('.recall-app').waitFor({ timeout: 10_000 });
 });
 
 test.afterAll(async () => {
   if (electronApp) {
-    await electronApp.close();
+    try {
+      electronApp.process().kill('SIGKILL');
+    } catch {}
   }
 });
 
@@ -74,11 +76,6 @@ test('macOS window has frameless titlebar with traffic lights', async () => {
 
   const bw = await electronApp.browserWindow(window);
 
-  const titleBarStyle = await bw.evaluate((w) => {
-    const options = (w as any)._options || {};
-    return (w as any).titleBarStyle ?? options.titleBarStyle ?? null;
-  });
-
   const trafficLightPos = await bw.evaluate((w) =>
     (w as any).getTrafficLightPosition?.() ?? null
   );
@@ -90,23 +87,79 @@ test('macOS window has frameless titlebar with traffic lights', async () => {
 
   const headerExists = await window.locator('.navigation-bar__header').count();
   expect(headerExists).toBeGreaterThan(0);
+});
 
-  const hasPaddingRule = await window.evaluate(() => {
-    const sheets = Array.from(document.styleSheets);
-    for (const sheet of sheets) {
-      try {
-        for (const rule of Array.from(sheet.cssRules)) {
-          if (rule.cssText?.includes('.is-macos') &&
-              rule.cssText?.includes('padding-left') &&
-              rule.cssText?.includes('78px')) {
-            return true;
-          }
-        }
-      } catch {}
+test('macOS: .is-macos class is applied to the DOM', async () => {
+  if (process.platform !== 'darwin') {
+    test.skip();
+    return;
+  }
+
+  const hasMacosClass = await window.evaluate(() =>
+    !!document.querySelector('.is-macos')
+  );
+  expect(hasMacosClass).toBe(true);
+});
+
+test('macOS: nav-bar header has computed padding-left >= 93px when sidebar open', async () => {
+  if (process.platform !== 'darwin') {
+    test.skip();
+    return;
+  }
+
+  const header = window.locator('.navigation-bar__header');
+  const count = await header.count();
+  if (count === 0) {
+    test.skip();
+    return;
+  }
+
+  const paddingLeft = await header.first().evaluate((el) =>
+    parseInt(getComputedStyle(el).paddingLeft, 10)
+  );
+  expect(paddingLeft).toBeGreaterThanOrEqual(93);
+});
+
+test('macOS: menu-bar has computed padding-left >= 93px when sidebar collapsed', async () => {
+  if (process.platform !== 'darwin') {
+    test.skip();
+    return;
+  }
+
+  const navColumn = window.locator('.app-layout__nav-column');
+  const menuBar = window.locator('.menu-bar');
+  if ((await navColumn.count()) === 0 || (await menuBar.count()) === 0) {
+    test.skip();
+    return;
+  }
+
+  const isCollapsed = await navColumn.getAttribute('data-collapsed');
+  if (isCollapsed !== 'true') {
+    // Collapse the sidebar by clicking toggle
+    const toggleBtn = window.locator('button[title*="Toggle sidebar"], button[title*="Menu"]');
+    if ((await toggleBtn.count()) > 0) {
+      await toggleBtn.first().click();
+      await expect(navColumn).toHaveAttribute('data-collapsed', 'true');
     }
-    return false;
-  });
-  expect(hasPaddingRule).toBe(true);
+  }
+
+  const collapsed = await navColumn.getAttribute('data-collapsed');
+  if (collapsed !== 'true') {
+    test.skip();
+    return;
+  }
+
+  const paddingLeft = await menuBar.first().evaluate((el) =>
+    parseInt(getComputedStyle(el).paddingLeft, 10)
+  );
+  expect(paddingLeft).toBeGreaterThanOrEqual(93);
+
+  // Restore sidebar
+  const toggleBtn = window.locator('button[title*="Menu"]');
+  if ((await toggleBtn.count()) > 0) {
+    await toggleBtn.first().click();
+    await expect(navColumn).toHaveAttribute('data-collapsed', 'false');
+  }
 });
 
 test('can take a screenshot of the app', async () => {
