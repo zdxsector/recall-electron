@@ -44,9 +44,23 @@
   }
 
   button.delete-tag {
-    border-radius: 4px;
-    padding: 6px 14px;
+    border-radius: 8px;
+    padding: 8px 20px;
     margin-top: 14px;
     line-height: 16px;
+    font-size: 13px;
+    font-weight: 600;
+    background: var(--tertiary-highlight-color);
+    color: #fff;
+    border: none;
+    transition: opacity 0.15s ease;
+
+    &:hover {
+      opacity: 0.9;
+    }
+
+    &:active {
+      opacity: 0.8;
+    }
   }
 }

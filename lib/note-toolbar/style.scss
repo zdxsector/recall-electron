@@ -5,7 +5,6 @@
   justify-content: flex-end;
   flex: none;
   height: 52px;
-  border-bottom: 1px solid var(--note-list-separator-color);
   background-color: var(--toolbar-bg-color);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
@@ -45,7 +44,7 @@
   display: flex;
   justify-content: space-between;
   width: 100%;
-  padding: 0 12px;
+  padding: 0 16px;
   -webkit-app-region: no-drag;
 }
 
@@ -53,6 +52,19 @@
 .note-toolbar__column-right {
   display: flex;
   align-items: center;
+  gap: 2px;
+}
+
+.note-toolbar__column-right {
+  border: 1px solid var(--secondary-color);
+  border-radius: 9999px;
+  padding: 2px 4px;
+  margin: 8px 0;
+
+  .icon-button {
+    width: 30px;
+    height: 30px;
+  }
 }
 
 .note-toolbar__md-tools {
@@ -93,13 +105,12 @@
   width: 100%;
   -webkit-app-region: no-drag;
 
-  .note-toolbar__button {
-    margin: 0 0 0 16px;
+  .note-toolbar__column-right {
+    gap: 10px;
   }
 
-  .basic-button,
-  .button-primary {
-    border-width: 2px;
+  .note-toolbar__button {
+    margin: 0;
   }
 
   .note-toolbar__column-left {
@@ -134,12 +145,7 @@
 
 .note-toolbar__button {
   flex: none;
-  margin-right: 14px;
   text-align: center;
-
-  &:last-child {
-    margin-right: 0;
-  }
 }
 
 .note-toolbar-back {
@@ -151,7 +157,6 @@
 }
 
 .note-toolbar-placeholder {
-  border-bottom: 1px solid var(--note-list-separator-color);
   display: block;
   height: 52px;
 }

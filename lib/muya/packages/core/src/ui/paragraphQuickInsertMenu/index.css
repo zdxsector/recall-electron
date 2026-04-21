@@ -28,10 +28,13 @@
   flex-direction: row;
   align-items: center;
   height: 34px;
+  margin: 0 5px;
+  border-radius: 6px;
 
   cursor: pointer;
 
   user-select: none;
+  transition: background-color 0.1s ease;
 }
 
 .mu-quick-insert .active,

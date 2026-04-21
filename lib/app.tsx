@@ -44,6 +44,7 @@ type OwnProps = {
 
 type StateProps = {
   autoHideMenuBar: boolean;
+  fontSize: T.FontSize;
   hotkeysEnabled: boolean;
   isSmallScreen: boolean;
   lineLength: T.LineLength;
@@ -106,9 +107,22 @@ class AppComponent extends Component<Props> {
     }
   };
 
+  static fontSizeMap: Record<T.FontSize, string> = {
+    small: '12px',
+    normal: '14px',
+    large: '16px',
+    'extra-large': '20px',
+  };
+
+  applyFontSize() {
+    const px = AppComponent.fontSizeMap[this.props.fontSize] ?? '14px';
+    document.documentElement.style.setProperty('--app-font-size', px);
+  }
+
   componentDidMount() {
     window.electron?.send('setAutoHideMenuBar', this.props.autoHideMenuBar);
     document.body.dataset.theme = this.props.theme;
+    this.applyFontSize();
     this.syncWindowsTitleBarOverlay();
 
     this.toggleShortcuts(true);
@@ -119,12 +133,14 @@ class AppComponent extends Component<Props> {
 
   componentDidUpdate() {
     document.body.dataset.theme = this.props.theme;
+    this.applyFontSize();
     this.syncWindowsTitleBarOverlay();
   }
 
   componentWillUnmount() {
     this.toggleShortcuts(false);
     delete document.body.dataset.theme;
+    document.documentElement.style.removeProperty('--app-font-size');
   }
 
   handleShortcut = (event: KeyboardEvent) => {
@@ -277,6 +293,7 @@ class AppComponent extends Component<Props> {
 
 const mapStateToProps: S.MapState<StateProps> = (state) => ({
   autoHideMenuBar: state.settings.autoHideMenuBar,
+  fontSize: state.settings.fontSize,
   hotkeysEnabled: state.settings.keyboardShortcuts,
   isSearchActive: !!state.ui.searchQuery.length,
   isSmallScreen: selectors.isSmallScreen(state),

@@ -192,7 +192,13 @@ export class ParagraphFrontButton {
       (outMostElement[BLOCK_DOM_PROPERTY] as Parent).blockName !== 'frontmatter'
     ) {
       const block = outMostElement[BLOCK_DOM_PROPERTY];
-      const rect = outMostElement.getBoundingClientRect();
+      let rect: DOMRect;
+      try {
+        rect = outMostElement.getBoundingClientRect();
+      } catch {
+        return;
+      }
+      if (!rect || rect.width === 0) return;
       const position = verticalPositionInRect(event, rect);
       this.createStyledGhost(rect, position);
 
@@ -296,8 +302,9 @@ export class ParagraphFrontButton {
   }
 
   createStyledShadow() {
-    const { domNode } = this._block!;
-    const { width, top, left } = domNode!.getBoundingClientRect();
+    const domNode = this._block?.domNode;
+    if (!domNode) return;
+    const { width, top, left } = domNode.getBoundingClientRect();
     const shadow = document.createElement('div');
     shadow.classList.add('mu-shadow');
     Object.assign(shadow.style, {
@@ -305,7 +312,7 @@ export class ParagraphFrontButton {
       top: `${top}px`,
       left: `${left}px`,
     });
-    shadow.appendChild(domNode!.cloneNode(true));
+    shadow.appendChild(domNode.cloneNode(true));
     document.body.appendChild(shadow);
     this._shadow = shadow;
   }
@@ -337,8 +344,10 @@ export class ParagraphFrontButton {
       _oldVNode: oldVNode,
     } = this;
 
+    if (!block || !block.domNode) return;
+
     const iconWrapperSelector = 'div.mu-icon-wrapper';
-    const i = getIcon(block!);
+    const i = getIcon(block);
     const iconParagraph = renderIcon(i, 'paragraph');
     const iconDrag = renderIcon(dragIcon, 'drag');
 
@@ -349,8 +358,7 @@ export class ParagraphFrontButton {
 
     this._oldVNode = vnode;
 
-    // Reset float box style height
-    const { lineHeight } = getComputedStyle(block!.domNode!);
+    const { lineHeight } = getComputedStyle(block.domNode);
     container.style.height = lineHeight;
   }
 

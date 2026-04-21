@@ -385,19 +385,33 @@ module.exports = function main() {
       mainWindow.setFullScreen(false);
     }
 
-    // When we receive a close event prevent the window from closing and
-    // tell the app to check for unsynchronized notes.
+    let closeTimeout = null;
+
     mainWindow.on('close', (event) => {
+      if (shouldQuit) {
+        if (closeTimeout) {
+          clearTimeout(closeTimeout);
+          closeTimeout = null;
+        }
+        return;
+      }
+
       if (isAuthenticated) {
         event.preventDefault();
         mainWindow.webContents.send('appCommand', { action: 'closeWindow' });
+        closeTimeout = setTimeout(() => {
+          if (mainWindow) {
+            mainWindow.destroy();
+          }
+        }, 5000);
       }
     });
 
-    // Once the app has dealt with unsynchronized notes close the window.
-    // If we are on OSX do not close the app. All other OS's close the app.
     ipcMain.on('reallyCloseWindow', () => {
-      // On OSX we potentially have an ipc listerner that does not have a mainWindow.
+      if (closeTimeout) {
+        clearTimeout(closeTimeout);
+        closeTimeout = null;
+      }
       mainWindow && mainWindow.destroy();
       if (!platform.isOSX() || shouldQuit) {
         app.exit(0);

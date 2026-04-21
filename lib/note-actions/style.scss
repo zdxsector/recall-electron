@@ -2,13 +2,13 @@
 
 .note-actions {
   background-color: var(--background-color);
-  width: 200px;
+  width: 220px;
   position: absolute;
   right: 16px;
-  top: $toolbar-height + 16px;
+  top: $toolbar-height + 12px;
   border: 1px solid var(--secondary-color);
-  border-radius: 6px;
-  box-shadow: 0 3px 6px 0 var(--overlay-color);
+  border-radius: 10px;
+  box-shadow: 0 4px 16px 0 var(--overlay-color);
   color: var(--primary-color);
   display: flex;
   flex-direction: column;
@@ -19,7 +19,7 @@
   .note-actions-panel {
     flex: none;
     border-bottom: 1px solid var(--secondary-color);
-    padding: 4px 0;
+    padding: 5px 0;
 
     &:last-child {
       border: none;
@@ -29,9 +29,13 @@
   .note-actions-item {
     display: flex;
     align-items: center;
-    padding: 5px 16px;
-    height: 28px;
+    padding: 6px 14px;
+    height: 32px;
     cursor: pointer;
+    margin: 0 5px;
+    border-radius: 6px;
+    font-size: 13px;
+    transition: background-color 0.1s ease;
 
     button.button-borderless {
       padding: 0;
@@ -39,6 +43,7 @@
       color: inherit;
       width: 100%;
       text-align: left;
+      font-size: 13px;
     }
 
     &:hover {
@@ -69,6 +74,10 @@
 
   .note-actions-trash {
     color: var(--tertiary-highlight-color);
+
+    &:hover {
+      background-color: rgba(255, 59, 48, 0.1);
+    }
   }
 
   .note-actions-item-control .checkbox-control {

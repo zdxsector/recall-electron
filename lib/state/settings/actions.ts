@@ -6,6 +6,13 @@ export const activateTheme: A.ActionCreator<A.SetTheme> = (theme: T.Theme) => ({
   theme,
 });
 
+export const setFontSize: A.ActionCreator<A.SetFontSize> = (
+  fontSize: T.FontSize
+) => ({
+  type: 'setFontSize',
+  fontSize,
+});
+
 export const setNoteDisplay: A.ActionCreator<A.SetNoteDisplay> = (
   noteDisplay: T.ListDisplayMode
 ) => ({

@@ -1,12 +1,27 @@
 @use '../../scss/variables' as *;
 
 .icon-button {
-  width: 32px;
-  height: 32px;
+  width: 34px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   color: var(--foreground-color);
+  border-radius: 8px;
+  transition: $anim-fast;
 
   svg {
     transition: $anim-fast;
+  }
+
+  &:hover {
+    background-color: var(--secondary-highlight-color);
+    color: var(--primary-color);
+  }
+
+  &:active {
+    background-color: var(--highlight-color);
+    transform: scale(0.94);
   }
 
   &:disabled {
@@ -18,5 +33,5 @@
 .icon-button__tooltip {
   position: relative;
   top: -8px;
-  font-size: 14px !important;
+  font-size: 13px !important;
 }

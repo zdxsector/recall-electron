@@ -96,6 +96,7 @@ export type DialogType =
       type: 'TRASH-TAG-CONFIRMATION';
       tagName: TagName;
     };
+export type FontSize = 'small' | 'normal' | 'large' | 'extra-large';
 export type LineLength = 'full' | 'narrow';
 export type ListDisplayMode = 'expanded' | 'comfy' | 'condensed';
 export type SortType = 'alphabetical' | 'creationDate' | 'modificationDate';

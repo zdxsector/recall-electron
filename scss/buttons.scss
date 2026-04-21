@@ -63,25 +63,39 @@ button {
 // Primary buttons. Solid buttons.
 .button-primary {
   background: var(--primary-button-bg-color);
-  border-color: var(--secondary-color);
+  border-color: transparent;
   color: var(--primary-button-fg-color);
+  border-radius: 8px;
+
+  &:hover {
+    opacity: 0.9;
+  }
 }
 
 // Compact buttons. Use to make buttons smaller.
 .button-compact {
-  padding: 0.3em 18px;
+  padding: 6px 18px;
   line-height: 1.25em;
-  font-size: 90%;
+  font-size: 13px;
+  border-radius: 8px;
 }
 
 // Danger buttons
 .button-danger {
   color: var(--tertiary-highlight-color);
   border-color: var(--tertiary-highlight-color);
+  border-radius: 8px;
+
+  &:hover {
+    background: var(--tertiary-highlight-color);
+    color: var(--background-color);
+    border-color: var(--tertiary-highlight-color);
+  }
 
   &:active {
     background: var(--tertiary-highlight-color);
     color: var(--background-color);
+    opacity: 0.85;
   }
 }
 

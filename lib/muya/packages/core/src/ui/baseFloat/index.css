@@ -9,14 +9,14 @@
   height: auto;
   overflow: hidden;
 
-  font-size: 12px;
+  font-size: 13px;
 
   background-color: var(--float-bg-color);
-  border-radius: 2px;
+  border-radius: 10px;
   box-shadow: var(--float-shadow);
   transform-origin: top;
   opacity: 0;
-  transition: opacity 0.2s ease-in-out;
+  transition: opacity 0.15s ease-in-out;
 }
 
 .mu-float-container::-webkit-scrollbar:vertical {

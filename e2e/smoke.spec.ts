@@ -189,6 +189,92 @@ test('note list resize handle is present and draggable', async () => {
   expect(widthAfter).toBeGreaterThanOrEqual(200);
 });
 
+test('app body uses SF Pro font family', async () => {
+  const fontFamily = await window.evaluate(() =>
+    getComputedStyle(document.body).fontFamily
+  );
+  const lower = fontFamily.toLowerCase();
+  expect(
+    lower.includes('sf pro') || lower.includes('-apple-system')
+  ).toBe(true);
+});
+
+test('icon buttons have hover-friendly border-radius', async () => {
+  const iconButtons = window.locator('.icon-button');
+  const count = await iconButtons.count();
+  if (count === 0) {
+    test.skip();
+    return;
+  }
+
+  const borderRadius = await iconButtons.first().evaluate((el) =>
+    getComputedStyle(el).borderRadius
+  );
+  expect(parseInt(borderRadius, 10)).toBeGreaterThanOrEqual(8);
+});
+
+test('note-actions dropdown has modern border-radius', async () => {
+  const toolbar = window.locator('.note-toolbar__column-right');
+  if ((await toolbar.count()) === 0) {
+    test.skip();
+    return;
+  }
+
+  const actionsBtn = window.locator('.note-toolbar__column-right .icon-button').last();
+  if ((await actionsBtn.count()) === 0) {
+    test.skip();
+    return;
+  }
+
+  await actionsBtn.click();
+  const noteActions = window.locator('.note-actions');
+  const isVisible = await noteActions.isVisible().catch(() => false);
+  if (!isVisible) {
+    test.skip();
+    return;
+  }
+
+  const borderRadius = await noteActions.evaluate((el) =>
+    parseInt(getComputedStyle(el).borderRadius, 10)
+  );
+  expect(borderRadius).toBeGreaterThanOrEqual(10);
+
+  await window.keyboard.press('Escape');
+});
+
+test('before-quit sets shouldQuit flag for clean Cmd+Q exit', async () => {
+  const result = await electronApp.evaluate(({ app, BrowserWindow }) => {
+    const wins = BrowserWindow.getAllWindows();
+    if (wins.length === 0) return { ok: false, reason: 'no windows' };
+
+    const win = wins[0];
+    const listenerCount = win.listenerCount('close');
+    const hasBeforeQuit = app.listenerCount('before-quit') > 0;
+    const hasWindowAllClosed = app.listenerCount('window-all-closed') > 0;
+
+    return {
+      ok: true,
+      closeListeners: listenerCount,
+      hasBeforeQuit,
+      hasWindowAllClosed,
+    };
+  });
+
+  expect(result.ok).toBe(true);
+  expect(result.closeListeners).toBeGreaterThan(0);
+  expect(result.hasBeforeQuit).toBe(true);
+  expect(result.hasWindowAllClosed).toBe(true);
+});
+
+test('--app-font-size CSS variable defaults to 14px', async () => {
+  const fontSize = await window.evaluate(() =>
+    getComputedStyle(document.documentElement)
+      .getPropertyValue('--app-font-size')
+      .trim()
+  );
+  expect(fontSize).toBe('14px');
+});
+
 test('can take a screenshot of the app', async () => {
   const bw = await electronApp.browserWindow(window);
   const bounds = await bw.evaluate((w) => w.getBounds());

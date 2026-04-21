@@ -100,7 +100,8 @@ export class ImageResizeBar {
   }
 
   update() {
-    const rect = this.reference!.getBoundingClientRect();
+    if (!this.reference) return;
+    const rect = this.reference.getBoundingClientRect();
     VERTICAL_BAR.forEach((c) => {
       const bar: HTMLDivElement = this.container.querySelector(`.${c}`)!;
 

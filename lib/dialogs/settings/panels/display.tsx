@@ -52,6 +52,7 @@ const sortTypes: SortOption[] = [
 type StateProps = {
   activeTheme: T.Theme;
   autoHideMenuBar: boolean;
+  fontSize: T.FontSize;
   lineLength: T.LineLength;
   noteDisplay: T.ListDisplayMode;
   sortReversed: boolean;
@@ -61,6 +62,7 @@ type StateProps = {
 
 type DispatchProps = {
   setActiveTheme: (theme: T.Theme) => any;
+  setFontSize: (fontSize: T.FontSize) => any;
   setLineLength: (lineLength: T.LineLength) => any;
   setNoteDisplay: (displayMode: T.ListDisplayMode) => any;
   setSortType: (sortType: T.SortType, sortReversed: boolean) => any;
@@ -93,6 +95,19 @@ const DisplayPanel: FunctionComponent<Props> = (props) => (
     >
       <Item title="Narrow" slug="narrow" />
       <Item title="Full" slug="full" />
+    </SettingsGroup>
+
+    <SettingsGroup
+      title="Font size"
+      slug="fontSize"
+      activeSlug={props.fontSize}
+      onChange={props.setFontSize}
+      renderer={RadioGroup}
+    >
+      <Item title="Small" slug="small" />
+      <Item title="Normal" slug="normal" />
+      <Item title="Large" slug="large" />
+      <Item title="Extra Large" slug="extra-large" />
     </SettingsGroup>
 
     <SettingsGroup
@@ -154,6 +169,7 @@ const DisplayPanel: FunctionComponent<Props> = (props) => (
 const mapStateToProps: S.MapState<StateProps> = ({ settings }) => ({
   activeTheme: settings.theme,
   autoHideMenuBar: settings.autoHideMenuBar,
+  fontSize: settings.fontSize,
   lineLength: settings.lineLength,
   noteDisplay: settings.noteDisplay,
   sortReversed: settings.sortReversed,
@@ -163,6 +179,7 @@ const mapStateToProps: S.MapState<StateProps> = ({ settings }) => ({
 
 const mapDispatchToProps: S.MapDispatch<DispatchProps> = {
   setActiveTheme: actions.settings.activateTheme,
+  setFontSize: actions.settings.setFontSize,
   setLineLength: actions.settings.setLineLength,
   setNoteDisplay: actions.settings.setNoteDisplay,
   setSortType: actions.settings.setSortType,

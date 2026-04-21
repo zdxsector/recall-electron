@@ -23,6 +23,15 @@ const autoHideMenuBar: A.Reducer<boolean> = (state = false, action) => {
   }
 };
 
+const fontSize: A.Reducer<T.FontSize> = (state = 'normal', action) => {
+  switch (action.type) {
+    case 'setFontSize':
+      return action.fontSize;
+    default:
+      return state;
+  }
+};
+
 const focusModeEnabled: A.Reducer<boolean> = (state = false, action) => {
   switch (action.type) {
     case 'setFocusMode':
@@ -148,6 +157,7 @@ export default combineReducers({
   accountName,
   autoHideMenuBar,
   focusModeEnabled,
+  fontSize,
   keyboardShortcuts,
   lineLength,
   markdownEnabled,

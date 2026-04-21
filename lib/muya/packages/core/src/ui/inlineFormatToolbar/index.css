@@ -1,12 +1,12 @@
 .mu-float-wrapper.mu-format-picker-container {
   overflow: visible;
 
-  border-radius: 2px;
+  border-radius: 10px;
 }
 
 .mu-format-picker {
   width: 265px;
-  height: 28px;
+  height: 32px;
 }
 
 .mu-format-picker ul,
@@ -17,7 +17,8 @@
 
 .mu-format-picker ul {
   display: flex;
-  padding: 0 7px;
+  padding: 0 6px;
+  gap: 2px;
 }
 
 .mu-format-picker li.item {
@@ -26,11 +27,13 @@
   display: flex;
   align-items: center;
   justify-content: space-around;
-  width: 35px;
-  height: 28px;
+  width: 32px;
+  height: 32px;
 
   list-style: none;
   cursor: pointer;
+  border-radius: 6px;
+  transition: background 0.15s ease;
 }
 
 .mu-format-picker li.item:hover {
@@ -38,12 +41,12 @@
 }
 
 .mu-format-picker li.item:last-of-type {
-  margin-left: 6px;
+  margin-left: 4px;
 }
 
 .mu-format-picker li.item:last-of-type::before {
   position: absolute;
-  top: 6px;
+  top: 7px;
   left: -3px;
 
   width: 1px;

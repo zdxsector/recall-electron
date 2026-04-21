@@ -2,6 +2,19 @@ svg[class^='icon-'] {
   fill: currentcolor;
   height: 24px;
   width: 24px;
+
+  &[data-stroke-icon] {
+    fill: none;
+    stroke: currentcolor;
+    stroke-width: 1.5;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+
+    .icon-dot {
+      fill: currentcolor;
+      stroke: none;
+    }
+  }
 }
 
 svg[class^='icon-'][class$='-small'] {
