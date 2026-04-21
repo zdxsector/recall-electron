@@ -153,6 +153,42 @@ test('macOS: sidebar toggle clears traffic lights when sidebar collapsed', async
   await expect(navColumn).toHaveAttribute('data-collapsed', 'false');
 });
 
+test('note list resize handle is present and draggable', async () => {
+  // Click first note to ensure the editor is visible
+  const noteItems = window.locator('.note-list-item');
+  if ((await noteItems.count()) > 0) {
+    await noteItems.first().click();
+    await window.waitForTimeout(500);
+  }
+
+  const handle = window.locator('.app-layout__resize-handle');
+  await expect(handle).toBeVisible({ timeout: 10_000 });
+
+  const sourceColumn = window.locator('.app-layout__source-column');
+  const widthBefore = await sourceColumn.evaluate((el) =>
+    parseInt(getComputedStyle(el).width, 10)
+  );
+
+  const box = await handle.boundingBox();
+  if (!box) {
+    test.skip();
+    return;
+  }
+
+  // Drag 80px to the right
+  await window.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await window.mouse.down();
+  await window.mouse.move(box.x + box.width / 2 + 80, box.y + box.height / 2);
+  await window.mouse.up();
+
+  const widthAfter = await sourceColumn.evaluate((el) =>
+    parseInt(getComputedStyle(el).width, 10)
+  );
+  expect(widthAfter).toBeGreaterThan(widthBefore);
+  expect(widthAfter).toBeLessThanOrEqual(600);
+  expect(widthAfter).toBeGreaterThanOrEqual(200);
+});
+
 test('can take a screenshot of the app', async () => {
   const bw = await electronApp.browserWindow(window);
   const bounds = await bw.evaluate((w) => w.getBounds());

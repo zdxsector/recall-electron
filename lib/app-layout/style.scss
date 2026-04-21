@@ -102,27 +102,62 @@
 }
 
 .app-layout__source-column {
-  width: $note-list-width;
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
   background-color: var(--note-list-bg-color);
   transition: transform 200ms ease-in-out;
 
-  @media only screen and (max-width: $medium) {
-    width: 300px;
-  }
-
   @media only screen and (max-width: $single-column) {
     flex: none;
     position: absolute;
     top: 0;
     left: 0;
-    width: 100%;
+    width: 100% !important;
     height: 100%;
     transition: $anim-transition;
     opacity: 1;
     pointer-events: auto;
+  }
+}
+
+// Disable text selection and pointer events on children while dragging the resize handle
+.app-layout.is-resizing {
+  user-select: none;
+  cursor: col-resize;
+}
+
+// ── Resize handle ─────────────────────────────────────────────────────────────
+.app-layout__resize-handle {
+  flex: 0 0 auto;
+  width: 5px;
+  cursor: col-resize;
+  background: transparent;
+  position: relative;
+  z-index: 10;
+  margin-left: -3px;
+  margin-right: -2px;
+
+  &::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 2px;
+    width: 1px;
+    background-color: var(--note-list-separator-color);
+  }
+
+  &:hover::after,
+  .app-layout.is-resizing &::after {
+    width: 3px;
+    left: 1px;
+    background-color: var(--accent-color);
+    border-radius: 2px;
+  }
+
+  @media only screen and (max-width: $single-column) {
+    display: none;
   }
 }
 
@@ -131,7 +166,7 @@
   display: flex;
   flex-direction: column;
   flex: 1 1 auto;
-  border-left: 1px solid var(--note-list-separator-color);
+  min-width: 0;
 
   @media only screen and (max-width: $single-column) {
     position: absolute;

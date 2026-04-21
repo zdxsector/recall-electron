@@ -1,4 +1,4 @@
-import React, { Component, Suspense } from 'react';
+import React, { Component, createRef, Suspense } from 'react';
 import classNames from 'classnames';
 import { connect } from 'react-redux';
 
@@ -46,14 +46,73 @@ type DispatchProps = {
 
 type Props = StateProps & DispatchProps;
 
-export class AppLayout extends Component<Props> {
+const NOTE_LIST_MIN_WIDTH = 200;
+const NOTE_LIST_MAX_WIDTH = 600;
+const NOTE_LIST_DEFAULT_WIDTH = 380;
+const NOTE_LIST_WIDTH_KEY = 'noteListWidth';
+
+type State = {
+  noteListWidth: number;
+  isResizing: boolean;
+};
+
+export class AppLayout extends Component<Props, State> {
+  private sourceColumnRef = createRef<HTMLElement>();
+
+  state: State = {
+    noteListWidth: this.loadWidth(),
+    isResizing: false,
+  };
+
+  private loadWidth(): number {
+    try {
+      const stored = localStorage.getItem(NOTE_LIST_WIDTH_KEY);
+      if (stored) {
+        const w = parseInt(stored, 10);
+        if (w >= NOTE_LIST_MIN_WIDTH && w <= NOTE_LIST_MAX_WIDTH) return w;
+      }
+    } catch {}
+    return NOTE_LIST_DEFAULT_WIDTH;
+  }
+
   componentDidMount() {
     window.addEventListener('keydown', this.openKeybindingsHelp, false);
   }
 
   componentWillUnmount(): void {
     window.removeEventListener('keydown', this.openKeybindingsHelp, false);
+    document.removeEventListener('mousemove', this.onResizeMove);
+    document.removeEventListener('mouseup', this.onResizeEnd);
   }
+
+  onResizeStart = (e: React.MouseEvent) => {
+    e.preventDefault();
+    this.setState({ isResizing: true });
+    document.addEventListener('mousemove', this.onResizeMove);
+    document.addEventListener('mouseup', this.onResizeEnd);
+  };
+
+  onResizeMove = (e: MouseEvent) => {
+    if (!this.sourceColumnRef.current) return;
+    const sourceRect = this.sourceColumnRef.current.getBoundingClientRect();
+    const newWidth = Math.min(
+      NOTE_LIST_MAX_WIDTH,
+      Math.max(NOTE_LIST_MIN_WIDTH, e.clientX - sourceRect.left)
+    );
+    this.setState({ noteListWidth: newWidth });
+  };
+
+  onResizeEnd = () => {
+    document.removeEventListener('mousemove', this.onResizeMove);
+    document.removeEventListener('mouseup', this.onResizeEnd);
+    this.setState({ isResizing: false });
+    try {
+      localStorage.setItem(
+        NOTE_LIST_WIDTH_KEY,
+        String(this.state.noteListWidth)
+      );
+    } catch {}
+  };
 
   openKeybindingsHelp = (event: KeyboardEvent) => {
     if (!this.props.keyboardShortcuts) {
@@ -93,11 +152,14 @@ export class AppLayout extends Component<Props> {
       showRevisions,
     } = this.props;
 
+    const { noteListWidth, isResizing } = this.state;
+
     const mainClasses = classNames('app-layout', {
       'is-focus-mode': isFocusMode,
       'is-navigation-open': isNavigationOpen,
       'is-note-open': isNoteOpen,
       'is-showing-note-info': isNoteInfoOpen,
+      'is-resizing': isResizing,
     });
 
     const editorVisible = !(showNoteList && isSmallScreen);
@@ -124,15 +186,22 @@ export class AppLayout extends Component<Props> {
             <NavigationBar />
           </nav>
           <aside
+            ref={this.sourceColumnRef}
             aria-hidden={hiddenByRevisions}
             aria-label="Notes list"
             className="app-layout__source-column"
+            style={{ width: noteListWidth }}
           >
             <MenuBar />
             <SearchField />
             <NoteList />
           </aside>
           {editorVisible && (
+            <>
+            <div
+              className="app-layout__resize-handle"
+              onMouseDown={this.onResizeStart}
+            />
             <main aria-label="Note editor" className="app-layout__note-column">
               <NoteToolbar aria-hidden={hiddenByRevisions} />
               {showRevisions ? (
@@ -146,6 +215,7 @@ export class AppLayout extends Component<Props> {
               )}
               {hasRevisions && <RevisionSelector />}
             </main>
+            </>
           )}
         </Suspense>
       </div>
