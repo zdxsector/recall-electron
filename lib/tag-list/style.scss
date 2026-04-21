@@ -1,6 +1,6 @@
 .tag-list-item {
   display: flex;
-  font-size: 16px;
+  font-size: 14px;
   flex-direction: row;
   justify-content: flex-start;
   align-items: center;
@@ -28,10 +28,6 @@
   }
 }
 
-.tag-list-item:not(:last-child) {
-  border-bottom: 1px solid var(--secondary-color);
-}
-
 body .tag-list-item {
   z-index: 2;
 }
@@ -47,19 +43,18 @@ body .tag-list-item {
     flex: none;
     justify-content: space-between;
     align-items: center;
-    padding: 0 17px 13px;
-    border-bottom: 1px solid var(--secondary-color);
+    padding: 0 17px 10px;
 
     h2 {
       color: var(--primary-color);
-      font-size: 16px;
+      font-size: 14px;
       font-weight: 400;
       margin: 0;
     }
 
     button {
       color: var(--accent-color);
-      font-size: 14px;
+      font-size: 13px;
       font-weight: 400;
       padding: 0 2px;
     }
