@@ -51,6 +51,7 @@ module.exports = () => {
   })();
 
   return {
+    performance: false,
     context: __dirname + '/lib',
     mode: isDevMode ? 'development' : 'production',
     devtool:

@@ -24,7 +24,7 @@
         "arch": ["universal"]
       }
     ],
-    "mergeASARs": false
+    "mergeASARs": true
   },
   "dmg": {
     "title": "Recall Installer",
