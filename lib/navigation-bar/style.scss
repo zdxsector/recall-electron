@@ -28,24 +28,9 @@
   gap: 4px;
   -webkit-app-region: no-drag;
 
-  button {
-    width: 28px;
-    height: 28px;
-    border-radius: 6px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    color: var(--foreground-color);
-
-    &:hover {
-      background: var(--secondary-highlight-color);
-      color: var(--primary-color);
-    }
-
-    svg {
-      width: 16px;
-      height: 16px;
-    }
+  .icon-button svg.icon-sidebar {
+    width: 20px;
+    height: 20px;
   }
 }
 

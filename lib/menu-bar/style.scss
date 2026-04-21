@@ -61,13 +61,19 @@
 .menu-bar__sidebar-toggle {
   display: flex;
   align-items: center;
-  // Smooth horizontal slide when the nav panel opens/closes.
-  transition: transform 200ms ease-in-out, margin-left 200ms ease-in-out;
+  transition: opacity 200ms ease-in-out, margin-left 200ms ease-in-out;
+  opacity: 1;
 
   .icon-button svg.icon-sidebar {
     width: 20px;
     height: 20px;
   }
+}
+
+// When nav is open the toggle lives in the sidebar header — hide the menu-bar copy
+.menu-bar--nav-open .menu-bar__sidebar-toggle {
+  opacity: 0;
+  pointer-events: none;
 }
 
 // macOS: sidebar collapsed → shift toggle right to clear the traffic lights

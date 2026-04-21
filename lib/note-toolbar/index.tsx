@@ -9,7 +9,6 @@ import IconButton from '../icon-button';
 import InfoIcon from '../icons/info';
 import NewNoteIcon from '../icons/new-note';
 import TrashIcon from '../icons/trash';
-import SidebarIcon from '../icons/sidebar';
 import actions from '../state/actions';
 
 import * as S from '../state';
@@ -25,7 +24,6 @@ type DispatchProps = {
   newNote: () => any;
   restoreNote: () => any;
   trashNote: () => any;
-  toggleFocusMode: () => any;
   toggleNoteActions: () => any;
   toggleNoteInfo: () => any;
   toggleNoteList: () => any;
@@ -59,13 +57,6 @@ export class NoteToolbar extends Component<Props> {
               icon={<NewNoteIcon />}
               onClick={() => newNote()}
               title={`New Note • ${CmdOrCtrl}+Shift+I`}
-            />
-          </div>
-          <div className="note-toolbar__button note-toolbar__button-sidebar">
-            <IconButton
-              icon={<SidebarIcon />}
-              onClick={this.props.toggleFocusMode}
-              title="Toggle Focus Mode"
             />
           </div>
           <div className="note-toolbar__button note-toolbar-back">
@@ -167,7 +158,6 @@ const mapDispatchToProps: S.MapDispatch<DispatchProps> = {
   newNote: actions.ui.createNote,
   restoreNote: actions.ui.restoreOpenNote,
   trashNote: actions.ui.trashOpenNote,
-  toggleFocusMode: actions.settings.toggleFocusMode,
   toggleNoteActions: actions.ui.toggleNoteActions,
   toggleNoteInfo: actions.ui.toggleNoteInfo,
   toggleNoteList: actions.ui.toggleNoteList,

@@ -1,13 +1,16 @@
 import React, { Component } from 'react';
 import { connect } from 'react-redux';
 
+import IconButton from '../icon-button';
 import isEmailTag from '../utils/is-email-tag';
 import NavigationBarItem from './item';
 import NotebookSidebar from '../notebook-sidebar';
 import NotesIcon from '../icons/notes';
+import SidebarIcon from '../icons/sidebar';
 import TrashIcon from '../icons/trash';
 import SettingsIcon from '../icons/settings';
 import UntaggedNotesIcon from '../icons/untagged-notes';
+import { isMac } from '../utils/platform';
 import { viewExternalUrl } from '../utils/url-utils';
 import actions from '../state/actions';
 
@@ -30,6 +33,7 @@ type DispatchProps = {
   onShowUntaggedNotes: () => any;
   selectTrash: () => any;
   showKeyboardShortcuts: () => any;
+  toggleNavigation: () => any;
 };
 
 type Props = StateProps & DispatchProps;
@@ -85,9 +89,19 @@ export class NavigationBar extends Component<Props> {
       ([_, { name }]) => !isEmailTag(name)
     ).length;
 
+    const CmdOrCtrl = isMac ? 'Cmd' : 'Ctrl';
+
     return (
       <div className="navigation-bar" aria-hidden={isDialogOpen}>
-        <div className="navigation-bar__header" />
+        <div className="navigation-bar__header">
+          <div className="navigation-bar__header-actions">
+            <IconButton
+              icon={<SidebarIcon />}
+              onClick={this.props.toggleNavigation}
+              title={`Toggle Sidebar • ${CmdOrCtrl}+Shift+U`}
+            />
+          </div>
+        </div>
         <div className="navigation-bar__folders">
           <NavigationBarItem
             icon={<NotesIcon />}
@@ -168,6 +182,7 @@ const mapDispatchToProps: S.MapDispatch<DispatchProps> = {
   onSettings: () => actions.ui.showDialog('SETTINGS'),
   selectTrash: actions.ui.selectTrash,
   showKeyboardShortcuts: () => actions.ui.showDialog('KEYBINDINGS'),
+  toggleNavigation: actions.ui.toggleNavigation,
 };
 
 export default connect(mapStateToProps, mapDispatchToProps)(NavigationBar);

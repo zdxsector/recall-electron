@@ -55,14 +55,18 @@ test('search field is present', async () => {
 });
 
 test('sidebar toggle collapses and expands', async () => {
-  const toggleBtn = window.locator('button[aria-label*="Toggle Sidebar"]');
-  await expect(toggleBtn).toBeVisible({ timeout: 10_000 });
-
-  await toggleBtn.click();
   const navColumn = window.locator('.app-layout__nav-column');
+
+  // When sidebar is open the toggle lives in the nav-bar header
+  const navToggle = window.locator('.navigation-bar__header button[aria-label*="Toggle Sidebar"]');
+  await expect(navToggle).toBeVisible({ timeout: 10_000 });
+
+  await navToggle.click();
   await expect(navColumn).toHaveAttribute('data-collapsed', 'true');
 
-  await toggleBtn.click();
+  // When sidebar is collapsed the toggle lives in the menu-bar
+  const menuToggle = window.locator('.menu-bar__sidebar-toggle button[aria-label*="Toggle Sidebar"]');
+  await menuToggle.click();
   await expect(navColumn).toHaveAttribute('data-collapsed', 'false');
 });
 
@@ -125,26 +129,27 @@ test('macOS: sidebar toggle clears traffic lights when sidebar collapsed', async
   }
 
   const navColumn = window.locator('.app-layout__nav-column');
-  const toggleBtn = window.locator('button[aria-label*="Toggle Sidebar"]');
-  if ((await navColumn.count()) === 0 || (await toggleBtn.count()) === 0) {
+  const navToggle = window.locator('.navigation-bar__header button[aria-label*="Toggle Sidebar"]');
+  const menuToggle = window.locator('.menu-bar__sidebar-toggle button[aria-label*="Toggle Sidebar"]');
+  if ((await navColumn.count()) === 0 || (await navToggle.count()) === 0) {
     test.skip();
     return;
   }
 
   const isCollapsed = await navColumn.getAttribute('data-collapsed');
   if (isCollapsed !== 'true') {
-    await toggleBtn.first().click();
+    await navToggle.click();
     await expect(navColumn).toHaveAttribute('data-collapsed', 'true');
   }
 
-  const btnLeft = await toggleBtn.first().evaluate((el) => {
+  const btnLeft = await menuToggle.evaluate((el) => {
     const rect = el.getBoundingClientRect();
     return rect.left;
   });
   expect(btnLeft).toBeGreaterThanOrEqual(70);
 
   // Restore sidebar
-  await toggleBtn.first().click();
+  await menuToggle.click();
   await expect(navColumn).toHaveAttribute('data-collapsed', 'false');
 });
 
