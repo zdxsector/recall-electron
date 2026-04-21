@@ -76,13 +76,13 @@ export class NoteToolbar extends Component<Props> {
               title="Delete note"
             />
           </div>
-          <div className="note-toolbar__button">
+          {/* <div className="note-toolbar__button">
             <IconButton
               icon={<ChecklistIcon />}
               onClick={() => window.dispatchEvent(new Event('toggleChecklist'))}
               title={`Insert Checklist • ${CmdOrCtrl}+Shift+C`}
             />
-          </div>
+          </div> */}
           <div className="note-toolbar__button">
             <IconButton
               icon={<InfoIcon />}
