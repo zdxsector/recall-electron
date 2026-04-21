@@ -38,7 +38,7 @@
   display: flex;
   flex: none;
   flex-direction: column;
-  padding: 0 12px;
+  padding: 4px 8px;
 }
 
 .navigation-bar__tags {
@@ -52,9 +52,9 @@
 }
 
 .navigation-bar__section-title {
-  padding: 16px 16px 6px;
-  font-size: 11px;
-  font-weight: 500;
+  padding: 20px 20px 8px;
+  font-size: 12px;
+  font-weight: 600;
   color: var(--foreground-color);
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -81,13 +81,13 @@
   flex: 1 1 auto;
   min-width: 0;
   text-align: left;
-  padding: 8px 10px;
+  padding: 10px 12px;
   color: var(--primary-color);
   border-radius: 8px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 500;
 
   &:hover {
@@ -148,13 +148,13 @@
   flex: 1 1 auto;
   display: inline-flex;
   align-items: center;
-  gap: 10px;
-  padding: 8px 12px;
+  gap: 12px;
+  padding: 10px 14px;
   border-radius: 8px;
   color: var(--primary-color);
   text-align: left;
   width: 100%;
-  font-size: 14px;
+  font-size: 15px;
 
   &:hover {
     background: var(--secondary-highlight-color);
@@ -177,8 +177,8 @@
   justify-content: center;
 
   svg {
-    width: 18px;
-    height: 18px;
+    width: 20px;
+    height: 20px;
   }
 }
 
