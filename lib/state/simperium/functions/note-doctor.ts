@@ -1,6 +1,5 @@
 import debugFactory from 'debug';
 import { notesAreEqual } from '../../selectors';
-import { tagHashOf } from '../../../utils/tag-hash';
 
 import type * as S from '../../';
 import type * as T from '../../../types';
@@ -15,7 +14,6 @@ interface IdleDeadline {
 export class NoteDoctor {
   firstRun: boolean;
   log: ReturnType<typeof debugFactory>;
-  noteTags: Map<T.TagHash, Set<T.EntityId>>;
   notes: Set<T.EntityId>;
   queue: BucketQueue<'note', T.Note>;
   store: S.Store;
@@ -23,7 +21,6 @@ export class NoteDoctor {
   constructor(store: S.Store, noteQueue: BucketQueue<'note', T.Note>) {
     this.firstRun = true;
     this.log = debugFactory('note-doctor');
-    this.noteTags = new Map();
     this.notes = new Set();
     this.queue = noteQueue;
     this.store = store;
@@ -57,14 +54,6 @@ export class NoteDoctor {
       const ghost = state.simperium.ghosts[1].get('note')?.get(noteId)?.data;
       this.notes.delete(noteId);
 
-      note?.tags.forEach((tagName) => {
-        const tagHash = tagHashOf(tagName);
-        const tag = this.noteTags.get(tagHash) ?? new Set();
-
-        tag.add(noteId);
-        this.noteTags.set(tagHash, tag);
-      });
-
       if (!this.queue.has(noteId) && (!ghost || !notesAreEqual(note, ghost))) {
         this.log(`found note discrepancy: adding ${noteId}`);
         this.queue.add(noteId, Date.now());
@@ -85,15 +74,8 @@ export class NoteDoctor {
       return;
     }
 
-    !this.firstRun &&
-      this.store.dispatch({
-        type: 'TAG_REFRESH',
-        noteTags: this.noteTags,
-      });
     this.firstRun = false;
-
     this.notes = new Set(this.store.getState().data.notes.keys());
-    this.noteTags = new Map();
   }
 
   private requestIdleCallback(callback: (idleDeadline: IdleDeadline) => any) {

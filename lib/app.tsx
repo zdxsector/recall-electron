@@ -69,7 +69,6 @@ type DispatchProps = {
   toggleAutoHideMenuBar: () => any;
   toggleFocusMode: () => any;
   toggleSortOrder: () => any;
-  toggleSortTagsAlpha: () => any;
   toggleSpellCheck: () => any;
   toggleTagList: () => any;
 };
@@ -161,7 +160,7 @@ class AppComponent extends Component<Props> {
     // Is either cmd or ctrl pressed? (But not both)
     const cmdOrCtrl = (ctrlKey || metaKey) && ctrlKey !== metaKey;
 
-    // open tag list
+    // toggle sidebar
     if (cmdOrCtrl && shiftKey && 'u' === key) {
       this.props.toggleTagList();
 
@@ -323,7 +322,6 @@ const mapDispatchToProps: S.MapDispatch<DispatchProps> = (dispatch) => {
       dispatch(settingsActions.toggleAutoHideMenuBar()),
     toggleFocusMode: () => dispatch(settingsActions.toggleFocusMode()),
     toggleSortOrder: () => dispatch(settingsActions.toggleSortOrder()),
-    toggleSortTagsAlpha: () => dispatch(settingsActions.toggleSortTagsAlpha()),
     toggleSpellCheck: () => dispatch(settingsActions.toggleSpellCheck()),
     toggleTagList: () => dispatch(toggleNavigation()),
   };

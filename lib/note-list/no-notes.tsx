@@ -2,9 +2,7 @@ import React, { Component } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 
 import NotesIcon from '../icons/notes';
-import TagIcon from '../icons/tag';
 import TrashIcon from '../icons/trash';
-import UntaggedNotesIcon from '../icons/untagged-notes';
 
 import actions from '../state/actions';
 
@@ -50,7 +48,7 @@ const NoNotes = () => {
       case 'tag':
         return {
           message: `No notes tagged "${collection.tagName}"`,
-          icon: <TagIcon />,
+          icon: <NotesIcon />,
           button: null,
         };
       case 'folder':
@@ -63,12 +61,6 @@ const NoNotes = () => {
         return {
           message: 'Your trash is empty',
           icon: <TrashIcon />,
-          button: null,
-        };
-      case 'untagged':
-        return {
-          message: 'No untagged notes',
-          icon: <UntaggedNotesIcon />,
           button: null,
         };
       default:

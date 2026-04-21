@@ -9,13 +9,11 @@ import { NoteBucket } from './functions/note-bucket';
 // import { NoteDoctor } from './functions/note-doctor';
 import { PreferencesBucket } from './functions/preferences-bucket';
 import { ReduxGhost } from './functions/redux-ghost';
-import { TagBucket } from './functions/tag-bucket';
 import { getUnconfirmedChanges } from './functions/unconfirmed-changes';
 import { start as startConnectionMonitor } from './functions/connection-monitor';
 import { confirmBeforeClosingTab } from './functions/tab-close-confirmation';
 import { getAccountName } from './functions/username-monitor';
 import { isElectron } from '../../utils/platform';
-import { tagHashOf as t } from '../../utils/tag-hash';
 import { stopSyncing } from '../persistence';
 
 import type * as A from '../action-types';
@@ -28,7 +26,6 @@ type Buckets = {
   account: T.JSONSerializable;
   note: T.Note;
   preferences: T.Preferences;
-  tag: T.Tag;
 };
 
 export const initSimperium =
@@ -47,9 +44,6 @@ export const initSimperium =
 
           case 'preferences':
             return new PreferencesBucket(store);
-
-          case 'tag':
-            return new TagBucket(store);
         }
       },
 
@@ -130,37 +124,6 @@ export const initSimperium =
       });
     });
 
-    const tagBucket = client.bucket('tag');
-    tagBucket.channel.on(
-      'update',
-      (entityId, updatedEntity, original, patch, isIndexing) => {
-        if (original && patch && 'undefined' !== typeof isIndexing) {
-          dispatch({
-            type: 'REMOTE_TAG_UPDATE',
-            tagHash: entityId as string as T.TagHash,
-            tag: updatedEntity,
-            remoteInfo: {
-              original,
-              patch,
-              isIndexing,
-            },
-          });
-        } else {
-          dispatch({
-            type: 'REMOTE_TAG_UPDATE',
-            tagHash: entityId as string as T.TagHash,
-            tag: updatedEntity,
-          });
-        }
-      }
-    );
-    tagBucket.channel.on('remove', (tagId) =>
-      dispatch({
-        type: 'REMOTE_TAG_DELETE',
-        tagHash: tagId as string as T.TagHash,
-      })
-    );
-
     const parseVerificationToken = (token: unknown) => {
       try {
         const { username, verified_at: verifiedAt } = JSON.parse(
@@ -235,10 +198,6 @@ export const initSimperium =
 
     const hasRequestedRevisions = new Set<T.EntityId>();
 
-    const tagQueue = new BucketQueue(tagBucket);
-    const queueTagUpdate = (tagHash: T.TagHash, delay = 20) =>
-      tagQueue.add(tagHash, Date.now() + delay);
-
     const preferencesQueue = new BucketQueue(preferencesBucket);
     const queuePreferencesUpdate = (entityId: T.EntityId, delay = 20) =>
       preferencesQueue.add(entityId, Date.now() + delay);
@@ -247,9 +206,7 @@ export const initSimperium =
       window.account = accountBucket;
       // window.preferencesBucket = preferencesBucket;
       window.noteBucket = noteBucket;
-      window.tagBucket = tagBucket;
       window.noteQueue = noteQueue;
-      window.tagQueue = tagQueue;
     }
 
     // walk notes and queue any for sync which have discrepancies with their ghost
@@ -270,23 +227,10 @@ export const initSimperium =
 
       switch (action.type) {
         case 'ADD_COLLABORATOR':
-        case 'ADD_NOTE_TAG': {
-          const tagHash = t(
-            action.type === 'ADD_COLLABORATOR'
-              ? action.collaboratorAccount
-              : action.tagName
-          );
-
-          if (!prevState.data.tags.has(tagHash)) {
-            queueTagUpdate(tagHash);
-          }
-
           queueNoteUpdate(action.noteId);
           return result;
-        }
 
         case 'REMOVE_COLLABORATOR':
-        case 'REMOVE_NOTE_TAG':
           queueNoteUpdate(action.noteId);
           return result;
 
@@ -351,12 +295,6 @@ export const initSimperium =
         }
 
         case 'RESTORE_NOTE_REVISION': {
-          action.note.tags.map(t).forEach((tagHash) => {
-            if (!prevState.data.tags.has(tagHash)) {
-              queueTagUpdate(tagHash, 10);
-            }
-          });
-
           queueNoteUpdate(action.noteId, 10);
           return result;
         }
@@ -372,12 +310,6 @@ export const initSimperium =
           return result;
 
         case 'IMPORT_NOTE_WITH_ID': {
-          action.note.tags.forEach((tag) => {
-            const tagHash = t(tag);
-            if (!prevState.data.tags.has(tagHash)) {
-              queueTagUpdate(tagHash, 10);
-            }
-          });
           queueNoteUpdate(action.noteId, 10);
           return result;
         }
@@ -386,46 +318,9 @@ export const initSimperium =
           setTimeout(() => noteBucket.remove(action.noteId), 10);
           return result;
 
-        case 'RENAME_TAG': {
-          const oldHash = t(action.oldTagName);
-          const newHash = t(action.newTagName);
-
-          if (newHash !== oldHash) {
-            // only remove the old tag if its tag hash changed
-            // and we had to create a new one
-            setTimeout(() => tagBucket.remove(oldHash), 10);
-          }
-
-          nextState.data.notes.forEach((note, noteId) => {
-            if (prevState.data.notes.get(noteId) !== note) {
-              queueNoteUpdate(noteId);
-            }
-          });
-
-          queueTagUpdate(newHash);
-          return result;
-        }
-
-        case 'REORDER_TAG':
-          // if one tag changes order we likely have to synchronize all tags…
-          nextState.data.tags.forEach((tag, tagHash) => {
-            queueTagUpdate(tagHash);
-          });
-          return result;
-
         case 'SET_ANALYTICS':
           queuePreferencesUpdate('preferences-key' as T.EntityId);
           return result;
-
-        case 'TRASH_TAG': {
-          tagBucket.remove(t(action.tagName));
-          nextState.data.notes.forEach((note, noteId) => {
-            if (prevState.data.notes.get(noteId) !== note) {
-              queueNoteUpdate(noteId);
-            }
-          });
-          return result;
-        }
 
         case 'CLOSE_WINDOW': {
           const changes = getUnconfirmedChanges(nextState);

@@ -315,7 +315,17 @@ export const NotebookSidebar = ({
 
   return (
     <div className="navigation-bar__notebooks">
-      <div className="navigation-bar__section-title">Notebooks</div>
+      <div className="navigation-bar__section-title">
+        <span>Notebooks</span>
+        <button
+          type="button"
+          className="navigation-bar__section-add"
+          onClick={onNewNotebook}
+          title="New notebook"
+        >
+          +
+        </button>
+      </div>
       <div className="navigation-bar__folders">
         {notebookList.map(([notebookId, notebook]) => {
           const isExpanded = expandedNotebooks.has(notebookId);
@@ -407,15 +417,6 @@ export const NotebookSidebar = ({
             </div>
           );
         })}
-        <div className="navigation-bar__notebooks-footer">
-          <button
-            type="button"
-            className="navigation-bar__footer-item"
-            onClick={onNewNotebook}
-          >
-            New notebook…
-          </button>
-        </div>
       </div>
     </div>
   );

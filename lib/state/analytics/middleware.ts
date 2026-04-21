@@ -81,9 +81,6 @@ export const middleware: S.Middleware = (store) => {
       case 'ADD_COLLABORATOR':
         record('editor_note_collaborator_added');
         break;
-      case 'ADD_NOTE_TAG':
-        record('editor_tag_added');
-        break;
       case 'CREATE_NOTE':
         record('list_note_created');
         break;
@@ -105,14 +102,8 @@ export const middleware: S.Middleware = (store) => {
       case 'OPEN_NOTE':
         record('list_note_opened');
         break;
-      case 'OPEN_TAG':
-        record('list_tag_viewed');
-        break;
       case 'REMOVE_COLLABORATOR':
         record('editor_note_collaborator_removed');
-        break;
-      case 'REMOVE_NOTE_TAG':
-        record('editor_tag_removed');
         break;
       case 'RESTORE_OPEN_NOTE':
         record('editor_note_restored');
@@ -138,9 +129,6 @@ export const middleware: S.Middleware = (store) => {
         break;
       case 'TRASH_OPEN_NOTE':
         record('editor_note_deleted');
-        break;
-      case 'TRASH_TAG':
-        record('list_tag_deleted');
         break;
     }
     return result;

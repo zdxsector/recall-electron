@@ -1,4 +1,3 @@
-import { filterTags } from '../tag-suggestions';
 import { getTerms } from '../utils/filter-notes';
 import { tagHashOf as t } from '../utils/tag-hash';
 import { getTitle } from '../utils/note-utils';
@@ -17,7 +16,7 @@ const HUGE_NOTE_CONTENT_THRESHOLD = 1_000_000;
 type SearchNote = {
   content: string;
   casedContent: string;
-  tags: Set<T.TagHash>;
+  tags: Set<string>;
   creationDate: number;
   modificationDate: number;
   isPinned: boolean;
@@ -31,7 +30,7 @@ type SearchState = {
   excludeIDs: Array<T.EntityId> | null;
   notes: Map<T.EntityId, SearchNote>;
   searchQuery: string;
-  searchTags: Set<T.TagHash>;
+  searchTags: Set<string>;
   searchTerms: string[];
   sortType: T.SortType;
   sortReversed: boolean;
@@ -51,7 +50,7 @@ const toSearchNote = (note: Partial<T.Note>): SearchNote => ({
 
 export const tagsFromSearch = (query: string) => {
   const tagPattern = /(?:\btag:)([^\s,]+)/g;
-  const searchTags = new Set<T.TagHash>();
+  const searchTags = new Set<string>();
   let match;
   while ((match = tagPattern.exec(query)) !== null) {
     searchTags.add(t(match[1] as T.TagName));
@@ -230,17 +229,9 @@ export const middleware: S.Middleware = (store) => {
         continue;
       }
 
-      const showUntagged =
-        collection.type === 'untagged' ||
-        searchTags.has(t('untagged' as T.TagName));
-
-      if (showUntagged && note.tags.size) {
-        continue;
-      }
-
       let hasAllTags = true;
       for (const tagName of searchTags.values()) {
-        if (tagName !== 'untagged' && !note.tags.has(tagName)) {
+        if (!note.tags.has(tagName)) {
           hasAllTags = false;
           break;
         }
@@ -288,15 +279,8 @@ export const middleware: S.Middleware = (store) => {
 
   const setFilteredNotes = (
     noteIds: T.EntityId[]
-  ): { noteIds: T.EntityId[]; tagHashes: T.TagHash[] } => {
-    const { data } = store.getState();
-    const { searchQuery } = searchState;
-
-    const filteredTags = filterTags(data.tags, data.noteTags, searchQuery);
-    const tagSuggestions =
-      filteredTags.length > 0 ? filteredTags : (emptyList as T.TagHash[]);
-
-    return { noteIds, tagHashes: tagSuggestions };
+  ): { noteIds: T.EntityId[] } => {
+    return { noteIds };
   };
 
   const withSearch = <T extends A.ActionType>(action: T): T => ({
@@ -475,18 +459,6 @@ export const middleware: S.Middleware = (store) => {
     };
 
     switch (action.type) {
-      case 'ADD_NOTE_TAG': {
-        const note = searchState.notes.get(action.noteId);
-        if (!note) {
-          return next(action);
-        }
-
-        note.tags.add(t(action.tagName));
-        note.modificationDate = Date.now() / 1000;
-        indexNote(action.noteId);
-        return next(withSearch(action));
-      }
-
       case 'CREATE_NOTE_WITH_ID': {
         // Preserve the current collection context when creating a new note.
         // The note is already assigned the correct folderId/tags by the data middleware.
@@ -509,7 +481,7 @@ export const middleware: S.Middleware = (store) => {
           // Don't stay in trash when creating a note
           searchState.collection = { type: 'all' };
         }
-        // Otherwise, preserve the current collection (e.g., 'all', 'untagged')
+        // Otherwise, preserve the current collection (e.g., 'all')
 
         searchState.notes.set(action.noteId, toSearchNote(action.note ?? {}));
         indexNote(action.noteId);
@@ -619,47 +591,6 @@ export const middleware: S.Middleware = (store) => {
         return next(withSearch(action));
       }
 
-      case 'REMOVE_NOTE_TAG': {
-        const note = searchState.notes.get(action.noteId);
-        if (!note) {
-          return next(action);
-        }
-
-        note.tags.delete(t(action.tagName));
-        note.modificationDate = Date.now() / 1000;
-        indexNote(action.noteId);
-
-        return next(withSearch(action));
-      }
-
-      case 'RENAME_TAG': {
-        const oldHash = t(action.oldTagName);
-        const newHash = t(action.newTagName);
-
-        if (
-          searchState.collection.type === 'tag' &&
-          searchState.collection.tagName === action.oldTagName
-        ) {
-          searchState.collection = {
-            type: 'tag',
-            tagName: action.newTagName,
-          };
-        }
-
-        searchState.notes.forEach((note, noteId) => {
-          if (!note.tags.has(oldHash)) {
-            return;
-          }
-
-          note.tags.delete(oldHash);
-          note.tags.add(newHash);
-          note.modificationDate = Date.now() / 1000;
-          indexNote(noteId);
-        });
-
-        return next(withSearch(action));
-      }
-
       case 'RESTORE_NOTE': {
         const note = searchState.notes.get(action.noteId);
         if (!note) {
@@ -679,10 +610,6 @@ export const middleware: S.Middleware = (store) => {
 
       case 'SHOW_ALL_NOTES':
         searchState.collection = { type: 'all' };
-        return next(withSearch(action));
-
-      case 'SHOW_UNTAGGED_NOTES':
-        searchState.collection = { type: 'untagged' };
         return next(withSearch(action));
 
       case 'SEARCH':
@@ -717,41 +644,6 @@ export const middleware: S.Middleware = (store) => {
         indexNote(action.noteId);
 
         return next(withNextNote(action.noteId, withSearch(action)));
-      }
-
-      case 'TRASH_TAG': {
-        const tagHash = t(action.tagName);
-
-        searchState.notes.forEach((note, noteId) => {
-          if (!note.tags.has(tagHash)) {
-            return;
-          }
-
-          note.tags.delete(tagHash);
-          note.modificationDate = Date.now() / 1000;
-          indexNote(noteId);
-        });
-
-        // only update the search if we have a trashed tag open
-        // it's okay to leave tag search terms in because we
-        // can always search for non-existent tags
-        if (
-          searchState.collection.type === 'tag' &&
-          searchState.collection.tagName !== action.tagName
-        ) {
-          return next(action);
-        }
-
-        // if currently filtering by untagged notes and you're deleting
-        // the last remaining note, reset filter to all. Checking for size
-        // 1 because the deletion hasn't gone through at this point yet.
-        if (
-          searchState.collection.type === 'untagged' &&
-          store.getState().data.tags.size <= 1
-        ) {
-          searchState.collection = { type: 'all' };
-        }
-        return next(withSearch(action));
       }
     }
 

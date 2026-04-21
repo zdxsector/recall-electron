@@ -1,6 +1,5 @@
 import { combineReducers } from 'redux';
 
-import { tagHashOf } from '../../utils/tag-hash';
 import {
   withCheckboxCharacters,
   withCheckboxSyntax,
@@ -124,27 +123,10 @@ const collection: A.Reducer<T.Collection> = (
         ? { type: 'all' }
         : state;
     }
-    case 'RENAME_TAG': {
-      if (state.type === 'tag' && state.tagName === action.oldTagName) {
-        return { type: 'tag', tagName: action.newTagName };
-      }
-      return state;
-    }
     case 'SELECT_TRASH':
       return { type: 'trash' };
     case 'SHOW_ALL_NOTES':
       return { type: 'all' };
-    case 'SHOW_UNTAGGED_NOTES':
-      return { type: 'untagged' };
-    case 'TRASH_TAG': {
-      const openedTagIsGone =
-        state.type === 'tag' &&
-        tagHashOf(state.tagName) === tagHashOf(action.tagName);
-      const lastTagDisappeared =
-        state.type === 'untagged' && action?.remainingTags === 0;
-
-      return openedTagIsGone || lastTagDisappeared ? { type: 'all' } : state;
-    }
     default:
       return state;
   }
@@ -154,16 +136,6 @@ const dialogs: A.Reducer<T.DialogType[]> = (state = [], action) => {
   switch (action.type) {
     case 'CLOSE_DIALOG':
       return state.slice(0, -1);
-    case 'TRASH_TAG':
-      return state.filter((dialog) => dialog.type !== 'TRASH-TAG-CONFIRMATION');
-    case 'REMOTE_TAG_DELETE':
-      return state.filter(
-        (dialog) =>
-          !(
-            dialog.type === 'TRASH-TAG-CONFIRMATION' &&
-            tagHashOf(dialog.tagName) === action.tagHash
-          )
-      );
     case 'SHOW_DIALOG': {
       const { type, name, ...data } = action;
       // This ensures we only show one dialog of each type at a time.
@@ -184,24 +156,6 @@ const editMode: A.Reducer<boolean> = (state = true, action) => {
     }
     case 'CREATE_NOTE_WITH_ID':
       return true;
-    default:
-      return state;
-  }
-};
-
-const editingTags: A.Reducer<boolean> = (state = false, action) => {
-  switch (action.type) {
-    case 'TAG_EDITING_TOGGLE':
-      return !state;
-    case 'OPEN_NOTE':
-    case 'SELECT_NOTE':
-    case 'OPEN_TAG':
-    case 'OPEN_FOLDER':
-    case 'SELECT_TRASH':
-    case 'SHOW_ALL_NOTES':
-    case 'SHOW_UNTAGGED_NOTES':
-    case 'NAVIGATION_TOGGLE':
-      return false;
     default:
       return state;
   }
@@ -415,24 +369,11 @@ const showRevisions: A.Reducer<boolean> = (state = false, action) => {
 
 const restoreDeletedTags: A.Reducer<boolean> = (state = true, action) => {
   switch (action.type) {
-    case 'TOGGLE_RESTORING_DELETED_TAGS':
-      return !state;
     case 'REVISIONS_TOGGLE':
       return true;
     default:
       return state;
   }
-};
-
-const tagSuggestions: A.Reducer<T.TagHash[]> = (
-  state = emptyList as T.TagHash[],
-  action
-) => {
-  if ('undefined' === typeof action.meta?.searchResults) {
-    return state;
-  }
-
-  return action.meta.searchResults.tagHashes;
 };
 
 export default combineReducers({
@@ -441,7 +382,6 @@ export default combineReducers({
   dialogs,
   editMode,
   editorSelection,
-  editingTags,
   filteredNotes,
   hasLoadedNotes,
   numberOfMatchesInNote,
@@ -457,6 +397,5 @@ export default combineReducers({
   showNoteList,
   showRevisions,
   simperiumConnected,
-  tagSuggestions,
   unsyncedNoteIds,
 });

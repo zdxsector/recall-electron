@@ -42,12 +42,10 @@ export const emptyTrash: A.ActionCreator<A.EmptyTrash> = () => ({
 });
 
 export const filterNotes: A.ActionCreator<A.FilterNotes> = (
-  noteIds: T.EntityId[],
-  tagHashes: T.TagHash[]
+  noteIds: T.EntityId[]
 ) => ({
   type: 'FILTER_NOTES',
   noteIds,
-  tagHashes,
 });
 
 export const focusSearchField: A.ActionCreator<A.FocusSearchField> = () => ({
@@ -99,10 +97,6 @@ export const showAllNotes: A.ActionCreator<A.ShowAllNotes> = () => ({
   type: 'SHOW_ALL_NOTES',
 });
 
-export const showUntaggedNotes: A.ActionCreator<A.ShowUntaggedNotes> = () => ({
-  type: 'SHOW_UNTAGGED_NOTES',
-});
-
 export const showDialog: A.ActionCreator<A.ShowDialog> = <
   D extends T.DialogType,
 >(
@@ -128,23 +122,8 @@ export const hideAlternateLoginPrompt: A.ActionCreator<
   email,
 });
 
-export const storeRevisions: A.ActionCreator<A.StoreRevisions> = (
-  noteId: T.EntityId,
-  revisions: T.NoteEntity[]
-) => ({
-  type: 'STORE_REVISIONS',
-  noteId,
-  revisions,
-});
-
 export const toggleRevisions: A.ActionCreator<A.ToggleRevisions> = () => ({
   type: 'REVISIONS_TOGGLE',
-});
-
-export const toggleRestoringDeletedTags: A.ActionCreator<
-  A.ToggleRestoringDeletedTags
-> = () => ({
-  type: 'TOGGLE_RESTORING_DELETED_TAGS',
 });
 
 export const search: A.ActionCreator<A.Search> = (searchQuery: string) => ({
@@ -174,17 +153,6 @@ export const toggleNoteActions: A.ActionCreator<A.ToggleNoteActions> = () => ({
 
 export const toggleNoteInfo: A.ActionCreator<A.ToggleNoteInfo> = () => ({
   type: 'NOTE_INFO_TOGGLE',
-});
-
-export const toggleTagDrawer: A.ActionCreator<A.ToggleTagDrawer> = (
-  show: boolean
-) => ({
-  type: 'TAG_DRAWER_TOGGLE',
-  show,
-});
-
-export const toggleTagEditing: A.ActionCreator<A.ToggleTagEditing> = () => ({
-  type: 'TAG_EDITING_TOGGLE',
 });
 
 export const trashOpenNote: A.ActionCreator<A.TrashOpenNote> = () => ({

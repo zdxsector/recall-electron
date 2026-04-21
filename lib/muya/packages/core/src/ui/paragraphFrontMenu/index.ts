@@ -217,10 +217,14 @@ export class ParagraphFrontMenu extends BaseFloat {
           } else if (block.next) {
             cursorBlock = block.next.firstContentInDescendant();
           } else {
-            state = deepClone(emptyStates.paragraph);
-            const newBlock = ScrollPage.loadBlock('paragraph').create(
+            const emptyH1 = {
+              name: 'atx-heading',
+              meta: { level: 1 },
+              text: '# ',
+            };
+            const newBlock = ScrollPage.loadBlock('atx-heading').create(
               muya,
-              state
+              emptyH1
             );
             block.parent!.insertAfter(newBlock, block);
             cursorBlock = newBlock.lastContentInDescendant();

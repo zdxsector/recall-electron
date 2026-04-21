@@ -1,7 +1,6 @@
-import { partition, sortBy } from 'lodash';
+import { sortBy } from 'lodash';
 
 import normalizeLineBreak from './normalize-line-break';
-import isEmailTag from '../is-email-tag';
 
 import * as T from '../../types';
 import { ExportNote } from './types';
@@ -11,10 +10,7 @@ const exportNotes = (notes: Map<T.EntityId, T.Note>) => {
   const trashedNotes: ExportNote[] = [];
   [...notes.entries()].forEach((notePair) => {
     const [id, note] = notePair;
-    const [collaboratorEmails, tags] = partition(
-      sortBy(note.tags, (a) => a.toLocaleLowerCase()),
-      isEmailTag
-    );
+    const tags = sortBy(note.tags, (a) => a.toLocaleLowerCase());
     const parsedNote = Object.assign(
       {
         id,
@@ -28,9 +24,7 @@ const exportNotes = (notes: Map<T.EntityId, T.Note>) => {
       note.systemTags.includes('published') &&
         note?.publishURL && {
           publicURL: `http://simp.ly/p/${note.publishURL}`,
-        },
-      note.systemTags.includes('shared') &&
-        collaboratorEmails.length && { collaboratorEmails }
+        }
     );
     note.deleted ? trashedNotes.push(parsedNote) : activeNotes.push(parsedNote);
   });

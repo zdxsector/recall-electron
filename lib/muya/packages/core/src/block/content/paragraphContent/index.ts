@@ -140,15 +140,37 @@ class ParagraphContent extends Format {
     // eslint-disable-next-line regexp/no-super-linear-backtracking
     const TABLE_BLOCK_REG = /^\|.*?(\\*)\|.*?(\\*)\|/;
     const MATH_BLOCK_REG = /^\$\$/;
+    const THEMATIC_BREAK_REG = /^ {0,3}(?:\* *\* *\*|- *- *-|_ *_ *_)[ *\-_]*$/;
     const { text } = this;
     const codeBlockToken = text.match(/(^ {0,3}`{3,})([^` ]*)/);
     const tableMatch = TABLE_BLOCK_REG.exec(text);
     const htmlMatch = HTML_BLOCK_REG.exec(text);
     const mathMath = MATH_BLOCK_REG.exec(text);
+    const thematicMatch = THEMATIC_BREAK_REG.test(text);
     const tagName =
       htmlMatch && htmlMatch[1] && HTML_TAGS.find((t) => t === htmlMatch[1]);
 
-    if (mathMath) {
+    if (thematicMatch) {
+      const thematicState = {
+        name: 'thematic-break',
+        text,
+      };
+      const thematicBlock = ScrollPage.loadBlock('thematic-break').create(
+        this.muya,
+        thematicState
+      );
+      this.parent!.replaceWith(thematicBlock);
+      const newParagraphState = { name: 'paragraph', text: '' };
+      const newParagraph = ScrollPage.loadBlock('paragraph').create(
+        this.muya,
+        newParagraphState
+      );
+      if (thematicBlock.parent) {
+        thematicBlock.parent.insertAfter(newParagraph, thematicBlock);
+      }
+      const cursorBlock = newParagraph.firstContentInDescendant();
+      if (cursorBlock) cursorBlock.setCursor(0, 0, true);
+    } else if (mathMath) {
       const state = {
         name: 'math-block',
         text: '',

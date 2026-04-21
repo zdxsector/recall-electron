@@ -1,12 +1,5 @@
 import { combineReducers } from 'redux';
 
-import {
-  tagHashOf as t,
-  tagNameOf,
-  withTag,
-  withoutTag,
-} from '../../utils/tag-hash';
-
 import type * as A from '../action-types';
 import type * as T from '../../types';
 
@@ -46,19 +39,18 @@ export const notes: A.Reducer<Map<T.EntityId, T.Note>> = (
   action
 ) => {
   switch (action.type) {
-    case 'ADD_COLLABORATOR':
-    case 'ADD_NOTE_TAG': {
+    case 'ADD_COLLABORATOR': {
       const note = state.get(action.noteId);
       if (!note) {
         return state;
       }
 
-      const tagName =
-        action.type === 'ADD_COLLABORATOR'
-          ? action.collaboratorAccount
-          : action.tagName;
+      const tagName = action.collaboratorAccount;
 
-      const tags = withTag(note.tags, tagName);
+      // Add collaborator account as a tag (for Simperium sharing)
+      const tags = note.tags.includes(tagName)
+        ? note.tags
+        : [...note.tags, tagName];
 
       return tags !== note.tags
         ? new Map(state).set(action.noteId, modified({ ...note, tags }))
@@ -180,67 +172,18 @@ export const notes: A.Reducer<Map<T.EntityId, T.Note>> = (
       );
     }
 
-    case 'REMOVE_COLLABORATOR':
-    case 'REMOVE_NOTE_TAG': {
+    case 'REMOVE_COLLABORATOR': {
       const note = state.get(action.noteId);
       if (!note) {
         return state;
       }
 
-      const tagName =
-        action.type === 'REMOVE_COLLABORATOR'
-          ? action.collaboratorAccount
-          : action.tagName;
+      const tagName = action.collaboratorAccount;
+      const tags = note.tags.filter((t) => t !== tagName);
 
-      const tags = withoutTag(note.tags, tagName);
-
-      return tags !== note.tags
+      return tags.length !== note.tags.length
         ? new Map(state).set(action.noteId, modified({ ...note, tags }))
         : state;
-    }
-
-    case 'RENAME_TAG': {
-      const oldHash = t(action.oldTagName);
-      const newHash = t(action.newTagName);
-      const next = new Map(state);
-      if (oldHash === newHash) {
-        return next;
-      }
-      next.forEach((note, noteId) => {
-        const newTags: T.TagName[] = [];
-        const hashes = new Set<T.TagHash>();
-        let hasRenamedTag = false;
-
-        note.tags.forEach((tagName) => {
-          const hash = t(tagName);
-
-          // if we get through this and haven't seen the renamed tag then we
-          // can return the original tag state and avoid modifying the note
-          hasRenamedTag = hasRenamedTag || hash === oldHash || hash === newHash;
-
-          if (hashes.has(hash)) {
-            return;
-          }
-
-          if (oldHash !== hash) {
-            hashes.add(hash);
-            newTags.push(tagName);
-          }
-
-          if (!hashes.has(newHash)) {
-            hashes.add(newHash);
-            newTags.push(action.newTagName);
-          }
-        });
-
-        if (!hasRenamedTag) {
-          return;
-        }
-
-        next.set(noteId, modified({ ...note, tags: newTags }));
-      });
-
-      return next;
     }
 
     case 'RESTORE_NOTE':
@@ -268,24 +211,6 @@ export const notes: A.Reducer<Map<T.EntityId, T.Note>> = (
           deleted: true,
         })
       );
-
-    case 'TRASH_TAG': {
-      const next = new Map(state);
-      let changedIt = false;
-
-      next.forEach((note, noteId) => {
-        const tags = withoutTag(note.tags, action.tagName);
-
-        if (tags === note.tags) {
-          return;
-        }
-
-        changedIt = true;
-        next.set(noteId, modified({ ...note, tags }));
-      });
-
-      return changedIt ? next : state;
-    }
 
     case 'DELETE_FOLDER': {
       // Reassign notes in the deleted folder back to the default folder.
@@ -342,217 +267,6 @@ export const preferences: A.Reducer<Map<T.EntityId, T.Preferences>> = (
 
     case 'PREFERENCES_BUCKET_UPDATE':
       return new Map(state).set(action.id, action.data);
-
-    default:
-      return state;
-  }
-};
-
-export const tags: A.Reducer<Map<T.TagHash, T.Tag>> = (
-  state = new Map(),
-  action
-) => {
-  switch (action.type) {
-    case 'ADD_COLLABORATOR':
-    case 'ADD_NOTE_TAG': {
-      const tagName =
-        action.type === 'ADD_COLLABORATOR'
-          ? action.collaboratorAccount
-          : action.tagName;
-
-      return state.has(t(tagName))
-        ? state
-        : new Map(state).set(t(tagName), { name: tagName });
-    }
-
-    case 'EDIT_NOTE':
-    case 'IMPORT_NOTE_WITH_ID': {
-      const newTags =
-        'EDIT_NOTE' === action.type ? action.changes.tags : action.note.tags;
-
-      if (!newTags?.length) {
-        return state;
-      }
-
-      const next = new Map(state);
-      let hasUpdates = false;
-      newTags.forEach((tagName) => {
-        const tagHash = t(tagName);
-
-        if (!state.has(tagHash)) {
-          next.set(tagHash, { name: tagName });
-          hasUpdates = true;
-        }
-      });
-
-      return hasUpdates ? next : state;
-    }
-
-    case 'REMOTE_TAG_DELETE':
-    case 'TAG_BUCKET_REMOVE': {
-      const next = new Map(state);
-      return next.delete(action.tagHash) ? next : state;
-    }
-
-    case 'REMOTE_TAG_UPDATE':
-    case 'TAG_BUCKET_UPDATE':
-      return new Map(state).set(action.tagHash, action.tag);
-
-    case 'RENAME_TAG': {
-      const prevHash = t(action.oldTagName);
-      const nextHash = t(action.newTagName);
-
-      const next = new Map(state);
-      const prevTag = state.get(prevHash) ?? {};
-      next.set(nextHash, { ...prevTag, name: action.newTagName });
-
-      if (prevHash !== nextHash) {
-        next.delete(prevHash);
-      }
-
-      return next;
-    }
-
-    case 'REORDER_TAG': {
-      const actionTagHash = t(action.tagName);
-      const actionTag = state.get(actionTagHash);
-      if (!actionTag) {
-        return state;
-      }
-
-      const next = new Map(state);
-      next.delete(actionTagHash);
-      ([...next.entries()] as [T.TagHash, T.Tag][])
-        .sort((a, b) =>
-          'undefined' !== typeof a[1].index && 'undefined' !== typeof b[1].index
-            ? a[1].index - b[1].index
-            : 'undefined' === typeof a[1].index
-              ? 1
-              : -1
-        )
-        .forEach(([tagId, tag], index) => {
-          next.set(tagId, {
-            ...tag,
-            index: index < action.newIndex ? index : index + 1,
-          });
-        });
-      next.set(actionTagHash, { ...actionTag, index: action.newIndex });
-
-      return next;
-    }
-
-    case 'TAG_REFRESH': {
-      const next = new Map(state);
-      action.noteTags.forEach((noteIds, tagHash) => {
-        if (!next.has(tagHash)) {
-          next.set(tagHash, { name: tagNameOf(tagHash) });
-        }
-      });
-
-      return next;
-    }
-
-    case 'RESTORE_NOTE_REVISION': {
-      const next = new Map(state);
-      action.note.tags.forEach((tagName) => {
-        const tagHash = t(tagName);
-        if (!next.has(tagHash)) {
-          next.set(tagHash, { name: tagName });
-        }
-      });
-
-      return next;
-    }
-
-    case 'TRASH_TAG': {
-      const next = new Map(state);
-      return next.delete(t(action.tagName)) ? next : state;
-    }
-
-    default:
-      return state;
-  }
-};
-
-export const noteTags: A.Reducer<Map<T.TagHash, Set<T.EntityId>>> = (
-  state = new Map(),
-  action
-) => {
-  switch (action.type) {
-    case 'ADD_COLLABORATOR':
-    case 'ADD_NOTE_TAG': {
-      const tagHash = t(
-        action.type === 'ADD_COLLABORATOR'
-          ? action.collaboratorAccount
-          : action.tagName
-      );
-      return new Map(state).set(
-        tagHash,
-        (state.get(tagHash) ?? new Set()).add(action.noteId)
-      );
-    }
-
-    case 'EDIT_NOTE':
-    case 'IMPORT_NOTE_WITH_ID': {
-      const newTags =
-        'EDIT_NOTE' === action.type ? action.changes.tags : action.note.tags;
-
-      if (!newTags?.length) {
-        return state;
-      }
-
-      const { noteId } = action;
-      const newHashes = new Set(newTags.map(t));
-      const next = new Map(state);
-      next.forEach((notes, tagHash) => {
-        // the note no longer has this tag
-        if (notes.has(noteId) && !newHashes.has(tagHash)) {
-          const nextNotes = new Set(notes);
-          nextNotes.delete(noteId);
-          next.set(tagHash, nextNotes);
-          return;
-        }
-
-        // the note now has this tag but didn't before
-        if (!notes.has(noteId) && newHashes.has(tagHash)) {
-          next.set(tagHash, new Set(notes).add(noteId));
-        }
-      });
-
-      return next;
-    }
-
-    case 'TAG_REFRESH':
-      return action.noteTags;
-
-    case 'REMOTE_TAG_DELETE':
-    case 'TAG_BUCKET_REMOVE': {
-      const next = new Map(state);
-      return next.delete(action.tagHash) ? next : state;
-    }
-
-    case 'REMOVE_COLLABORATOR':
-    case 'REMOVE_NOTE_TAG': {
-      const tagHash = t(
-        action.type === 'REMOVE_COLLABORATOR'
-          ? action.collaboratorAccount
-          : action.tagName
-      );
-      const tagNotes = state.get(tagHash);
-      if (!tagNotes) {
-        return state;
-      }
-
-      const next = new Set(tagNotes);
-      return next.delete(action.noteId)
-        ? new Map(state).set(tagHash, next)
-        : state;
-    }
-
-    case 'TRASH_TAG': {
-      const next = new Map(state);
-      return next.delete(t(action.tagName)) ? next : state;
-    }
 
     default:
       return state;
@@ -633,9 +347,7 @@ export default combineReducers({
   analyticsAllowed,
   notes,
   noteRevisions,
-  noteTags,
   preferences,
-  tags,
   notebooks,
   folders,
 });

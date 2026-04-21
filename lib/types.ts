@@ -11,7 +11,6 @@ export type Entity<T> = {
   version: number;
 };
 
-export type TagHash = Brand<string, 'TagHash'> | EntityId;
 export type TagName = Brand<string, 'TagName'>;
 export type SystemTag = 'markdown' | 'pinned' | 'published' | 'shared';
 
@@ -33,13 +32,6 @@ export type Note = {
 };
 
 export type NoteEntity = Entity<Note>;
-
-export type Tag = {
-  index?: number;
-  name: TagName;
-};
-
-export type TagEntity = Entity<Tag>;
 
 export type Notebook = {
   index?: number;
@@ -72,8 +64,7 @@ export type Collection =
   | { type: 'all' }
   | { type: 'tag'; tagName: TagName }
   | { type: 'folder'; folderId: FolderId }
-  | { type: 'trash' }
-  | { type: 'untagged' };
+  | { type: 'trash' };
 
 ///////////////////////////////////////
 // Simperium Types
@@ -91,11 +82,7 @@ export type DialogType =
   | { type: 'KEYBINDINGS' }
   | { type: 'LOGOUT-CONFIRMATION' }
   | { type: 'SETTINGS' }
-  | { type: 'SHARE' }
-  | {
-      type: 'TRASH-TAG-CONFIRMATION';
-      tagName: TagName;
-    };
+  | { type: 'SHARE' };
 export type FontSize = 'small' | 'normal' | 'large' | 'extra-large';
 export type LineLength = 'full' | 'narrow';
 export type ListDisplayMode = 'expanded' | 'comfy' | 'condensed';

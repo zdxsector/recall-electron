@@ -52,12 +52,20 @@ class AtxHeadingContent extends Format {
 
   override backspaceHandler(event: Event) {
     const { start, end } = this.getCursor()!;
+    const isFirstBlock = this.parent?.isFirstChild();
+
     if (start.offset === 0 && end.offset === 0) {
       event.preventDefault();
+      if (isFirstBlock) return;
       this.text = this.text.replace(/^ {0,3}#{1,6} */, '');
       this.convertToParagraph();
     } else if (start.offset === 1 && end.offset === 1 && this.text === '#') {
       event.preventDefault();
+      if (isFirstBlock) {
+        this.text = '# ';
+        this.setCursor(2, 2, true);
+        return;
+      }
       this.text = '';
       this.setCursor(0, 0);
       this.convertToParagraph();

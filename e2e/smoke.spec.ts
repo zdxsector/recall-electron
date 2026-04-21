@@ -50,7 +50,7 @@ test('sidebar renders with navigation items', async () => {
 });
 
 test('search field is present', async () => {
-  const searchInput = window.locator('[placeholder="Search all notes and tags"]');
+  const searchInput = window.locator('[placeholder="Search all notes"]');
   await expect(searchInput).toBeVisible({ timeout: 10_000 });
 });
 

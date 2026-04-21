@@ -1605,6 +1605,7 @@ class Format extends Content {
   override enterHandler(event: KeyboardEvent): void {
     event.preventDefault();
     const { text: oldText, muya, parent } = this;
+    if (!parent?.parent) return;
     const { start, end } = this.getCursor()!;
     this.text = oldText.substring(0, start.offset);
     const textOfNewNode = oldText.substring(end.offset);
@@ -1618,7 +1619,7 @@ class Format extends Content {
       newParagraphState
     );
 
-    parent!.parent!.insertAfter(newNode, parent);
+    parent.parent.insertAfter(newNode, parent);
 
     this.update();
     const cursorBlock = newNode.firstContentInDescendant();

@@ -81,8 +81,21 @@ body[data-theme='dark'] .muya-editor-root {
   color: var(--primary-color) !important;
   caret-color: var(--primary-color);
 
-  // Make code blocks visibly layered over the dark editor background.
+  // Override Muya's black-based editor variables with white-based values
+  // so element blocks (thematic breaks, borders, syntax hints) are visible.
+  --editor-color: rgb(255 255 255 / 70%);
+  --editor-color-80: rgb(255 255 255 / 80%);
+  --editor-color-50: rgb(255 255 255 / 50%);
+  --editor-color-30: rgb(255 255 255 / 30%);
+  --editor-color-10: rgb(255 255 255 / 10%);
+  --editor-color-04: rgb(255 255 255 / 3%);
+  --editor-bg-color: var(--background-color);
   --code-block-bg-color: var(--secondary-highlight-color);
+  --table-border-color: rgb(255 255 255 / 15%);
+  --icon-color: rgb(255 255 255 / 50%);
+  --float-bg-color: #2c2c2e;
+  --float-hover-color: rgb(255 255 255 / 6%);
+  --float-border-color: rgb(255 255 255 / 10%);
 }
 
 // Muya code blocks are rendered as <pre class="mu-code-block">...

@@ -46,12 +46,6 @@ export const setSortType: A.ActionCreator<A.SetSortType> = (
   sortReversed,
 });
 
-export const toggleSortTagsAlpha: A.ActionCreator<
-  A.ToggleSortTagsAlpha
-> = () => ({
-  type: 'TOGGLE_SORT_TAGS_ALPHA',
-});
-
 export const setAccountName: A.ActionCreator<A.SetAccountName> = (
   accountName: string
 ) => ({

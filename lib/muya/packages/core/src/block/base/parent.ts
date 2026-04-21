@@ -186,10 +186,12 @@ class Parent extends TreeNode {
   ) {
     newNode.parent = this;
     this.children.insertBefore(newNode, refNode);
-    this.domNode!.insertBefore(
-      newNode.domNode!,
-      refNode ? refNode.domNode! : null
-    );
+    const refDom = refNode?.domNode ?? null;
+    if (refDom && refDom.parentNode !== this.domNode) {
+      this.domNode!.appendChild(newNode.domNode!);
+    } else {
+      this.domNode!.insertBefore(newNode.domNode!, refDom);
+    }
 
     if (source === 'user') {
       // dispatch json1 operation

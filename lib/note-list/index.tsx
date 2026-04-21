@@ -11,7 +11,6 @@ import { connect } from 'react-redux';
 
 import NoNotes from './no-notes';
 import NoteCell from './note-cell';
-import TagSuggestions from '../tag-suggestions';
 
 import actions from '../state/actions';
 import * as selectors from '../state/selectors';
@@ -27,11 +26,9 @@ type StateProps = {
   keyboardShortcuts: boolean;
   noteDisplay: T.ListDisplayMode;
   openedNote: T.EntityId | null;
-  openedTag: T.TagName | null;
   searchQuery: string;
   showNoteList: boolean;
   showTrash: boolean;
-  tagResultsFound: number;
   windowWidth: number;
 };
 
@@ -45,11 +42,7 @@ type DispatchProps = {
 
 type Props = Readonly<StateProps & DispatchProps>;
 
-type NoteListItem =
-  | T.EntityId
-  | 'tag-suggestions'
-  | 'notes-header'
-  | 'no-notes';
+type NoteListItem = T.EntityId | 'notes-header' | 'no-notes';
 
 /**
  * Renders an individual row in the note list
@@ -83,18 +76,8 @@ const renderNote =
       );
     }
 
-    if ('tag-suggestions' === note || 'notes-header' === note) {
-      return 'tag-suggestions' === note ? (
-        <CellMeasurer
-          cache={heightCache}
-          columnIndex={0}
-          key="tag-suggestions"
-          parent={parent}
-          rowIndex={index}
-        >
-          <TagSuggestions style={{ ...style }} />
-        </CellMeasurer>
-      ) : (
+    if ('notes-header' === note) {
+      return (
         <CellMeasurer
           cache={heightCache}
           columnIndex={0}
@@ -126,33 +109,6 @@ const renderNote =
     );
   };
 
-/**
- * Modifies the filtered notes list to insert special sections. This
- * allows us to handle tag suggestions and headers in the row renderer.
- *
- * @see renderNote
- *
- * @param notes list of filtered notes
- * @param searchQuery search filter
- * @param tagResultsFound number of tag matches to display
- * @returns modified notes list
- */
-const createCompositeNoteList = (
-  notes: T.EntityId[],
-  searchQuery: string,
-  tagResultsFound: number
-): NoteListItem[] => {
-  if (searchQuery.length === 0 || tagResultsFound === 0) {
-    return notes;
-  }
-
-  return [
-    'tag-suggestions',
-    'notes-header',
-    ...(notes.length > 0 ? notes : ['no-notes' as NoteListItem]),
-  ];
-};
-
 export class NoteList extends Component<Props> {
   static displayName = 'NoteList';
 
@@ -163,32 +119,19 @@ export class NoteList extends Component<Props> {
       defaultHeight: 21 + 18 + 24 * 4,
       fixedWidth: true,
       keyMapper: (rowIndex) => {
-        const { filteredNotes, searchQuery, tagResultsFound } = this.props;
+        const { filteredNotes } = this.props;
 
-        if (tagResultsFound === 0 && filteredNotes.length === 0) {
+        if (filteredNotes.length === 0) {
           return 'no-notes';
         }
 
-        if (searchQuery.length === 0 || tagResultsFound === 0) {
-          return filteredNotes[rowIndex];
-        }
-
-        if (rowIndex === 0) {
-          return 'tag-suggestions';
-        }
-
-        if (rowIndex === 1) {
-          return 'notes-header';
-        }
-
-        return filteredNotes[rowIndex - 2];
+        return filteredNotes[rowIndex];
       },
     }),
     lastNoteDisplay: null,
     windowWidth: null,
     lastFilteredNotes: null as T.EntityId[] | null,
     lastSearchQuery: null as string | null,
-    lastTagResultsFound: null as number | null,
     shouldRecomputeHeights: false,
   };
 
@@ -201,15 +144,12 @@ export class NoteList extends Component<Props> {
 
     const filteredNotesChanged = props.filteredNotes !== state.lastFilteredNotes;
     const searchQueryChanged = props.searchQuery !== state.lastSearchQuery;
-    const tagResultsFoundChanged =
-      props.tagResultsFound !== state.lastTagResultsFound;
 
     if (
       props.noteDisplay !== state.lastNoteDisplay ||
       props.windowWidth !== state.windowWidth ||
       filteredNotesChanged ||
-      searchQueryChanged ||
-      tagResultsFoundChanged
+      searchQueryChanged
     ) {
       state.heightCache.clearAll();
 
@@ -218,7 +158,6 @@ export class NoteList extends Component<Props> {
         windowWidth: props.windowWidth,
         lastFilteredNotes: props.filteredNotes,
         lastSearchQuery: props.searchQuery,
-        lastTagResultsFound: props.tagResultsFound,
         shouldRecomputeHeights: true,
       };
     }
@@ -308,17 +247,11 @@ export class NoteList extends Component<Props> {
       noteDisplay,
       onEmptyTrash,
       openedNote,
-      searchQuery,
       showTrash,
-      tagResultsFound,
     } = this.props;
     const { heightCache } = this.state;
 
-    const compositeNoteList = createCompositeNoteList(
-      filteredNotes,
-      searchQuery,
-      tagResultsFound
-    );
+    const compositeNoteList: NoteListItem[] = filteredNotes.length > 0 ? filteredNotes : [];
 
     const selectedIndex = compositeNoteList.findIndex(
       (item) => item === openedNote
@@ -386,11 +319,9 @@ const mapStateToProps: S.MapState<StateProps> = (state) => {
     noteDisplay: state.settings.noteDisplay,
     filteredNotes: state.ui.filteredNotes,
     openedNote: state.ui.openedNote,
-    openedTag: selectors.openedTag(state),
     searchQuery: state.ui.searchQuery,
     showNoteList: state.ui.showNoteList,
     showTrash: selectors.showTrash(state),
-    tagResultsFound: state.ui.tagSuggestions.length,
     windowWidth: state.browser.windowWidth,
   };
 };

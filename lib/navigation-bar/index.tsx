@@ -2,16 +2,13 @@ import React, { Component } from 'react';
 import { connect } from 'react-redux';
 
 import IconButton from '../icon-button';
-import isEmailTag from '../utils/is-email-tag';
 import NavigationBarItem from './item';
 import NotebookSidebar from '../notebook-sidebar';
 import NotesIcon from '../icons/notes';
 import SidebarIcon from '../icons/sidebar';
 import TrashIcon from '../icons/trash';
 import SettingsIcon from '../icons/settings';
-import UntaggedNotesIcon from '../icons/untagged-notes';
 import { isMac } from '../utils/platform';
-import { viewExternalUrl } from '../utils/url-utils';
 import actions from '../state/actions';
 
 import * as S from '../state';
@@ -22,17 +19,13 @@ type StateProps = {
   collection: T.Collection;
   isDialogOpen: boolean;
   showNavigation: boolean;
-  tags: Map<T.TagHash, T.Tag>;
 };
 
 type DispatchProps = {
-  onAbout: () => any;
   onFocusTrapDeactivate: () => any;
   onSettings: () => any;
   onShowAllNotes: () => any;
-  onShowUntaggedNotes: () => any;
   selectTrash: () => any;
-  showKeyboardShortcuts: () => any;
   toggleNavigation: () => any;
 };
 
@@ -59,8 +52,6 @@ export class NavigationBar extends Component<Props> {
     }
   };
 
-  onHelpClicked = () => viewExternalUrl('https://slybalso.me');
-
   onSelectTrash = () => {
     this.props.selectTrash();
   };
@@ -69,25 +60,17 @@ export class NavigationBar extends Component<Props> {
   isSelected = ({
     selectedRow,
   }: {
-    selectedRow: 'all' | 'trash' | 'untagged';
+    selectedRow: 'all' | 'trash';
   }) => {
     return this.props.collection.type === selectedRow;
   };
 
   render() {
     const {
-      autoHideMenuBar,
       isDialogOpen,
-      onAbout,
       onSettings,
       onShowAllNotes,
-      onShowUntaggedNotes,
-      tags,
     } = this.props;
-
-    const tagCount = Array.from(tags).filter(
-      ([_, { name }]) => !isEmailTag(name)
-    ).length;
 
     const CmdOrCtrl = isMac ? 'Cmd' : 'Ctrl';
 
@@ -120,42 +103,7 @@ export class NavigationBar extends Component<Props> {
             label="Settings"
             onClick={onSettings}
           />
-        </div>
-        <div className="navigation-bar__tags">
           <NotebookSidebar />
-          {tagCount ? (
-            <div className="navigation-bar__folders navigation-bar__untagged">
-              <NavigationBarItem
-                icon={<UntaggedNotesIcon />}
-                isSelected={this.isSelected({ selectedRow: 'untagged' })}
-                label="Untagged Notes"
-                onClick={onShowUntaggedNotes}
-              />
-            </div>
-          ) : null}
-        </div>
-        <div className="navigation-bar__footer">
-          <button
-            type="button"
-            className="navigation-bar__footer-item"
-            onClick={this.props.showKeyboardShortcuts}
-          >
-            Keyboard Shortcuts
-          </button>
-          <button
-            type="button"
-            className="navigation-bar__footer-item"
-            onClick={this.onHelpClicked}
-          >
-            slybacalso.me
-          </button>
-          <button
-            type="button"
-            className="navigation-bar__footer-item"
-            onClick={onAbout}
-          >
-            About
-          </button>
         </div>
       </div>
     );
@@ -171,17 +119,13 @@ const mapStateToProps: S.MapState<StateProps> = ({
   collection,
   isDialogOpen: dialogs.length > 0,
   showNavigation,
-  tags: data.tags,
 });
 
 const mapDispatchToProps: S.MapDispatch<DispatchProps> = {
-  onAbout: () => actions.ui.showDialog('ABOUT'),
   onFocusTrapDeactivate: actions.ui.toggleNavigation,
   onShowAllNotes: actions.ui.showAllNotes,
-  onShowUntaggedNotes: actions.ui.showUntaggedNotes,
   onSettings: () => actions.ui.showDialog('SETTINGS'),
   selectTrash: actions.ui.selectTrash,
-  showKeyboardShortcuts: () => actions.ui.showDialog('KEYBINDINGS'),
   toggleNavigation: actions.ui.toggleNavigation,
 };
 

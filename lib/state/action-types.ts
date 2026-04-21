@@ -10,7 +10,6 @@ export type Action<
       nextNoteToOpen?: T.EntityId | null;
       searchResults?: {
         noteIds: T.EntityId[];
-        tagHashes: T.TagHash[];
       };
     };
   };
@@ -40,10 +39,6 @@ export type SetSortReversed = Action<
   'setSortReversed',
   { sortReversed: boolean }
 >;
-export type SetSortTagsAlpha = Action<
-  'setSortTagsAlpha',
-  { sortTagsAlpha: boolean }
->;
 export type SetSortType = Action<
   'setSortType',
   { sortType: T.SortType; sortReversed?: boolean }
@@ -70,7 +65,7 @@ export type DeleteOpenNoteForever = Action<'DELETE_OPEN_NOTE_FOREVER'>;
 export type ExportNotes = Action<'EXPORT_NOTES'>;
 export type FilterNotes = Action<
   'FILTER_NOTES',
-  { noteIds: T.EntityId[]; tagHashes: T.TagHash[] }
+  { noteIds: T.EntityId[] }
 >;
 export type FocusSearchField = Action<'FOCUS_SEARCH_FIELD'>;
 export type HideAlternateLoginPrompt = Action<'HIDE_ALTERNATE_LOGIN_PROMPT'>;
@@ -115,7 +110,6 @@ export type ShowDialog = Action<
     data?: object;
   }
 >;
-export type ShowUntaggedNotes = Action<'SHOW_UNTAGGED_NOTES'>;
 export type StoreEditorSelection = Action<
   'STORE_EDITOR_SELECTION',
   { noteId: T.EntityId; start: number; end: number; direction: 'RTL' | 'LTR' }
@@ -134,8 +128,6 @@ export type SystemThemeUpdate = Action<
 >;
 export type ToggleAnalytics = Action<'TOGGLE_ANALYTICS'>;
 export type ToggleAutoHideMenuBar = Action<'TOGGLE_AUTO_HIDE_MENU_BAR'>;
-export type ToggleRestoringDeletedTags =
-  Action<'TOGGLE_RESTORING_DELETED_TAGS'>;
 export type ToggleEditMode = Action<'TOGGLE_EDIT_MODE'>;
 export type ToggleFocusMode = Action<'TOGGLE_FOCUS_MODE'>;
 export type ToggleKeyboardShortcuts = Action<'KEYBOARD_SHORTCUTS_TOGGLE'>;
@@ -149,11 +141,8 @@ export type ToggleSimperiumConnectionStatus = Action<
   'SIMPERIUM_CONNECTION_STATUS_TOGGLE',
   { simperiumConnected: boolean }
 >;
-export type ToggleSortTagsAlpha = Action<'TOGGLE_SORT_TAGS_ALPHA'>;
 export type ToggleSortOrder = Action<'TOGGLE_SORT_ORDER'>;
 export type ToggleSpellcheck = Action<'TOGGLE_SPELLCHECK'>;
-export type ToggleTagDrawer = Action<'TAG_DRAWER_TOGGLE', { show: boolean }>;
-export type ToggleTagEditing = Action<'TAG_EDITING_TOGGLE'>;
 export type TrashNote = Action<'TRASH_NOTE', { noteId: T.EntityId }>;
 export type TrashOpenNote = Action<'TRASH_OPEN_NOTE'>;
 export type WindowResize = Action<'WINDOW_RESIZE', { innerWidth: number }>;
@@ -164,10 +153,6 @@ export type WindowResize = Action<'WINDOW_RESIZE', { innerWidth: number }>;
 export type AddCollaborator = Action<
   'ADD_COLLABORATOR',
   { noteId: T.EntityId; collaboratorAccount: T.TagName }
->;
-export type AddNoteTag = Action<
-  'ADD_NOTE_TAG',
-  { noteId: T.EntityId; tagName: T.TagName }
 >;
 export type DeleteNoteForever = Action<
   'DELETE_NOTE_FOREVER',
@@ -207,18 +192,6 @@ export type RemoveCollaborator = Action<
   'REMOVE_COLLABORATOR',
   { noteId: T.EntityId; collaboratorAccount: T.TagName }
 >;
-export type RemoveNoteTag = Action<
-  'REMOVE_NOTE_TAG',
-  { noteId: T.EntityId; tagName: T.TagName }
->;
-export type RenameTag = Action<
-  'RENAME_TAG',
-  { oldTagName: T.TagName; newTagName: T.TagName }
->;
-export type ReorderTag = Action<
-  'REORDER_TAG',
-  { tagName: T.TagName; newIndex: number }
->;
 export type RestoreNote = Action<'RESTORE_NOTE', { noteId: T.EntityId }>;
 export type RestoreNoteRevision = Action<
   'RESTORE_NOTE_REVISION',
@@ -230,10 +203,6 @@ export type RestoreNoteRevision = Action<
 export type SetSystemTag = Action<
   'SET_SYSTEM_TAG',
   { note: T.NoteEntity; tagName: T.SystemTag; shouldHaveTag: boolean }
->;
-export type TrashTag = Action<
-  'TRASH_TAG',
-  { tagName: T.TagName; remainingTags?: number }
 >;
 
 export type CreateNotebook = Action<
@@ -324,18 +293,10 @@ export type RemoteNoteDeleteForever = Action<
   'REMOTE_NOTE_DELETE_FOREVER',
   { noteId: T.EntityId }
 >;
-export type RemoteTagDelete = Action<
-  'REMOTE_TAG_DELETE',
-  { tagHash: T.TagHash }
->;
-export type RemoteTagUpdate = Action<
-  'REMOTE_TAG_UPDATE',
-  { tagHash: T.TagHash; tag: T.Tag; remoteInfo?: RemoteInfo<T.Tag> }
->;
 export type SetChangeVersion = Action<
   'SET_CHANGE_VERSION',
   {
-    bucketName: 'note' | 'tag' | 'preferences';
+    bucketName: 'note' | 'preferences';
     cv: ChangeVersion;
   }
 >;
@@ -346,18 +307,6 @@ export type SubmitPendingChange = Action<
     ccid: string;
   }
 >;
-export type TagBucketRemove = Action<
-  'TAG_BUCKET_REMOVE',
-  { tagHash: T.TagHash }
->;
-export type TagBucketUpdate = Action<
-  'TAG_BUCKET_UPDATE',
-  { tagHash: T.TagHash; tag: T.Tag; isIndexing: boolean }
->;
-export type TagRefresh = Action<
-  'TAG_REFRESH',
-  { noteTags: Map<T.TagHash, Set<T.EntityId>> }
->;
 export type UpdateAccountVerification = Action<
   'UPDATE_ACCOUNT_VERIFICATION',
   { state: T.VerificationState }
@@ -366,7 +315,6 @@ export type UpdateAccountVerification = Action<
 export type ActionType =
   | AcknowledgePendingChange
   | AddCollaborator
-  | AddNoteTag
   | ChangeConnectionStatus
   | CloseNote
   | CloseNoteActions
@@ -409,12 +357,7 @@ export type ActionType =
   | RemoteAnalyticsUpdate
   | RemoteNoteUpdate
   | RemoteNoteDeleteForever
-  | RemoteTagDelete
-  | RemoteTagUpdate
   | RemoveCollaborator
-  | RemoveNoteTag
-  | RenameTag
-  | ReorderTag
   | RequestNotifications
   | RestoreOpenNote
   | RestoreNote
@@ -433,7 +376,6 @@ export type ActionType =
   | SetLineLength
   | SetNoteDisplay
   | SetSortReversed
-  | SetSortTagsAlpha
   | SetSortType
   | SetSpellCheck
   | SetSystemTag
@@ -442,18 +384,13 @@ export type ActionType =
   | ShowAllNotes
   | ShowAlternateLoginPrompt
   | ShowDialog
-  | ShowUntaggedNotes
   | StoreEditorSelection
   | StoreNumberOfMatchesInNote
   | StoreSearchSelection
   | SubmitPendingChange
   | SystemThemeUpdate
-  | TagBucketRemove
-  | TagBucketUpdate
-  | TagRefresh
   | ToggleAnalytics
   | ToggleAutoHideMenuBar
-  | ToggleRestoringDeletedTags
   | ToggleEditMode
   | ToggleFocusMode
   | ToggleKeyboardShortcuts
@@ -463,13 +400,9 @@ export type ActionType =
   | ToggleNoteInfo
   | ToggleRevisions
   | ToggleSimperiumConnectionStatus
-  | ToggleSortTagsAlpha
   | ToggleSortOrder
   | ToggleSpellcheck
-  | ToggleTagDrawer
-  | ToggleTagEditing
   | TrashNote
-  | TrashTag
   | TrashOpenNote
   | CreateNotebook
   | RenameNotebook

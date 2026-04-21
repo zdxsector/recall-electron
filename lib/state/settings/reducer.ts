@@ -112,16 +112,6 @@ const sortReversed: A.Reducer<boolean> = (state = false, action) => {
   }
 };
 
-const sortTagsAlpha: A.Reducer<boolean> = (state = false, action) => {
-  switch (action.type) {
-    case 'setSortTagsAlpha':
-      return action.sortTagsAlpha;
-    case 'TOGGLE_SORT_TAGS_ALPHA':
-      return !state;
-    default:
-      return state;
-  }
-};
 const sortType: A.Reducer<T.SortType> = (
   state = 'modificationDate',
   action
@@ -164,7 +154,6 @@ export default combineReducers({
   noteDisplay,
   sendNotifications,
   sortReversed,
-  sortTagsAlpha,
   sortType,
   spellCheckEnabled,
   theme,

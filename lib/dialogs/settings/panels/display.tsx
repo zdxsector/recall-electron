@@ -56,7 +56,6 @@ type StateProps = {
   lineLength: T.LineLength;
   noteDisplay: T.ListDisplayMode;
   sortReversed: boolean;
-  sortTagsAlpha: boolean;
   sortType: T.SortType;
 };
 
@@ -67,7 +66,6 @@ type DispatchProps = {
   setNoteDisplay: (displayMode: T.ListDisplayMode) => any;
   setSortType: (sortType: T.SortType, sortReversed: boolean) => any;
   toggleAutoHideMenuBar: () => any;
-  toggleSortTagsAlpha: () => any;
 };
 
 type Props = StateProps & DispatchProps;
@@ -130,16 +128,6 @@ const DisplayPanel: FunctionComponent<Props> = (props) => (
     </SettingsGroup>
 
     <SettingsGroup
-      title="Tags"
-      slug="sortTagsAlpha"
-      activeSlug={props.sortTagsAlpha ? 'alpha' : ''}
-      onChange={props.toggleSortTagsAlpha}
-      renderer={ToggleGroup}
-    >
-      <Item title="Sort Alphabetically" slug="alpha" />
-    </SettingsGroup>
-
-    <SettingsGroup
       title="Theme"
       slug="theme"
       activeSlug={props.activeTheme}
@@ -173,7 +161,6 @@ const mapStateToProps: S.MapState<StateProps> = ({ settings }) => ({
   lineLength: settings.lineLength,
   noteDisplay: settings.noteDisplay,
   sortReversed: settings.sortReversed,
-  sortTagsAlpha: settings.sortTagsAlpha,
   sortType: settings.sortType,
 });
 
@@ -184,7 +171,6 @@ const mapDispatchToProps: S.MapDispatch<DispatchProps> = {
   setNoteDisplay: actions.settings.setNoteDisplay,
   setSortType: actions.settings.setSortType,
   toggleAutoHideMenuBar: actions.settings.toggleAutoHideMenuBar,
-  toggleSortTagsAlpha: actions.settings.toggleSortTagsAlpha,
 };
 
 export default connect(mapStateToProps, mapDispatchToProps)(DisplayPanel);

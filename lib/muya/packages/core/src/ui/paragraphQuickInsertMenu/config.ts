@@ -466,19 +466,27 @@ export function replaceBlockByLabel({
       break;
   }
 
+  if (!newBlock) {
+    debug.log('Failed to create block for label:', label);
+    return;
+  }
+
   block.replaceWith(newBlock);
   if (label === 'thematic-break') {
     const nextParagraphBlock = ScrollPage.loadBlock('paragraph').create(
       muya,
       deepClone(emptyStates.paragraph)
     );
-    newBlock.parent.insertAfter(nextParagraphBlock, newBlock);
+    if (newBlock.parent) {
+      newBlock.parent.insertAfter(nextParagraphBlock, newBlock);
+    }
     cursorBlock = nextParagraphBlock.firstContentInDescendant();
-    cursorBlock.setCursor(0, 0, true);
+    if (cursorBlock) cursorBlock.setCursor(0, 0, true);
   } else {
     cursorBlock = newBlock.firstContentInDescendant();
-    // Set the cursor between <div>\n\n</div> when create html-block
-    const offset = label === 'html-block' ? 6 : cursorBlock.text.length;
-    cursorBlock.setCursor(offset, offset, true);
+    if (cursorBlock) {
+      const offset = label === 'html-block' ? 6 : cursorBlock.text.length;
+      cursorBlock.setCursor(offset, offset, true);
+    }
   }
 }

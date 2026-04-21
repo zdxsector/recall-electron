@@ -7,6 +7,7 @@ import ButtonGroup from '../../button-group';
 import SettingsGroup, { Item } from '../../settings-group';
 import { showDialog } from '../../../state/ui/actions';
 import ToggleGroup from '../../toggle-settings-group';
+import { viewExternalUrl } from '../../../utils/url-utils';
 
 import * as S from '../../../state';
 
@@ -18,7 +19,9 @@ type StateProps = {
 type DispatchProps = {
   exportNotes: () => any;
   requestNotifications: (sendNotifications: boolean) => any;
+  showAbout: () => any;
   showImportDialog: () => any;
+  showKeybindings: () => any;
   toggleShortcuts: () => any;
 };
 
@@ -29,7 +32,9 @@ const ToolsPanel: FunctionComponent<Props> = ({
   keyboardShortcuts,
   requestNotifications,
   sendNotifications,
+  showAbout,
   showImportDialog,
+  showKeybindings,
   toggleShortcuts,
 }) => {
   const onSelectItem = (item) => {
@@ -75,6 +80,30 @@ const ToolsPanel: FunctionComponent<Props> = ({
       >
         <Item title="Notify on remote changes" slug="allowNotifications" />
       </SettingsGroup>
+
+      <div className="settings-links">
+        <button
+          type="button"
+          className="settings-link-item"
+          onClick={showKeybindings}
+        >
+          Keyboard Shortcuts
+        </button>
+        <button
+          type="button"
+          className="settings-link-item"
+          onClick={() => viewExternalUrl('https://slybacalso.me')}
+        >
+          slybacalso.me
+        </button>
+        <button
+          type="button"
+          className="settings-link-item"
+          onClick={showAbout}
+        >
+          About
+        </button>
+      </div>
     </Fragment>
   );
 };
@@ -92,7 +121,9 @@ const mapDispatchToProps: S.MapDispatch<DispatchProps> = {
     type: 'REQUEST_NOTIFICATIONS',
     sendNotifications,
   }),
+  showAbout: () => showDialog('ABOUT'),
   showImportDialog: () => showDialog('IMPORT'),
+  showKeybindings: () => showDialog('KEYBINDINGS'),
   toggleShortcuts: () => actions.settings.toggleKeyboardShortcuts(),
 };
 

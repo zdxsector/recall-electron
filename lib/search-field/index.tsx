@@ -2,11 +2,7 @@ import React, { Component, createRef, FormEvent, KeyboardEvent } from 'react';
 import { connect } from 'react-redux';
 import SmallCrossIcon from '../icons/cross-small';
 import SmallSearchIcon from '../icons/search-small';
-import NewNoteIcon from '../icons/new-note';
 import { State } from '../state';
-import * as selectors from '../state/selectors';
-import { CmdOrCtrl } from '../utils/platform';
-import { withoutTags } from '../utils/filter-notes';
 import { createNote, focusSearchField, search } from '../state/ui/actions';
 
 import { registerSearchField } from '../state/ui/search-field-middleware';
@@ -17,7 +13,6 @@ import type * as T from '../types';
 const KEY_ESC = 27;
 
 type StateProps = {
-  openedTag: T.TagName | null;
   searchQuery: string;
 };
 
@@ -80,7 +75,7 @@ export class SearchField extends Component<Props> {
   clearQuery = () => this.props.onSearch('');
 
   render() {
-    const { openedTag, searchQuery } = this.props;
+    const { searchQuery } = this.props;
     const hasQuery = searchQuery.length > 0;
 
     return (
@@ -95,7 +90,7 @@ export class SearchField extends Component<Props> {
         <input
           ref={this.inputField}
           type="search"
-          placeholder="Search all notes and tags"
+          placeholder="Search all notes"
           onChange={this.update}
           onKeyUp={this.interceptEsc}
           value={searchQuery}
@@ -116,7 +111,6 @@ export class SearchField extends Component<Props> {
 }
 
 const mapStateToProps: S.MapState<StateProps> = (state: State) => ({
-  openedTag: selectors.openedTag(state),
   searchQuery: state.ui.searchQuery,
 });
 

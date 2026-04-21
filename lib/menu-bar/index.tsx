@@ -12,7 +12,6 @@ import { isMac, CmdOrCtrl } from '../utils/platform';
 import SidebarIcon from '../icons/sidebar';
 import NewNoteIcon from '../icons/new-note';
 import { toggleNavigation, createNote } from '../state/ui/actions';
-import { withoutTags } from '../utils/filter-notes';
 import * as selectors from '../state/selectors';
 
 import * as S from '../state';
@@ -78,7 +77,7 @@ export const MenuBar: FunctionComponent<Props> = ({
               aria-label="New Note"
               className="icon-button"
               title={`New Note • ${CmdOrCtrl}+Shift+I`}
-              onClick={() => onNewNote(withoutTags(searchQuery))}
+              onClick={() => onNewNote(searchQuery)}
             >
               <NewNoteIcon />
             </button>

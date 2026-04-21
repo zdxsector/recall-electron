@@ -20,7 +20,7 @@
 .mu-container table,
 .mu-container figure:not(.mu-table) {
   margin: 0;
-  padding: 0.5em 0;
+  padding: 0;
 }
 
 .mu-container h1,

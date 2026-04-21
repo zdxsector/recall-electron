@@ -26,6 +26,24 @@
   .settings-writing {
     padding-top: 48px;
   }
+
+  .settings-links {
+    display: flex;
+    justify-content: center;
+    gap: 16px;
+    padding-top: 16px;
+    font-size: 12px;
+  }
+
+  .settings-link-item {
+    color: var(--foreground-color);
+    opacity: 0.7;
+
+    &:hover {
+      opacity: 1;
+      color: var(--accent-color);
+    }
+  }
 }
 
 .settings-group {

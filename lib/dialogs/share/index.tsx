@@ -2,7 +2,6 @@ import React, { Component } from 'react';
 import { connect } from 'react-redux';
 import MD5 from 'md5.js';
 
-import isEmailTag from '../../utils/is-email-tag';
 import Dialog from '../../dialog';
 import TabPanels from '../../components/tab-panels';
 import PanelTitle from '../../components/panel-title';
@@ -47,10 +46,13 @@ export class ShareDialog extends Component<Props> {
     this.props.removeCollaborator(noteId, collaborator);
   };
 
+  isEmailTag = (tagName: T.TagName): boolean =>
+    /^(?:[^@]+)@(?:.+)(?:\.[^.]{2,})$/.test(tagName);
+
   collaborators = () => {
     const { note } = this.props;
     const tags = note?.tags || [];
-    const collaborators = tags.filter(isEmailTag);
+    const collaborators = tags.filter(this.isEmailTag);
 
     collaborators.reverse();
 

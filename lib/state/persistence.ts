@@ -120,15 +120,6 @@ const loadStateFromIndexedDB = (
                 return;
               }
 
-              const noteTags = new Map(
-                state.noteTags.map(
-                  ([tagHash, noteIds]: [T.TagHash, T.EntityId[]]) => [
-                    tagHash,
-                    new Set(noteIds),
-                  ]
-                )
-              );
-
               const cvsMap = new Map(state.cvs);
               const ghostsMap = new Map(state.ghosts);
 
@@ -142,10 +133,8 @@ const loadStateFromIndexedDB = (
                 data: {
                   analyticsAllowed: state.allowAnalytics ?? null,
                   notes: new Map(state.notes),
-                  noteTags,
                   notebooks: new Map(state.notebooks ?? []),
                   folders: new Map(state.folders ?? []),
-                  tags: new Map(state.tags),
                   ...(hasPreferences
                     ? { preferences: new Map(state.preferences) }
                     : {}),
@@ -231,14 +220,9 @@ const persistRevisionsIndexedDB = async (
 
 const saveStateToIndexedDB = (state: S.State) => {
   const notes = Array.from(state.data.notes);
-  const noteTags = Array.from(state.data.noteTags).map(([tagHash, noteIds]) => [
-    tagHash,
-    Array.from(noteIds),
-  ]);
   const preferences = Array.from(state.data.preferences);
   const notebooks = Array.from(state.data.notebooks);
   const folders = Array.from(state.data.folders);
-  const tags = Array.from(state.data.tags);
   const cvs = Array.from(state.simperium.ghosts[0]);
   const ghosts = Array.from(state.simperium.ghosts[1]);
   const lastRemoteUpdate = Array.from(state.simperium.lastRemoteUpdate);
@@ -248,11 +232,9 @@ const saveStateToIndexedDB = (state: S.State) => {
     accountName: state.settings.accountName,
     allowAnalytics: state.data.analyticsAllowed,
     notes,
-    noteTags,
     preferences,
     notebooks,
     folders,
-    tags,
     cvs,
     ghosts,
     lastRemoteUpdate,
@@ -285,13 +267,6 @@ const loadStateFromElectronPersistence = async (
       return [{}, middleware];
     }
 
-    const noteTags = new Map(
-      rawState.noteTags.map(
-        ([tagHash, noteIds]: [T.TagHash, T.EntityId[]]) =>
-          [tagHash, new Set(noteIds)] as [T.TagHash, Set<T.EntityId>]
-      )
-    );
-
     const cvsMap = new Map(rawState.cvs);
     const ghostsMap = new Map(rawState.ghosts);
 
@@ -305,10 +280,8 @@ const loadStateFromElectronPersistence = async (
       data: {
         analyticsAllowed: rawState.allowAnalytics ?? null,
         notes: new Map(rawState.notes),
-        noteTags,
         notebooks: new Map(rawState.notebooks ?? []),
         folders: new Map(rawState.folders ?? []),
-        tags: new Map(rawState.tags),
         ...(hasPreferences
           ? { preferences: new Map(rawState.preferences) }
           : {}),
@@ -355,14 +328,9 @@ const persistRevisionsElectronPersistence = (
 
 const saveStateToElectronPersistence = (state: S.State) => {
   const notes = Array.from(state.data.notes);
-  const noteTags = Array.from(state.data.noteTags).map(([tagHash, noteIds]) => [
-    tagHash,
-    Array.from(noteIds),
-  ]);
   const preferences = Array.from(state.data.preferences);
   const notebooks = Array.from(state.data.notebooks);
   const folders = Array.from(state.data.folders);
-  const tags = Array.from(state.data.tags);
   const cvs = Array.from(state.simperium.ghosts[0]);
   const ghosts = Array.from(state.simperium.ghosts[1]);
   const lastRemoteUpdate = Array.from(state.simperium.lastRemoteUpdate);
@@ -372,11 +340,9 @@ const saveStateToElectronPersistence = (state: S.State) => {
     accountName: state.settings.accountName,
     allowAnalytics: state.data.analyticsAllowed,
     notes,
-    noteTags,
     preferences,
     notebooks,
     folders,
-    tags,
     cvs,
     ghosts,
     lastRemoteUpdate,

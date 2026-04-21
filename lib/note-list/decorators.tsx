@@ -2,13 +2,11 @@ import React from 'react';
 import { escapeRegExp } from 'lodash';
 import replaceToArray from 'string-replace-to-array';
 
-import { withoutTags } from '../utils/filter-notes';
-
 export const decorateWith = (decorators, text) =>
   decorators.length > 0 && text.length > 0
     ? decorators
         .reduce((output, { filter, replacer }) => {
-          const searchText = 'string' === typeof filter && withoutTags(filter);
+          const searchText = 'string' === typeof filter && filter;
           const pattern =
             searchText && searchText.length > 0
               ? new RegExp(escapeRegExp(searchText), 'gi')

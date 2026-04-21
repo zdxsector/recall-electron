@@ -1,7 +1,7 @@
 import type Content from '../block/base/content';
 import type Parent from '../block/base/parent';
 import type { Muya } from '../muya';
-import type { IBlockQuoteState, IParagraphState } from '../state/types';
+import type { IBlockQuoteState, IParagraphState, TState } from '../state/types';
 import type { Nullable } from '../types';
 import { fromEvent, merge } from 'rxjs';
 import CodeBlockContent from '../block/content/codeBlockContent';
@@ -14,6 +14,86 @@ import StateToMarkdown from '../state/stateToMarkdown';
 import { deepClone } from '../utils';
 import { getClipBoardHtml } from '../utils/marked';
 import { getCopyTextType, normalizePastedHTML } from '../utils/paste';
+
+const INTERNAL_MIME = 'application/x-recall-state';
+
+function statesToPlainText(states: TState[]): string {
+  const lines: string[] = [];
+  for (const state of states) {
+    switch (state.name) {
+      case 'atx-heading': {
+        lines.push(((state as any).text || '').replace(/^#{1,6}\s*/, ''));
+        break;
+      }
+      case 'setext-heading':
+      case 'paragraph': {
+        lines.push((state as any).text || '');
+        break;
+      }
+      case 'thematic-break': {
+        lines.push('---');
+        break;
+      }
+      case 'code-block':
+      case 'math-block':
+      case 'html-block':
+      case 'frontmatter':
+      case 'diagram': {
+        lines.push((state as any).text || '');
+        break;
+      }
+      case 'block-quote': {
+        if ('children' in state) {
+          const inner = statesToPlainText((state as any).children);
+          lines.push(
+            inner
+              .split('\n')
+              .map((l: string) => `> ${l}`)
+              .join('\n')
+          );
+        }
+        break;
+      }
+      case 'table': {
+        if ('children' in state) {
+          for (const row of (state as any).children) {
+            const cells = (row.children || []).map((c: any) => c.text || '');
+            lines.push(cells.join('\t'));
+          }
+        }
+        break;
+      }
+      case 'bullet-list':
+      case 'order-list':
+      case 'task-list': {
+        if ('children' in state) {
+          const items = (state as any).children;
+          for (let i = 0; i < items.length; i++) {
+            const item = items[i];
+            const inner = statesToPlainText(item.children || []);
+            if (state.name === 'order-list') {
+              const start = (state as any).meta?.start ?? 1;
+              lines.push(`${start + i}. ${inner}`);
+            } else if (item.name === 'task-list-item') {
+              const checked = item.meta?.checked ? 'x' : ' ';
+              lines.push(`- [${checked}] ${inner}`);
+            } else {
+              lines.push(`- ${inner}`);
+            }
+          }
+        }
+        break;
+      }
+      default: {
+        if ('text' in state) {
+          lines.push((state as any).text || '');
+        }
+        break;
+      }
+    }
+  }
+  return lines.join('\n');
+}
 
 class Clipboard {
   public copyType: string = 'normal'; // `normal` or `copyAsMarkdown` or `copyAsHtml` or `copyCodeContent`
@@ -267,12 +347,14 @@ class Clipboard {
       isGitlabCompatibilityEnabled,
       superSubScript,
     });
+    const plainText = statesToPlainText(copyState);
+    const states = copyState;
 
-    return { html, text };
+    return { html, text, plainText, states };
   }
 
   copyHandler(event: ClipboardEvent): void {
-    const { html, text } = this.getClipboardData();
+    const { html, text, plainText, states } = this.getClipboardData();
 
     const { copyType } = this;
 
@@ -281,7 +363,17 @@ class Clipboard {
     switch (copyType) {
       case 'normal': {
         event.clipboardData.setData('text/html', html);
-        event.clipboardData.setData('text/plain', text);
+        event.clipboardData.setData('text/plain', plainText || text);
+        if (states && states.length > 0) {
+          try {
+            event.clipboardData.setData(
+              INTERNAL_MIME,
+              JSON.stringify(states)
+            );
+          } catch {
+            // ignore serialization errors
+          }
+        }
         break;
       }
 
@@ -516,18 +608,19 @@ class Clipboard {
 
     if (this.scrollPage?.length() === 0) {
       const state = {
-        name: 'paragraph',
-        text: '',
+        name: 'atx-heading',
+        meta: { level: 1 },
+        text: '# ',
       };
 
-      const newParagraphBlock = ScrollPage.loadBlock('paragraph').create(
+      const newHeadingBlock = ScrollPage.loadBlock('atx-heading').create(
         this.muya,
         state
       );
-      this.scrollPage.append(newParagraphBlock, 'user');
-      cursorBlock = newParagraphBlock.firstContentInDescendant();
+      this.scrollPage.append(newHeadingBlock, 'user');
+      cursorBlock = newHeadingBlock.firstContentInDescendant();
 
-      cursorBlock && cursorBlock.setCursor(0, 0, true);
+      cursorBlock && cursorBlock.setCursor(2, 2, true);
     }
   }
 
@@ -556,6 +649,54 @@ class Clipboard {
     }
 
     if (!anchorBlock || !event.clipboardData) return;
+
+    // Internal paste: use raw state JSON for perfect round-trip fidelity.
+    if (this.pasteType === 'normal') {
+      try {
+        const internalJson = event.clipboardData.getData(INTERNAL_MIME);
+        if (internalJson) {
+          const pastedStates: TState[] = JSON.parse(internalJson);
+          if (Array.isArray(pastedStates) && pastedStates.length > 0) {
+            const { start, end } = anchorBlock.getCursor()!;
+            const { text: content } = anchorBlock;
+
+            if (start.offset !== end.offset) {
+              anchorBlock.text =
+                content.substring(0, start.offset) +
+                content.substring(end.offset);
+              anchorBlock.update();
+            }
+
+            let wrapperBlock = anchorBlock.getAnchor();
+            const originWrapperBlock = wrapperBlock;
+
+            for (const state of pastedStates) {
+              const newBlock = ScrollPage.loadBlock(state.name).create(
+                muya,
+                state
+              );
+              wrapperBlock?.parent?.insertAfter(newBlock, wrapperBlock);
+              wrapperBlock = newBlock;
+            }
+
+            if (
+              originWrapperBlock?.blockName === 'paragraph' &&
+              (originWrapperBlock.getState() as any).text === ''
+            ) {
+              originWrapperBlock.remove();
+            }
+
+            const cursorBlock = wrapperBlock?.firstContentInDescendant();
+            const offset = cursorBlock?.text.length;
+            if (offset != null)
+              cursorBlock?.setCursor(offset, offset, true);
+            return;
+          }
+        }
+      } catch {
+        // Fall through to normal paste pipeline
+      }
+    }
 
     // Handle pasting binary images (clipboard file items).
     // Many sources (browsers, screenshot tools, OS clipboard) provide the image bytes

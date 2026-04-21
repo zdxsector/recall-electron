@@ -1,13 +1,59 @@
 import type { Doc, JSONOpList, Path } from 'ot-json1';
 import type { Muya } from '../muya';
 import type { TDiff } from '../utils';
-import type { TState } from './types';
+import type { IAtxHeadingState, TState } from './types';
 import * as json1 from 'ot-json1';
 import { deepClone } from '../utils';
 import logger from '../utils/logger';
 import { MarkdownToState } from './markdownToState';
 
 import StateToMarkdown from './stateToMarkdown';
+
+function ensureFirstBlockIsH1(states: TState[]): TState[] {
+  if (states.length === 0) {
+    return [{ name: 'atx-heading', meta: { level: 1 }, text: '# ' }];
+  }
+
+  const first = states[0];
+
+  if (first.name === 'frontmatter') {
+    if (states.length < 2) {
+      states.push({ name: 'atx-heading', meta: { level: 1 }, text: '# ' });
+    } else if (
+      states[1].name !== 'atx-heading' &&
+      states[1].name !== 'setext-heading'
+    ) {
+      if (states[1].name === 'paragraph') {
+        const text = (states[1] as any).text || '';
+        states[1] = { name: 'atx-heading', meta: { level: 1 }, text: `# ${text}` };
+      } else {
+        states.splice(1, 0, {
+          name: 'atx-heading',
+          meta: { level: 1 },
+          text: '# ',
+        });
+      }
+    }
+    return states;
+  }
+
+  if (first.name === 'atx-heading' || first.name === 'setext-heading') {
+    return states;
+  }
+
+  if (first.name === 'paragraph') {
+    const text = (first as any).text || '';
+    states[0] = {
+      name: 'atx-heading',
+      meta: { level: 1 },
+      text: `# ${text}`,
+    } as IAtxHeadingState;
+    return states;
+  }
+
+  states.unshift({ name: 'atx-heading', meta: { level: 1 }, text: '# ' });
+  return states;
+}
 
 const debug = logger('jsonState:');
 
@@ -54,7 +100,7 @@ class JSONState {
   }
 
   setState(state: TState[]) {
-    this.state = state;
+    this.state = ensureFirstBlockIsH1(state);
   }
 
   setMarkdown(markdown: string) {
@@ -66,13 +112,15 @@ class JSONState {
       math,
     } = this.muya.options;
 
-    this.state = new MarkdownToState({
-      footnote,
-      isGitlabCompatibilityEnabled,
-      trimUnnecessaryCodeBlockEmptyLines,
-      frontMatter,
-      math,
-    }).generate(markdown);
+    this.state = ensureFirstBlockIsH1(
+      new MarkdownToState({
+        footnote,
+        isGitlabCompatibilityEnabled,
+        trimUnnecessaryCodeBlockEmptyLines,
+        frontMatter,
+        math,
+      }).generate(markdown)
+    );
   }
 
   insertOperation(path: Path, state: TState) {

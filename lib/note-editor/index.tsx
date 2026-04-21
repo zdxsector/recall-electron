@@ -1,7 +1,6 @@
 import React, { Component } from 'react';
 import { connect } from 'react-redux';
 import SearchResultsBar from '../search-results-bar';
-import TagField from '../tag-field';
 import NoteDetail from '../note-detail';
 import actions from '../state/actions';
 import * as selectors from '../state/selectors';
@@ -9,7 +8,6 @@ import * as selectors from '../state/selectors';
 import * as S from '../state';
 import * as T from '../types';
 type StateProps = {
-  allTags: Map<T.TagHash, T.Tag>;
   isEditorActive: boolean;
   isSearchActive: boolean;
   isSmallScreen: boolean;
@@ -32,8 +30,6 @@ export class NoteEditor extends Component<Props> {
   // Class property declarations for focus management
   private editorHasFocus?: () => boolean;
   private focusNoteEditor?: () => void;
-  private focusTagField?: () => void;
-  private _tagFieldHasFocus?: () => boolean;
 
   componentDidMount() {
     this.toggleShortcuts(true);
@@ -53,17 +49,10 @@ export class NoteEditor extends Component<Props> {
 
     const cmdOrCtrl = ctrlKey || metaKey;
 
-    // toggle between tag editor and note editor
+    // focus the note editor
     if (shiftKey && cmdOrCtrl && 'y' === key && this.props.isEditorActive) {
-      // prefer focusing the edit field first
       if (!this.editFieldHasFocus() || this.props.isSearchActive) {
         this.focusNoteEditor?.();
-
-        event.stopPropagation();
-        event.preventDefault();
-        return false;
-      } else {
-        this.focusTagField?.();
 
         event.stopPropagation();
         event.preventDefault();
@@ -80,12 +69,6 @@ export class NoteEditor extends Component<Props> {
 
   storeFocusEditor = (f) => (this.focusNoteEditor = f);
 
-  storeFocusTagField = (f) => (this.focusTagField = f);
-
-  storeTagFieldHasFocus = (f: () => boolean) => (this._tagFieldHasFocus = f);
-
-  tagFieldHasFocus = () => this._tagFieldHasFocus?.() ?? false;
-
   toggleShortcuts = (doEnable: boolean) => {
     if (doEnable) {
       window.addEventListener('keydown', this.handleShortcut, true);
@@ -101,19 +84,12 @@ export class NoteEditor extends Component<Props> {
       return <div className="note-detail-placeholder" />;
     }
 
-    const isTrashed = !!note.deleted;
     return (
       <div className="note-editor">
         <NoteDetail
           storeFocusEditor={this.storeFocusEditor}
           storeHasFocus={this.storeEditorHasFocus}
         />
-        {note && !isTrashed && (
-          <TagField
-            storeFocusTagField={this.storeFocusTagField}
-            storeHasFocus={this.storeTagFieldHasFocus}
-          />
-        )}
         {hasSearchQuery && hasSearchMatchesInNote && <SearchResultsBar />}
       </div>
     );
@@ -121,7 +97,6 @@ export class NoteEditor extends Component<Props> {
 }
 
 const mapStateToProps: S.MapState<StateProps> = (state) => ({
-  allTags: state.data.tags,
   keyboardShortcuts: state.settings.keyboardShortcuts,
   isEditorActive: !state.ui.showNavigation,
   noteId: state.ui.openedNote,

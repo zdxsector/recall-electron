@@ -1,7 +1,3 @@
-const tagPattern = () => /(?:\btag:)([^\s,]+)/g;
-
-export const withoutTags = (s: string) => s.replace(tagPattern(), '').trim();
-
 export const getTerms = (filterText: string): string[] => {
   if (!filterText) {
     return [];
@@ -14,7 +10,7 @@ export const getTerms = (filterText: string): string[] => {
   let storedLastIndex = 0;
   let withoutLiterals = '';
 
-  const filter = withoutTags(filterText);
+  const filter = filterText;
 
   const literals = [];
   while ((match = literalsPattern.exec(filter)) !== null) {

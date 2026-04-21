@@ -6,8 +6,6 @@ import type { IBaseOptions } from '../types';
 import { autoUpdate, computePosition, flip, offset } from '@floating-ui/dom';
 
 import dragIcon from '../../assets/icons/drag/2.png';
-import BulletList from '../../block/commonMark/bulletList';
-import OrderList from '../../block/commonMark/orderList';
 import { BLOCK_DOM_PROPERTY } from '../../config';
 import { isMouseEvent, throttle, verticalPositionInRect } from '../../utils';
 import { h, patch } from '../../utils/snabbdom';
@@ -23,7 +21,6 @@ function defaultOptions() {
     offsetOptions: {
       mainAxis: 0,
       crossAxis: 0,
-      alignmentAxis: 10,
     },
     showArrow: false,
   };
@@ -43,10 +40,6 @@ function renderIcon(i: string, className: string) {
       ''
     )
   );
-}
-
-function isOrderOrBulletList(block: Parent): block is OrderList | BulletList {
-  return block instanceof OrderList || block instanceof BulletList;
 }
 
 export class ParagraphFrontButton {
@@ -121,18 +114,28 @@ export class ParagraphFrontButton {
       if (this._disableListen) return;
 
       const { x, y } = event;
-      const els = [
-        ...document.elementsFromPoint(x, y),
-        ...document.elementsFromPoint(x + LEFT_OFFSET, y),
-      ];
+      let els: Element[];
+      try {
+        els = [
+          ...document.elementsFromPoint(x, y),
+          ...document.elementsFromPoint(x + LEFT_OFFSET, y),
+        ];
+      } catch {
+        return;
+      }
       const outMostElement = els.find(
         (ele) =>
           ele[BLOCK_DOM_PROPERTY] &&
           (ele[BLOCK_DOM_PROPERTY] as Parent).isOutMostBlock
       );
       if (outMostElement) {
-        this.show(outMostElement[BLOCK_DOM_PROPERTY] as Parent);
-        this.render();
+        const block = outMostElement[BLOCK_DOM_PROPERTY] as Parent;
+        if (block.domNode && block.domNode.isConnected) {
+          this.show(block);
+          this.render();
+        } else {
+          this.hide();
+        }
       } else {
         this.hide();
       }
@@ -303,8 +306,14 @@ export class ParagraphFrontButton {
 
   createStyledShadow() {
     const domNode = this._block?.domNode;
-    if (!domNode) return;
-    const { width, top, left } = domNode.getBoundingClientRect();
+    if (!domNode || !domNode.isConnected) return;
+    let rect: DOMRect;
+    try {
+      rect = domNode.getBoundingClientRect();
+    } catch {
+      return;
+    }
+    const { width, top, left } = rect;
     const shadow = document.createElement('div');
     shadow.classList.add('mu-shadow');
     Object.assign(shadow.style, {
@@ -344,7 +353,7 @@ export class ParagraphFrontButton {
       _oldVNode: oldVNode,
     } = this;
 
-    if (!block || !block.domNode) return;
+    if (!block || !block.domNode || !block.domNode.isConnected) return;
 
     const iconWrapperSelector = 'div.mu-icon-wrapper';
     const i = getIcon(block);
@@ -358,8 +367,12 @@ export class ParagraphFrontButton {
 
     this._oldVNode = vnode;
 
-    const { lineHeight } = getComputedStyle(block.domNode);
-    container.style.height = lineHeight;
+    try {
+      const { lineHeight } = getComputedStyle(block.domNode);
+      container.style.height = lineHeight;
+    } catch {
+      // Block may have been removed from DOM
+    }
   }
 
   hide() {
@@ -389,6 +402,12 @@ export class ParagraphFrontButton {
 
     this._block = block;
     const { domNode } = block;
+
+    if (!domNode || !domNode.isConnected) {
+      this.hide();
+      return;
+    }
+
     const { _floatBox: floatBox } = this;
     const { placement, offsetOptions } = this._options;
     const { eventCenter } = this.muya;
@@ -398,33 +417,39 @@ export class ParagraphFrontButton {
       this._cleanup = null;
     }
 
-    const styles = window.getComputedStyle(domNode!);
+    let styles: CSSStyleDeclaration;
+    try {
+      styles = window.getComputedStyle(domNode);
+    } catch {
+      this.hide();
+      return;
+    }
     const paddingTop = Number.parseFloat(styles.paddingTop);
-
-    const isLooseList = isOrderOrBulletList(block) && block.meta.loose;
-    const dynamicMainAxis = isLooseList ? paddingTop * 2 : paddingTop;
 
     // Extract offset values, handling both number and object types
     let crossAxisValue = 0;
-    let alignmentAxisValue = 0;
     if (
       typeof offsetOptions === 'object' &&
       offsetOptions !== null &&
       !('then' in offsetOptions)
     ) {
       crossAxisValue = (offsetOptions as { crossAxis?: number }).crossAxis ?? 0;
-      alignmentAxisValue =
-        (offsetOptions as { alignmentAxis?: number | null }).alignmentAxis ?? 0;
     }
+
+    // Align the button vertically centered on the first line of text.
+    // `left-start` anchors the float at the block's top edge;
+    // `alignmentAxis` shifts it down by paddingTop so it sits next to the text,
+    // not the padding area.
+    const alignmentValue = paddingTop;
 
     const updatePosition = () => {
       computePosition(domNode! as Element | ReferenceElement, floatBox, {
         placement,
         middleware: [
           offset({
-            mainAxis: dynamicMainAxis,
+            mainAxis: 0,
             crossAxis: crossAxisValue,
-            alignmentAxis: alignmentAxisValue,
+            alignmentAxis: alignmentValue,
           }),
           flip(),
         ],

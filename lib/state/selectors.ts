@@ -1,7 +1,5 @@
 import * as S from './';
 import * as T from '../types';
-import isEmailTag from '../utils/is-email-tag';
-import { tagHashOf } from '../utils/tag-hash';
 
 /**
  * "Narrow" views hide the note editor
@@ -48,13 +46,13 @@ export const shouldShowEmailVerification: S.Selector<boolean> = ({
   data: { accountVerification: status },
 }) => status === 'unverified' || status === 'pending';
 
-export const openedTag: S.Selector<T.TagName | null> = ({
-  ui: { collection },
-}) => (collection.type === 'tag' && collection.tagName) || null;
-
 export const openedFolder: S.Selector<T.FolderId | null> = ({
   ui: { collection },
 }) => (collection.type === 'folder' && collection.folderId) || null;
+
+export const openedTag: S.Selector<T.TagName | null> = ({
+  ui: { collection },
+}) => (collection.type === 'tag' && collection.tagName) || null;
 
 export const collectionTitle: S.Selector<string> = (state) => {
   const { collection } = state.ui;
@@ -65,8 +63,6 @@ export const collectionTitle: S.Selector<string> = (state) => {
       return state.data.folders.get(collection.folderId)?.name ?? 'Folder';
     case 'trash':
       return 'Trash';
-    case 'untagged':
-      return 'Untagged Notes';
     default:
       return 'All Notes';
   }
@@ -77,21 +73,10 @@ export const showTrash: S.Selector<boolean> = ({ ui: { collection } }) =>
 export const isDialogOpen = (state: S.State, name: T.DialogType['type']) =>
   state.ui.dialogs.find(({ type }) => type === name) !== undefined;
 
-export const numberOfNonEmailTags: S.Selector<number> = ({ data }) =>
-  [...data.tags.values()].filter((tag) => !isEmailTag(tag.name)).length;
-
-export const noteCanonicalTags: S.Selector<T.TagName[]> = (
-  { data },
-  note: T.Note
-) => {
-  return note.tags.filter((tagName) => !isEmailTag(tagName));
-};
-
 export const getRevision: S.Selector<T.Note | null> = (
   state,
   noteId: T.EntityId,
-  revisionVersion: number,
-  includeDeletedTags: boolean
+  revisionVersion: number
 ) => {
   const note = state.data.notes.get(noteId);
   const revisions = state.data.noteRevisions.get(noteId);
@@ -101,16 +86,8 @@ export const getRevision: S.Selector<T.Note | null> = (
     return null;
   }
 
-  const noteEmailTags = note.tags.filter((tagName) => isEmailTag(tagName));
-  const revisionCanonicalTags = revision.tags.filter((tagName) => {
-    const tagHash = tagHashOf(tagName);
-    const hasTag = state.data.tags.has(tagHash);
-    return !isEmailTag(tagName) && (hasTag || includeDeletedTags);
-  });
-
   return {
     ...revision,
-    tags: [...noteEmailTags, ...revisionCanonicalTags],
     systemTags: note.systemTags,
   };
 };
