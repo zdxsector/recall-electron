@@ -110,15 +110,6 @@ export class SearchField extends Component<Props> {
             <SmallCrossIcon />
           </button>
         )}
-        <button
-          type="button"
-          aria-label="New Note"
-          className="icon-button search-field__new-note"
-          title={`New Note • ${CmdOrCtrl}+Shift+I`}
-          onClick={() => this.props.onNewNote(withoutTags(searchQuery))}
-        >
-          <NewNoteIcon />
-        </button>
       </div>
     );
   }

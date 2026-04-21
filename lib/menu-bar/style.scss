@@ -19,6 +19,7 @@
 .menu-bar__drag-region {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   width: 100%;
   -webkit-app-region: drag;
 }
@@ -43,6 +44,34 @@
     svg {
       cursor: default;
     }
+  }
+}
+
+.menu-bar__right {
+  display: flex;
+  align-items: center;
+  -webkit-app-region: no-drag;
+}
+
+.menu-bar__new-note {
+  border: 1px solid var(--secondary-color);
+  border-radius: 9999px;
+  padding: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  .icon-button {
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .icon-new-note {
+    width: 16px;
+    height: 16px;
   }
 }
 
