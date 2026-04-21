@@ -134,6 +134,11 @@ export const getTitle = (content) => {
       if (title) return title.slice(0, maxTitleChars);
     }
 
+    if (/^\s*#{1,6}\s*$/.test(rawTrimmed)) {
+      if (done) break;
+      continue;
+    }
+
     // If the first meaningful line is a task list item, prefer the task text.
     // Skip "empty" tasks like `- [ ]` so the title doesn't become the checkbox syntax.
     const taskMatch = TASK_LINE_RE.exec(rawTrimmed);

@@ -26,7 +26,14 @@ class AtxHeadingContent extends Format {
   }
 
   override update(cursor: ICursor, highlights = []) {
-    return this.inlineRenderer.patch(this, cursor, highlights);
+    const result = this.inlineRenderer.patch(this, cursor, highlights);
+    const contentAfterMarker = this.text.replace(/^#{1,6}\s*/, '').trim();
+    if (!contentAfterMarker && this.parent?.isFirstChild()) {
+      this.domNode?.setAttribute('data-placeholder', 'No Title');
+    } else {
+      this.domNode?.removeAttribute('data-placeholder');
+    }
+    return result;
   }
 
   override enterHandler(event: Event) {

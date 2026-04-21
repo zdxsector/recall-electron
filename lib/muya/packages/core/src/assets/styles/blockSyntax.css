@@ -676,6 +676,12 @@ pre.mu-active.mu-fenced-code::after {
   content: attr(empty-hint);
 }
 
+h1.mu-atx-heading:first-child > .mu-atxheading-content[data-placeholder]::after {
+  color: var(--editor-color-30);
+  content: attr(data-placeholder);
+  pointer-events: none;
+}
+
 .mu-table-cell-content {
   min-width: 10em;
 }
