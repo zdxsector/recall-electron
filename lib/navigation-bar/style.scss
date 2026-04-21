@@ -42,7 +42,7 @@
   display: flex;
   flex: none;
   flex-direction: column;
-  padding: 4px 8px;
+  padding: 2px 6px;
 }
 
 .navigation-bar__tags {
@@ -56,8 +56,8 @@
 }
 
 .navigation-bar__section-title {
-  padding: 20px 22px 8px;
-  font-size: 12px;
+  padding: 14px 18px 6px;
+  font-size: 11px;
   font-weight: 600;
   color: var(--foreground-color);
   text-transform: uppercase;
@@ -85,13 +85,13 @@
   flex: 1 1 auto;
   min-width: 0;
   text-align: left;
-  padding: 10px 12px;
+  padding: 7px 10px;
   color: var(--primary-color);
   border-radius: 8px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 500;
 
   &:hover {
@@ -152,13 +152,13 @@
   flex: 1 1 auto;
   display: inline-flex;
   align-items: center;
-  gap: 12px;
-  padding: 10px 14px;
+  gap: 10px;
+  padding: 7px 12px;
   border-radius: 8px;
   color: var(--primary-color);
   text-align: left;
   width: 100%;
-  font-size: 15px;
+  font-size: 14px;
 
   &:hover {
     background: var(--secondary-highlight-color);
@@ -181,8 +181,8 @@
   justify-content: center;
 
   svg {
-    width: 20px;
-    height: 20px;
+    width: 18px;
+    height: 18px;
   }
 }
 
@@ -236,8 +236,8 @@
 }
 
 .navigation-bar__untagged {
-  padding-top: 4px;
-  margin-top: 10px;
+  padding-top: 2px;
+  margin-top: 6px;
 }
 
 .navigation-bar__tools {

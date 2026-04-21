@@ -1,5 +1,5 @@
 .navigation-bar-item {
-  padding: 2px 12px;
+  padding: 1px 10px;
   text-overflow: ellipsis;
   white-space: nowrap;
   text-align: left;
@@ -8,10 +8,10 @@
     border: 0;
     border-radius: 8px;
     color: var(--primary-color);
-    font-size: 15px;
+    font-size: 14px;
     font-weight: 400;
-    height: 44px;
-    padding: 0 12px;
+    height: 36px;
+    padding: 0 10px;
     text-align: left;
     width: 100%;
     display: flex;
@@ -44,11 +44,11 @@
     color: var(--foreground-color);
     display: inline-flex;
     align-items: center;
-    margin-right: 12px;
+    margin-right: 10px;
 
     svg {
-      width: 20px;
-      height: 20px;
+      width: 18px;
+      height: 18px;
     }
   }
 
