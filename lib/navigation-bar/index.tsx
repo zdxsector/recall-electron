@@ -8,7 +8,6 @@ import NotesIcon from '../icons/notes';
 import TrashIcon from '../icons/trash';
 import SettingsIcon from '../icons/settings';
 import UntaggedNotesIcon from '../icons/untagged-notes';
-import SidebarIcon from '../icons/sidebar';
 import { viewExternalUrl } from '../utils/url-utils';
 import actions from '../state/actions';
 
@@ -88,17 +87,7 @@ export class NavigationBar extends Component<Props> {
 
     return (
       <div className="navigation-bar" aria-hidden={isDialogOpen}>
-        <div className="navigation-bar__header">
-          <div className="navigation-bar__header-actions">
-            <button
-              type="button"
-              title="Toggle sidebar"
-              onClick={this.handleFocusTrapDeactivate}
-            >
-              <SidebarIcon />
-            </button>
-          </div>
-        </div>
+        <div className="navigation-bar__header" />
         <div className="navigation-bar__folders">
           <NavigationBarItem
             icon={<NotesIcon />}

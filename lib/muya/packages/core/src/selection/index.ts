@@ -23,7 +23,11 @@ class Selection {
    * @param {*} paragraph
    */
   static getCursorYOffset(paragraph: HTMLElement) {
-    const { y } = this.getCursorCoords()!;
+    const coords = this.getCursorCoords();
+
+    if (!coords) return null;
+
+    const { y } = coords;
     const { height, top } = paragraph.getBoundingClientRect();
     const lineHeight = Number.parseFloat(
       getComputedStyle(paragraph).lineHeight

@@ -55,16 +55,14 @@ test('search field is present', async () => {
 });
 
 test('sidebar toggle collapses and expands', async () => {
-  const toggleBtn = window.locator('button[title="Toggle sidebar"]');
+  const toggleBtn = window.locator('button[aria-label*="Toggle Sidebar"]');
   await expect(toggleBtn).toBeVisible({ timeout: 10_000 });
 
   await toggleBtn.click();
   const navColumn = window.locator('.app-layout__nav-column');
   await expect(navColumn).toHaveAttribute('data-collapsed', 'true');
 
-  const menuToggle = window.locator('button[aria-label*="Menu"]');
-  await expect(menuToggle).toBeVisible({ timeout: 5_000 });
-  await menuToggle.click();
+  await toggleBtn.click();
   await expect(navColumn).toHaveAttribute('data-collapsed', 'false');
 });
 
@@ -120,46 +118,34 @@ test('macOS: nav-bar header has computed padding-left >= 93px when sidebar open'
   expect(paddingLeft).toBeGreaterThanOrEqual(93);
 });
 
-test('macOS: menu-bar has computed padding-left >= 93px when sidebar collapsed', async () => {
+test('macOS: sidebar toggle clears traffic lights when sidebar collapsed', async () => {
   if (process.platform !== 'darwin') {
     test.skip();
     return;
   }
 
   const navColumn = window.locator('.app-layout__nav-column');
-  const menuBar = window.locator('.menu-bar');
-  if ((await navColumn.count()) === 0 || (await menuBar.count()) === 0) {
+  const toggleBtn = window.locator('button[aria-label*="Toggle Sidebar"]');
+  if ((await navColumn.count()) === 0 || (await toggleBtn.count()) === 0) {
     test.skip();
     return;
   }
 
   const isCollapsed = await navColumn.getAttribute('data-collapsed');
   if (isCollapsed !== 'true') {
-    // Collapse the sidebar by clicking toggle
-    const toggleBtn = window.locator('button[title*="Toggle sidebar"], button[title*="Menu"]');
-    if ((await toggleBtn.count()) > 0) {
-      await toggleBtn.first().click();
-      await expect(navColumn).toHaveAttribute('data-collapsed', 'true');
-    }
+    await toggleBtn.first().click();
+    await expect(navColumn).toHaveAttribute('data-collapsed', 'true');
   }
 
-  const collapsed = await navColumn.getAttribute('data-collapsed');
-  if (collapsed !== 'true') {
-    test.skip();
-    return;
-  }
-
-  const paddingLeft = await menuBar.first().evaluate((el) =>
-    parseInt(getComputedStyle(el).paddingLeft, 10)
-  );
-  expect(paddingLeft).toBeGreaterThanOrEqual(93);
+  const btnLeft = await toggleBtn.first().evaluate((el) => {
+    const rect = el.getBoundingClientRect();
+    return rect.left;
+  });
+  expect(btnLeft).toBeGreaterThanOrEqual(70);
 
   // Restore sidebar
-  const toggleBtn = window.locator('button[title*="Menu"]');
-  if ((await toggleBtn.count()) > 0) {
-    await toggleBtn.first().click();
-    await expect(navColumn).toHaveAttribute('data-collapsed', 'false');
-  }
+  await toggleBtn.first().click();
+  await expect(navColumn).toHaveAttribute('data-collapsed', 'false');
 });
 
 test('can take a screenshot of the app', async () => {

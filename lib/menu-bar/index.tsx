@@ -7,10 +7,9 @@ import { connect } from 'react-redux';
 /**
  * Internal dependencies
  */
-import { CmdOrCtrl } from '../utils/platform';
 import IconButton from '../icon-button';
 import { isMac } from '../utils/platform';
-import MenuIcon from '../icons/menu';
+import SidebarIcon from '../icons/sidebar';
 import { toggleNavigation } from '../state/ui/actions';
 import * as selectors from '../state/selectors';
 
@@ -25,6 +24,7 @@ type OwnProps = {
 
 type StateProps = {
   collectionTitle: string;
+  isNavigationOpen: boolean;
 };
 
 type DispatchProps = {
@@ -35,6 +35,7 @@ type Props = OwnProps & StateProps & DispatchProps;
 
 export const MenuBar: FunctionComponent<Props> = ({
   collectionTitle,
+  isNavigationOpen,
   toggleNavigation,
 }) => {
   // On Windows Electron we use a custom title bar that already includes
@@ -48,14 +49,16 @@ export const MenuBar: FunctionComponent<Props> = ({
   const CmdOrCtrl = isMac ? 'Cmd' : 'Ctrl';
 
   return (
-    <div className="menu-bar">
+    <div className={`menu-bar${isNavigationOpen ? ' menu-bar--nav-open' : ''}`}>
       <div className="menu-bar__drag-region">
         <div className="menu-bar__left">
-          <IconButton
-            icon={<MenuIcon />}
-            onClick={toggleNavigation}
-            title={`Menu • ${CmdOrCtrl}+Shift+U`}
-          />
+          <div className="menu-bar__sidebar-toggle">
+            <IconButton
+              icon={<SidebarIcon />}
+              onClick={toggleNavigation}
+              title={`Toggle Sidebar • ${CmdOrCtrl}+Shift+U`}
+            />
+          </div>
           <div className="menu-bar__title-area" aria-hidden="true">
             <div id="notes-title" className="menu-bar__title">
               {collectionTitle}
@@ -69,6 +72,7 @@ export const MenuBar: FunctionComponent<Props> = ({
 
 const mapStateToProps: S.MapState<StateProps> = (state) => ({
   collectionTitle: selectors.collectionTitle(state),
+  isNavigationOpen: state.ui.showNavigation,
 });
 
 const mapDispatchToProps: S.MapDispatch<DispatchProps, OwnProps> = (

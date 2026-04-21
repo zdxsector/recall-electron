@@ -5,19 +5,6 @@
   display: none;
 }
 
-// When sidebar is collapsed on macOS, menu-bar becomes the leftmost header element
-// and needs padding to clear the traffic light window controls
-.is-macos .app-layout__nav-column[data-collapsed='true'] ~ .app-layout__source-column .menu-bar {
-  padding-left: 93px;
-}
-
-// Single-column mode: source column may be at left:0 regardless of nav state
-@media only screen and (max-width: $single-column) {
-  .is-macos .menu-bar {
-    padding-left: 93px;
-  }
-}
-
 .menu-bar {
   height: 52px;
   padding: 0 12px;
@@ -47,11 +34,6 @@
     flex: 0 0 auto;
   }
 
-  .icon-button svg.icon-menu {
-    width: 20px;
-    height: 20px;
-  }
-
   .button {
     padding: 0;
     width: 32px;
@@ -64,6 +46,46 @@
     }
   }
 }
+
+// ── Sidebar toggle button ──────────────────────────────────────────────────────
+//
+// The sidebar toggle lives in the note-list header (menu-bar). When the sidebar
+// is collapsed the note-list header is the leftmost element and on macOS the
+// traffic-light window controls sit directly above it — so we shift the toggle
+// button to the right to clear them.
+//
+// When the sidebar IS open the nav-column occupies the left edge and the
+// traffic lights sit over the sidebar header, so no extra padding is needed in
+// the note-list header.
+
+.menu-bar__sidebar-toggle {
+  display: flex;
+  align-items: center;
+  // Smooth horizontal slide when the nav panel opens/closes.
+  transition: transform 200ms ease-in-out, margin-left 200ms ease-in-out;
+
+  .icon-button svg.icon-sidebar {
+    width: 20px;
+    height: 20px;
+  }
+}
+
+// macOS: sidebar collapsed → shift toggle right to clear the traffic lights
+// (traffic-light safe area is ~81px; combined with the 12px menu-bar padding
+// the toggle needs 69px of additional left margin to clear them cleanly)
+.is-macos .menu-bar:not(.menu-bar--nav-open) .menu-bar__sidebar-toggle {
+  margin-left: 69px;
+}
+
+// macOS single-column layout: source column is always at left:0, so traffic
+// lights always overlap — keep the clearance padding at all times.
+@media only screen and (max-width: $single-column) {
+  .is-macos .menu-bar .menu-bar__sidebar-toggle {
+    margin-left: 69px;
+  }
+}
+
+// ── Title ──────────────────────────────────────────────────────────────────────
 
 .menu-bar__title-area {
   overflow: hidden;

@@ -131,9 +131,13 @@ class Content extends TreeNode {
     const previousContentBlock = this.previousContentInContext();
     const nextContentBlock = this.nextContentInContext();
     const { start, end } = this.getCursor()!;
-    const { topOffset, bottomOffset } = Selection.getCursorYOffset(
-      this.domNode!
-    );
+    const yOffset = Selection.getCursorYOffset(this.domNode!);
+
+    // If cursor coordinates are unavailable (e.g. no DOM selection), bail out
+    // gracefully rather than crashing on a null destructure.
+    if (!yOffset) return;
+
+    const { topOffset, bottomOffset } = yOffset;
 
     // Just do nothing if the cursor is not collapsed or `shiftKey` pressed
     if (start.offset !== end.offset || event.shiftKey) return;

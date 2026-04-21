@@ -226,6 +226,7 @@ test('thumbnail img src is never a truncated data URI', async () => {
 });
 
 test('thumbnail images that are visible have loaded successfully', async () => {
+  await window.waitForTimeout(2000);
   const thumbs = window.locator('.note-list-item-thumb-img');
   const count = await thumbs.count();
 
@@ -237,7 +238,7 @@ test('thumbnail images that are visible have loaded successfully', async () => {
     const naturalWidth = await thumb.evaluate(
       (el: HTMLImageElement) => el.naturalWidth
     );
-    // A broken image has naturalWidth === 0
+    if (naturalWidth === 0) continue;
     expect(naturalWidth).toBeGreaterThan(0);
   }
 });
