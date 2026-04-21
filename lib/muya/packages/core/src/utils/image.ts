@@ -26,8 +26,8 @@ export function getImageInfo(image: HTMLElement): IImageInfo {
 }
 
 export function getImageSrc(src: string) {
-  // Keep already-qualified URLs intact (most importantly `file://` for Electron).
-  if (typeof src === 'string' && /^file:\/\//i.test(src)) {
+  // Keep already-qualified URLs intact (file:// for Electron, recall-asset:// for local note assets).
+  if (typeof src === 'string' && /^(?:file|recall-asset):\/\//i.test(src)) {
     return {
       isUnknownType: false,
       src,

@@ -146,10 +146,10 @@ const MuyaEditor = forwardRef<MuyaEditorHandle, Props>(
     };
 
     const normalizeForStorage = (markdown: string): string => {
-      // Convert any absolute file://.../assets/<name> URLs back to assets/<name>.
-      // This keeps links stable even when note folders are renamed/moved.
+      // Convert any absolute file:// or recall-asset:// .../assets/<name> URLs back to assets/<name>.
+      // Use .* (greedy) so folder names with parentheses don't break the match.
       return String(markdown ?? '').replace(
-        /\]\(\s*file:\/\/\/?[^)\s]*\/assets\/([^)\s]+)\s*\)/g,
+        /\]\(\s*(?:file|recall-asset):\/\/.*\/assets\/([^\s)]+)\)/g,
         (_m, name) => `](assets/${name})`
       );
     };
@@ -608,7 +608,7 @@ const MuyaEditor = forwardRef<MuyaEditorHandle, Props>(
         file.arrayBuffer();
 
       const insertTextAtCursor = (text: string) => {
-        focus();
+        focusPreservingSelection();
         // Prefer execCommand because it triggers the same input pipeline Muya listens to.
         // (Deprecated but still widely supported in Electron.)
         try {
@@ -668,19 +668,19 @@ const MuyaEditor = forwardRef<MuyaEditorHandle, Props>(
 
       // Accept whitespace/newlines inside base64 (common when copying from some sources).
       const dataUrlRe =
-        /data:image\/(png|jpeg|jpg|gif|webp);base64,[\sA-Za-z0-9+/=]+/g;
+        /data:image\/(png|jpeg|jpg|gif|webp|svg\+xml|bmp|tiff);base64,[\sA-Za-z0-9+/=]+/g;
 
       const isHttpUrl = (s: string) => /^https?:\/\//i.test(s);
       const isFileUrl = (s: string) => /^file:\/\//i.test(s);
       const looksLikeAbsolutePath = (s: string) =>
         /^\//.test(s) || /^[a-zA-Z]:[\\/]/.test(s);
       const isImagePathLike = (s: string) =>
-        /\.(png|jpe?g|gif|webp|svg)(?=$|[?#])/i.test(s);
+        /\.(png|jpe?g|gif|webp|svg|bmp|tiff?)(?=$|[?#])/i.test(s);
       const isImageFile = (f: File | null | undefined) => {
         if (!f) return false;
         if (f.type && f.type.startsWith('image/')) return true;
         // Some clipboard providers leave `file.type` empty; fall back to extension.
-        return /\.(png|jpe?g|gif|webp|svg)$/i.test(String(f.name || ''));
+        return /\.(png|jpe?g|gif|webp|svg|bmp|tiff?)$/i.test(String(f.name || ''));
       };
 
       const saveUrlToAssets = async (url: string) => {
@@ -1014,7 +1014,8 @@ const MuyaEditor = forwardRef<MuyaEditorHandle, Props>(
           if (
             pastedOnlyDataUrl &&
             (nextTrimmed.startsWith('assets/') ||
-              nextTrimmed.startsWith('file://'))
+              nextTrimmed.startsWith('file://') ||
+              nextTrimmed.startsWith('recall-asset://'))
           ) {
             insertTextAtCursor(`![pasted-image](${nextTrimmed})`);
             return;

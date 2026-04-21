@@ -9,7 +9,9 @@ const fs = require('fs');
 const { pathToFileURL, fileURLToPath } = require('url');
 const sanitizeFilename = require('sanitize-filename');
 
-const NOTES_ROOT_NAME = 'CurNotes';
+const NOTES_ROOT_NAME = 'Recall';
+const toAssetUrl = (absPath) =>
+  pathToFileURL(absPath).href.replace(/^file:\/\//, 'recall-asset://');
 const META_DIR_NAME = '.recall';
 const META_FILE_NAME = 'store.json';
 const REVISIONS_FILE_NAME = 'revisions.json';
@@ -252,10 +254,19 @@ const safeName = (name, fallback) => {
 
 const noteTitleFromContent = (content) => {
   const s = String(content || '');
-  const match = /^\s*([^\n\r]{1,64})/m.exec(s);
-  let title = match?.[1]?.trim() || 'New Note';
-  // If the first line is a Markdown heading, strip the leading hashes.
-  title = title.replace(/^\s*#{1,6}\s+/, '').trim();
+  const lines = s.split(/\r?\n/);
+  let title = '';
+  for (const line of lines) {
+    let candidate = line.trim();
+    if (!candidate) continue;
+    candidate = candidate.replace(/^\s*#{1,6}\s+/, '').trim();
+    // Strip markdown image syntax: ![alt](src)
+    candidate = candidate.replace(/!\[[^\]]*\]\([^)]*\)/g, '').trim();
+    if (candidate) {
+      title = candidate.slice(0, 64);
+      break;
+    }
+  }
   return title || 'New Note';
 };
 
@@ -689,7 +700,20 @@ const electronAPI = {
 
       // Choose output format: keep JPEGs as JPEG; everything else as PNG.
       const outputIsJpeg = mimeType === 'image/jpeg';
-      const ext = outputIsJpeg ? 'jpg' : 'png';
+      const ext =
+        mimeType === 'image/jpeg'
+          ? 'jpg'
+          : mimeType === 'image/gif'
+            ? 'gif'
+            : mimeType === 'image/webp'
+              ? 'webp'
+              : mimeType === 'image/svg+xml'
+                ? 'svg'
+                : mimeType === 'image/bmp'
+                  ? 'bmp'
+                  : mimeType === 'image/tiff'
+                    ? 'tiff'
+                    : 'png';
 
       // --- PERFORMANCE OPTIMIZATION ---
       // Try to decode base64 directly and write to disk without nativeImage re-encoding.
@@ -711,7 +735,7 @@ const electronAPI = {
           const filePath = path.join(assetsDir, fileName);
           await fs.promises.writeFile(filePath, rawBuffer);
           const rel = `assets/${fileName}`;
-          const fileUrl = pathToFileURL(filePath).toString();
+          const fileUrl = toAssetUrl(filePath);
           return { rel, fileUrl };
         }
 
@@ -751,7 +775,7 @@ const electronAPI = {
         await fs.promises.writeFile(filePath, buffer);
 
         const rel = `assets/${fileName}`;
-        const fileUrl = pathToFileURL(filePath).toString();
+        const fileUrl = toAssetUrl(filePath);
         return { rel, fileUrl };
       }
 
@@ -773,7 +797,7 @@ const electronAPI = {
       await fs.promises.writeFile(filePath, buffer);
 
       const rel = `assets/${fileName}`;
-      const fileUrl = pathToFileURL(filePath).toString();
+      const fileUrl = toAssetUrl(filePath);
       return { rel, fileUrl };
     } catch (e) {
       // eslint-disable-next-line no-console
@@ -826,7 +850,20 @@ const electronAPI = {
       ensureDir(assetsDir);
 
       const outputIsJpeg = mimeType === 'image/jpeg';
-      const ext = outputIsJpeg ? 'jpg' : 'png';
+      const ext =
+        mimeType === 'image/jpeg'
+          ? 'jpg'
+          : mimeType === 'image/gif'
+            ? 'gif'
+            : mimeType === 'image/webp'
+              ? 'webp'
+              : mimeType === 'image/svg+xml'
+                ? 'svg'
+                : mimeType === 'image/bmp'
+                  ? 'bmp'
+                  : mimeType === 'image/tiff'
+                    ? 'tiff'
+                    : 'png';
 
       // Convert ArrayBuffer/Uint8Array to Node Buffer
       const nodeBuffer = Buffer.from(buffer);
@@ -841,7 +878,7 @@ const electronAPI = {
         const filePath = path.join(assetsDir, fileName);
         await fs.promises.writeFile(filePath, nodeBuffer);
         const rel = `assets/${fileName}`;
-        const fileUrl = pathToFileURL(filePath).toString();
+        const fileUrl = toAssetUrl(filePath);
         return { rel, fileUrl };
       }
 
@@ -856,7 +893,7 @@ const electronAPI = {
         const filePath = path.join(assetsDir, fileName);
         await fs.promises.writeFile(filePath, nodeBuffer);
         const rel = `assets/${fileName}`;
-        const fileUrl = pathToFileURL(filePath).toString();
+        const fileUrl = toAssetUrl(filePath);
         return { rel, fileUrl };
       }
 
@@ -883,7 +920,7 @@ const electronAPI = {
       await fs.promises.writeFile(filePath, finalBuffer);
 
       const rel = `assets/${fileName}`;
-      const fileUrl = pathToFileURL(filePath).toString();
+      const fileUrl = toAssetUrl(filePath);
       return { rel, fileUrl };
     } catch (e) {
       // eslint-disable-next-line no-console
@@ -951,7 +988,7 @@ const electronAPI = {
         await fs.promises.writeFile(filePath, buffer);
 
         const rel = `assets/${fileName}`;
-        const fileUrl = pathToFileURL(filePath).toString();
+        const fileUrl = toAssetUrl(filePath);
         return { rel, fileUrl };
       }
 
@@ -982,7 +1019,7 @@ const electronAPI = {
       await fs.promises.writeFile(filePath, buffer);
 
       const rel = `assets/${fileName}`;
-      const fileUrl = pathToFileURL(filePath).toString();
+      const fileUrl = toAssetUrl(filePath);
       return { rel, fileUrl };
     } catch (e) {
       // eslint-disable-next-line no-console
@@ -1018,7 +1055,7 @@ const electronAPI = {
         }
       }
       const abs = path.join(noteDir, String(rel || ''));
-      return pathToFileURL(abs).toString();
+      return toAssetUrl(abs);
     } catch (e) {
       // eslint-disable-next-line no-console
       console.error('Failed to resolve asset url:', e);

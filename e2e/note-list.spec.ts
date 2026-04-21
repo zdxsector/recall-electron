@@ -22,7 +22,9 @@ test.beforeAll(async () => {
 
 test.afterAll(async () => {
   if (electronApp) {
-    await electronApp.close();
+    try {
+      electronApp.process().kill('SIGKILL');
+    } catch {}
   }
 });
 

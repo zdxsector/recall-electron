@@ -10,7 +10,21 @@ const {
   session,
   nativeTheme,
   screen,
+  protocol,
 } = require('electron');
+
+// Register custom scheme before app is ready (must be called at module load time).
+protocol.registerSchemesAsPrivileged([
+  {
+    scheme: 'recall-asset',
+    privileges: {
+      bypassCSP: true,
+      supportFetchAPI: true,
+      stream: true,
+      standard: false,
+    },
+  },
+]);
 
 const path = require('path');
 const windowStateKeeper = require('electron-window-state');
@@ -463,5 +477,33 @@ module.exports = function main() {
   // initialization and is ready to create browser windows.
   app.on('ready', activateWindow);
   app.on('ready', () => app.setAppUserModelId('com.automattic.recall'));
+  app.on('ready', () => {
+    const fs = require('fs');
+    const mimeTypes = {
+      '.png': 'image/png',
+      '.jpg': 'image/jpeg',
+      '.jpeg': 'image/jpeg',
+      '.gif': 'image/gif',
+      '.webp': 'image/webp',
+      '.svg': 'image/svg+xml',
+      '.bmp': 'image/bmp',
+      '.tiff': 'image/tiff',
+      '.tif': 'image/tiff',
+    };
+    protocol.handle('recall-asset', async (request) => {
+      const filePath = decodeURIComponent(
+        request.url.slice('recall-asset://'.length)
+      );
+      try {
+        const data = await fs.promises.readFile(filePath);
+        const ext = path.extname(filePath).toLowerCase();
+        return new Response(data, {
+          headers: { 'Content-Type': mimeTypes[ext] || 'application/octet-stream' },
+        });
+      } catch {
+        return new Response('Not found', { status: 404 });
+      }
+    });
+  });
   app.on('activate', activateWindow);
 };

@@ -9,7 +9,7 @@ const getUnconfirmedNotes = (state: S.State): EntityId[] => {
   state.data.notes.forEach((note, noteId) => {
     const ghost = state.simperium.ghosts[1].get('note')?.get(noteId);
 
-    if (!ghost || !notesAreEqual(note, ghost.data)) {
+    if (ghost && !notesAreEqual(note, ghost.data)) {
       notes.push(noteId);
     }
   });
