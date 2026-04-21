@@ -565,9 +565,9 @@ export class Auth extends Component<Props> {
     const savedAuthState = `app-${cryptoRandomString(20)}`;
     const authUrl = `https://public-api.wordpress.com/oauth2/authorize?client_id=${config.wpcc_client_id}&redirect_uri=${redirectUrl}&response_type=code&scope=global&state=${savedAuthState}`;
 
-    window.electron.send('wpLogin', authUrl);
+    window.electron?.send('wpLogin', authUrl);
 
-    window.electron.receive('wpLogin', (url: string) => {
+    window.electron?.receive('wpLogin', (url: string) => {
       const { searchParams } = new URL(url);
 
       const errorCode = searchParams.get('error')

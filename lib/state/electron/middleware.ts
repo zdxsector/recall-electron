@@ -7,6 +7,10 @@ import * as S from '../';
 const debug = debugFactory('electron-middleware');
 
 export const middleware: S.Middleware = ({ dispatch, getState }) => {
+  if (!window.electron?.receive) {
+    return (next) => (action) => next(action);
+  }
+
   window.electron.receive('tokenLogin', (url) => {
     const { searchParams } = new URL(url);
     const tokenEmail = searchParams.get('email');

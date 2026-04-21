@@ -186,6 +186,7 @@
     "semver": "7.7.1",
     "setimmediate": "1.0.5",
     "showdown": "2.1.0",
+    "tr46": "5.0.0",
     "simperium": "^1.1.4",
     "string-replace-to-array": "2.1.1",
     "turndown": "7.2.0",
