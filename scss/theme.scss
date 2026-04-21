@@ -201,12 +201,34 @@ body[data-theme='dark'] {
   }
 }
 
-// Muya's `MarkdownToHtml` output is wrapped in `article.markdown-body`.
-// Keep task list checkboxes native (default square UI) for correctness while typing
-// and to match the note-list rendered preview.
 .markdown-body .task-list-item > input[type='checkbox'] {
-  appearance: auto;
-  -webkit-appearance: auto;
+  appearance: none;
+  -webkit-appearance: none;
+  width: 20px;
+  height: 20px;
+  border: 1.5px solid var(--checkbox-border-color, #aaa);
+  border-radius: 50%;
+  background: var(--background-color);
+  box-sizing: border-box;
+  cursor: pointer;
+  position: relative;
+
+  &:checked {
+    background: var(--accent-color);
+    border-color: var(--accent-color);
+  }
+
+  &:checked::after {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 5.5px;
+    width: 5px;
+    height: 9px;
+    border: solid #fff;
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
+  }
 }
 
 @media only screen and (width <= 1400px) {

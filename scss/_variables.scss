@@ -68,6 +68,7 @@ body[data-theme='light'] {
   --note-list-bg-color: #ffffff;
   --note-list-separator-color: #e5e5ea;
   --note-list-selected-bg: #e5e5ea;
+  --checkbox-border-color: #c7c7cc;
   --toolbar-bg-color: rgba(255, 255, 255, 0.85);
 }
 
@@ -110,5 +111,6 @@ body[data-theme='dark'] {
   --note-list-bg-color: #1c1c1e;
   --note-list-separator-color: #3a3a3c;
   --note-list-selected-bg: #48484a;
+  --checkbox-border-color: #636366;
   --toolbar-bg-color: rgba(28, 28, 30, 0.85);
 }
