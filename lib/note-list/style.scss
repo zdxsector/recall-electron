@@ -2,15 +2,15 @@
 
 @keyframes announce-note-update {
   0% {
-    padding-left: 20px;
+    padding-left: 8px;
   }
 
   50% {
-    padding-left: 28px;
+    padding-left: 16px;
   }
 
   100% {
-    padding-left: 20px;
+    padding-left: 8px;
   }
 }
 
@@ -116,7 +116,7 @@
   -webkit-tap-highlight-color: rgba(0, 0, 0, 0);
   font-family: 'Recall Tasks', $sans, sans-serif;
   min-height: 56px;
-  padding: 0 20px;
+  padding: 0 8px;
 
   .note-list-item-content {
     display: flex;
@@ -150,6 +150,7 @@
     padding: 10px 0;
     min-width: 0;
     text-align: left;
+    border-bottom: 1px solid var(--note-list-separator-color);
   }
 
   // ── Title row ──────────────────────────────────────────────────────────────
@@ -204,6 +205,7 @@
     align-items: center;
     justify-content: center;
     padding: 6px 2px 6px 8px;
+    border-bottom: 1px solid var(--note-list-separator-color);
   }
 
   .note-list-item-thumb-img {
@@ -218,6 +220,7 @@
   .note-list-item-status-right {
     display: flex;
     padding: 12px 2px 0 0;
+    border-bottom: 1px solid var(--note-list-separator-color);
   }
 
   .note-list-item-pending-changes,
@@ -264,6 +267,12 @@
   &.note-list-item-selected {
     .note-list-item-content {
       background: var(--note-list-selected-bg);
+    }
+
+    .note-list-item-text,
+    .note-list-item-thumbnail-right,
+    .note-list-item-status-right {
+      border-bottom-color: transparent;
     }
 
     .note-list-item-preview-text {

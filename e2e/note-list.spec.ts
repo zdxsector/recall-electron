@@ -88,8 +88,8 @@ test('note list item has inset padding from edges', async () => {
       right: style.paddingRight,
     };
   });
-  expect(padding.left).toBe('20px');
-  expect(padding.right).toBe('20px');
+  expect(padding.left).toBe('8px');
+  expect(padding.right).toBe('8px');
 });
 
 test('note list item title uses correct font weight', async () => {
@@ -135,7 +135,7 @@ test('selected note list item uses dark gray background, not blue', async () => 
   expect(bg).not.toContain('10, 132, 255');
 });
 
-test('note list items have no separator borders', async () => {
+test('note list items have subtle separator borders', async () => {
   const items = window.locator('.note-list-item');
   const count = await items.count();
   if (count === 0) {
@@ -147,7 +147,7 @@ test('note list items have no separator borders', async () => {
   const borderWidth = await textBlock.evaluate((el) =>
     getComputedStyle(el).borderBottomWidth
   );
-  expect(borderWidth).toBe('0px');
+  expect(borderWidth).toBe('1px');
 });
 
 test('thumbnail img has correct dimensions and rounded corners when present', async () => {

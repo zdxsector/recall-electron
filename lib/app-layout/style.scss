@@ -55,14 +55,12 @@
 .app-layout__nav-column {
   width: $navigation-bar-width;
   flex: none;
-  border-right: 1px solid var(--sidebar-separator-color);
-  background-color: var(--sidebar-bg-color);
+  background-color: var(--background-color);
   overflow: hidden;
   transition: width 200ms ease-in-out;
 
   &[data-collapsed='true'] {
     width: 0;
-    border-right-width: 0;
   }
 }
 

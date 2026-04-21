@@ -315,8 +315,8 @@ export const NotebookSidebar = ({
 
   return (
     <div className="navigation-bar__notebooks">
+      <div className="navigation-bar__section-title">Notebooks</div>
       <div className="navigation-bar__folders">
-        <div className="navigation-bar__section-title">Notebooks</div>
         {notebookList.map(([notebookId, notebook]) => {
           const isExpanded = expandedNotebooks.has(notebookId);
           const allFolders = foldersByNotebook.get(notebookId) ?? [];
