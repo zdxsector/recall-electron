@@ -599,3 +599,111 @@ test.describe('Editor stability', () => {
     });
   });
 });
+
+// ---------------------------------------------------------------------------
+// Image resize persistence
+// ---------------------------------------------------------------------------
+
+test.describe('Image resize persistence', () => {
+  const TINY_PNG =
+    'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==';
+
+  test('img width attribute persists across note switch (data URL)', async () => {
+    await createNewNote();
+    await focusEditor();
+    await window.keyboard.type('Width persist data', { delay: 20 });
+    await window.keyboard.press('Enter');
+    await window.waitForTimeout(300);
+
+    const imgTag = `<img alt="test" src="${TINY_PNG}" width="200">`;
+    await window.evaluate((tag: string) => {
+      document.execCommand('insertText', false, tag);
+    }, imgTag);
+    await window.waitForTimeout(2000);
+
+    await createNewNote();
+    await window.waitForTimeout(1500);
+
+    const noteItem = window.locator('.note-list').locator('text=Width persist data').first();
+    await expect(noteItem).toBeVisible({ timeout: 5000 });
+    await noteItem.click();
+    await window.waitForTimeout(2000);
+
+    const result = await window.evaluate(() => {
+      const c = document.querySelector('.muya-editor-root .mu-container');
+      if (!c) return { widthAttr: null, dataRawHasWidth: false };
+      const img = c.querySelector('img');
+      const raws = Array.from(c.querySelectorAll('[data-raw]')).map(
+        (el) => el.getAttribute('data-raw') ?? ''
+      );
+      return {
+        widthAttr: img?.getAttribute('width') ?? null,
+        dataRawHasWidth: raws.some((r) => r.includes('width="200"')),
+      };
+    });
+
+    expect(result.widthAttr).toBe('200');
+    expect(result.dataRawHasWidth).toBe(true);
+  });
+
+  test('img width attribute persists across note switch (recall-asset URL)', async () => {
+    await createNewNote();
+    await focusEditor();
+    await window.keyboard.type('Width persist asset', { delay: 20 });
+    await window.keyboard.press('Enter');
+    await window.waitForTimeout(300);
+
+    const assetSrc = 'recall-asset:///Users/test/Documents/notes/assets/pasted-123.png';
+    const imgTag = `<img alt="test" src="${assetSrc}" width="216">`;
+    await window.evaluate((tag: string) => {
+      document.execCommand('insertText', false, tag);
+    }, imgTag);
+    await window.waitForTimeout(2000);
+
+    await createNewNote();
+    await window.waitForTimeout(1500);
+
+    const noteItem = window.locator('.note-list').locator('text=Width persist asset').first();
+    await expect(noteItem).toBeVisible({ timeout: 5000 });
+    await noteItem.click();
+    await window.waitForTimeout(2000);
+
+    const result = await window.evaluate(() => {
+      const c = document.querySelector('.muya-editor-root .mu-container');
+      if (!c) return { dataRawHasWidth: false };
+      const raws = Array.from(c.querySelectorAll('[data-raw]')).map(
+        (el) => el.getAttribute('data-raw') ?? ''
+      );
+      return {
+        dataRawHasWidth: raws.some((r) => r.includes('width="216"')),
+      };
+    });
+
+    expect(result.dataRawHasWidth).toBe(true);
+  });
+
+  test('normalizeForStorage and materializeForEditor preserve width', async () => {
+    const input = '<img alt="test" src="recall-asset:///Users/x/notes/assets/img.png" width="300">';
+
+    const result = await window.evaluate((tag: string) => {
+      let normalized = tag;
+      normalized = normalized.replace(
+        /(<img\b[^>]*?\bsrc\s*=\s*")(?:file|recall-asset):\/\/[^"]*\/assets\/([^"]+)(")/gi,
+        (_m: string, pre: string, name: string, post: string) => `${pre}assets/${name}${post}`
+      );
+      let materialized = normalized;
+      materialized = materialized.replace(
+        /(<img\b[^>]*?\bsrc\s*=\s*")(assets\/[^"]+)(")/gi,
+        (_m: string, pre: string, _rel: string, post: string) =>
+          `${pre}recall-asset:///Users/x/notes/assets/restored.png${post}`
+      );
+      return {
+        normalizedHasWidth: normalized.includes('width="300"'),
+        materializedHasWidth: materialized.includes('width="300"'),
+      };
+    }, input);
+
+    expect(result.normalizedHasWidth).toBe(true);
+    expect(result.materializedHasWidth).toBe(true);
+  });
+});

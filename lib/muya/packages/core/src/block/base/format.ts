@@ -641,6 +641,7 @@ class Format extends Content {
       oldText.substring(0, start) + imageText + oldText.substring(end);
 
     this.update();
+    this.muya.eventCenter.emit('content-change', { block: this });
   }
 
   updateImage(
@@ -669,6 +670,7 @@ class Format extends Content {
       oldText.substring(0, start) + imageText + oldText.substring(end);
 
     this.update();
+    this.muya.eventCenter.emit('content-change', { block: this });
 
     const selector = `#${
       imageId.includes('_') ? imageId : `${imageId}_${token.range.start}`

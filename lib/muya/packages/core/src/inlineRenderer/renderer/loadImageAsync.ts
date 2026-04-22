@@ -30,11 +30,11 @@ export default function loadImageAsync(
         if (attrs.alt)
           img.alt = attrs.alt.replace(/[`*{}[\]()#+\-.!_>~:|<$]/g, '');
         if (attrs.title) img.setAttribute('title', attrs.title);
-        if (attrs.width && typeof attrs.width === 'number')
-          img.setAttribute('width', attrs.width);
+        if (attrs.width)
+          img.setAttribute('width', String(attrs.width));
 
-        if (attrs.height && typeof attrs.height === 'number')
-          img.setAttribute('height', attrs.height);
+        if (attrs.height)
+          img.setAttribute('height', String(attrs.height));
 
         if (imageClass) img.classList.add(imageClass);
 

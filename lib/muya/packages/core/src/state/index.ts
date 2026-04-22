@@ -174,10 +174,19 @@ class JSONState {
   }
 
   getMarkdown() {
+    this._flushPendingOperations();
     const state = this.getState();
     const mdGenerator = new StateToMarkdown();
 
     return mdGenerator.generate(state);
+  }
+
+  private _flushPendingOperations() {
+    if (this._operationCache.length === 0) return;
+    const op = this._operationCache.reduce(json1.type.compose as any);
+    this.apply(op);
+    this._operationCache = [];
+    this._isGoing = false;
   }
 
   private _emitStateChange() {
@@ -186,6 +195,10 @@ class JSONState {
     this._isGoing = true;
 
     requestAnimationFrame(() => {
+      if (this._operationCache.length === 0) {
+        this._isGoing = false;
+        return;
+      }
       const op = this._operationCache.reduce(json1.type.compose as any);
       const prevDoc = this.getState();
       this.apply(op);

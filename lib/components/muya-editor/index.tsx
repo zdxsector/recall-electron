@@ -127,7 +127,8 @@ const MuyaEditor = forwardRef<MuyaEditorHandle, Props>(
       try {
         const resolveFn = window.electron?.resolveNoteAssetFileUrl;
         if (typeof resolveFn !== 'function') return markdown;
-        return String(markdown ?? '').replace(
+        // Resolve markdown link syntax: ](assets/name) → ](file://…)
+        let out = String(markdown ?? '').replace(
           /\]\(\s*(assets\/[^)\s]+)\s*\)/g,
           (_m, rel) => {
             const fileUrl = resolveFn({
@@ -140,18 +141,39 @@ const MuyaEditor = forwardRef<MuyaEditorHandle, Props>(
             return fileUrl ? `](${fileUrl})` : `](${rel})`;
           }
         );
+        // Resolve <img> tag src attributes: src="assets/name" → src="file://…"
+        out = out.replace(
+          /(<img\b[^>]*?\bsrc\s*=\s*")(assets\/[^"]+)(")/gi,
+          (_m, pre, rel, post) => {
+            const fileUrl = resolveFn({
+              noteId,
+              note,
+              folders,
+              notebooks,
+              rel,
+            });
+            return fileUrl ? `${pre}${fileUrl}${post}` : `${pre}${rel}${post}`;
+          }
+        );
+        return out;
       } catch {
         return markdown;
       }
     };
 
     const normalizeForStorage = (markdown: string): string => {
-      // Convert any absolute file:// or recall-asset:// .../assets/<name> URLs back to assets/<name>.
-      // Use .* (greedy) so folder names with parentheses don't break the match.
-      return String(markdown ?? '').replace(
-        /\]\(\s*(?:file|recall-asset):\/\/.*\/assets\/([^\s)]+)\)/g,
+      let out = String(markdown ?? '');
+      // Normalize markdown link syntax: ](file://…/assets/name) → ](assets/name)
+      out = out.replace(
+        /\]\(\s*(?:file|recall-asset):\/\/.*?\/assets\/([^\s)]+)\)/g,
         (_m, name) => `](assets/${name})`
       );
+      // Normalize <img> tag src attributes: src="file://…/assets/name" → src="assets/name"
+      out = out.replace(
+        /(<img\b[^>]*?\bsrc\s*=\s*")(?:file|recall-asset):\/\/[^"]*\/assets\/([^"]+)(")/gi,
+        (_m, pre, name, post) => `${pre}assets/${name}${post}`
+      );
+      return out;
     };
 
     const focus = () => {
