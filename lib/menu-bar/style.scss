@@ -28,7 +28,6 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  -webkit-app-region: no-drag;
 
   .icon-button {
     flex: 0 0 auto;
@@ -91,6 +90,7 @@
   align-items: center;
   transition: opacity 200ms ease-in-out, margin-left 200ms ease-in-out;
   opacity: 1;
+  -webkit-app-region: no-drag;
 
   .icon-button svg.icon-sidebar {
     width: 20px;
