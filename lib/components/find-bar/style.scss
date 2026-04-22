@@ -1,0 +1,85 @@
+.find-bar {
+  position: absolute;
+  top: 8px;
+  right: 16px;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: 32px;
+  padding: 0 4px 0 8px;
+  border-radius: 6px;
+  background-color: var(--secondary-highlight-color);
+  border: 1px solid var(--secondary-color);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  font-size: 13px;
+  color: var(--primary-color);
+}
+
+.find-bar__input {
+  width: 160px;
+  height: 24px;
+  padding: 0 4px;
+  border: none;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--primary-color);
+  font-size: 13px;
+  outline: none;
+  font-family: inherit;
+
+  &::placeholder {
+    color: var(--placeholder-color);
+  }
+
+  &::selection {
+    background-color: var(--accent-color);
+    color: #fff;
+  }
+}
+
+.find-bar__count {
+  min-width: 36px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--foreground-color);
+  white-space: nowrap;
+  user-select: none;
+  padding: 0 4px;
+}
+
+.find-bar__separator {
+  width: 1px;
+  height: 16px;
+  background-color: var(--secondary-color);
+  flex-shrink: 0;
+}
+
+.find-bar__btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--foreground-color);
+  cursor: pointer;
+  flex-shrink: 0;
+
+  svg {
+    fill: currentColor;
+  }
+
+  &:hover:not(:disabled) {
+    background-color: var(--highlight-color);
+    color: var(--primary-color);
+  }
+
+  &:disabled {
+    opacity: 0.35;
+    cursor: default;
+  }
+}

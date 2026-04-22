@@ -1,6 +1,7 @@
 import React, { Component, createRef } from 'react';
 import { connect } from 'react-redux';
 
+import FindBar from './components/find-bar';
 import MuyaEditor, { MuyaEditorHandle } from './components/muya-editor';
 import actions from './state/actions';
 import * as selectors from './state/selectors';
@@ -39,18 +40,23 @@ type DispatchProps = {
 
 type Props = OwnProps & StateProps & DispatchProps;
 
-class NoteContentEditor extends Component<Props> {
+type LocalState = {
+  showFindBar: boolean;
+};
+
+class NoteContentEditor extends Component<Props, LocalState> {
   muyaRef = createRef<MuyaEditorHandle>();
   matchCountTimer: ReturnType<typeof setTimeout> | null = null;
   matchCountIdleHandle: number | null = null;
   matchCountSeq = 0;
+  state: LocalState = { showFindBar: false };
 
   componentDidMount() {
     this.props.storeFocusEditor(this.focusEditor);
     this.props.storeHasFocus(this.hasFocus);
     window.addEventListener('toggleChecklist', this.handleChecklist, true);
+    window.addEventListener('keydown', this.handleFindShortcut, true);
     this.updateMatchesCount();
-    // Auto-focus editor when note opens - use delay for reliable focus in Electron
     this.focusEditorDelayed();
   }
 
@@ -63,6 +69,7 @@ class NoteContentEditor extends Component<Props> {
 
   componentWillUnmount() {
     window.removeEventListener('toggleChecklist', this.handleChecklist, true);
+    window.removeEventListener('keydown', this.handleFindShortcut, true);
     if (this.matchCountTimer) {
       clearTimeout(this.matchCountTimer);
       this.matchCountTimer = null;
@@ -200,6 +207,32 @@ class NoteContentEditor extends Component<Props> {
     }, delayMs);
   };
 
+  handleFindShortcut = (e: KeyboardEvent) => {
+    const cmdOrCtrl = e.metaKey || e.ctrlKey;
+    if (cmdOrCtrl && e.key.toLowerCase() === 'f' && !e.altKey && !e.shiftKey) {
+      e.preventDefault();
+      e.stopPropagation();
+      this.setState({ showFindBar: true });
+    }
+  };
+
+  handleFindSearch = (value: string) => {
+    return this.muyaRef.current?.search(value) ?? { total: 0, index: -1 };
+  };
+
+  handleFindNav = (action: 'previous' | 'next') => {
+    return this.muyaRef.current?.find(action) ?? { total: 0, index: -1 };
+  };
+
+  handleFindClear = () => {
+    this.muyaRef.current?.clearSearch();
+  };
+
+  handleFindClose = () => {
+    this.setState({ showFindBar: false });
+    this.focusEditor();
+  };
+
   // Handle click on editor shell - ensures focus even when Electron loses track
   handleShellClick = () => {
     // Only focus if not already focused to avoid disrupting selection
@@ -214,6 +247,14 @@ class NoteContentEditor extends Component<Props> {
         className="note-content-editor-shell"
         onClick={this.handleShellClick}
       >
+        {this.state.showFindBar && (
+          <FindBar
+            onSearch={this.handleFindSearch}
+            onFind={this.handleFindNav}
+            onClear={this.handleFindClear}
+            onClose={this.handleFindClose}
+          />
+        )}
         <MuyaEditor
           ref={this.muyaRef}
           noteId={this.props.noteId as unknown as string}

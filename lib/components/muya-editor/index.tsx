@@ -33,11 +33,16 @@ type Props = {
   onChange: (nextValue: string) => void;
 };
 
+export type SearchResult = { total: number; index: number };
+
 export type MuyaEditorHandle = {
   focus: () => void;
   hasFocus: () => boolean;
   insertText: (text: string) => void;
   insertChecklist: () => void;
+  search: (value: string) => SearchResult;
+  find: (action: 'previous' | 'next') => SearchResult;
+  clearSearch: () => void;
 };
 
 let muyaPluginsRegistered = false;
@@ -275,6 +280,55 @@ const MuyaEditor = forwardRef<MuyaEditorHandle, Props>(
       insertText('- [ ] ');
     };
 
+    const scrollToActiveMatch = (searchModule: any) => {
+      const idx = searchModule?.index;
+      const matches = searchModule?.matches;
+      if (idx == null || idx < 0 || !matches?.length) return;
+      const match = matches[idx];
+      const dom = match?.block?.domNode as HTMLElement | null;
+      if (!dom) return;
+      const scrollEl = wrapperRef.current;
+      if (!scrollEl) return;
+      const containerRect = scrollEl.getBoundingClientRect();
+      const domRect = dom.getBoundingClientRect();
+      const offsetFromTop = domRect.top - containerRect.top;
+      const targetScroll =
+        scrollEl.scrollTop + offsetFromTop - containerRect.height / 3;
+      scrollEl.scrollTo({
+        top: Math.max(0, targetScroll),
+        behavior: 'smooth',
+      });
+    };
+
+    const search = (value: string): SearchResult => {
+      const muya = muyaRef.current;
+      if (!muya || !canCall(muya, 'search')) return { total: 0, index: -1 };
+      const result = muya.search(value);
+      scrollToActiveMatch(result);
+      return {
+        total: result?.matches?.length ?? 0,
+        index: result?.index ?? -1,
+      };
+    };
+
+    const findMatch = (action: 'previous' | 'next'): SearchResult => {
+      const muya = muyaRef.current;
+      if (!muya || !canCall(muya, 'find')) return { total: 0, index: -1 };
+      const result = muya.find(action);
+      scrollToActiveMatch(result);
+      return {
+        total: result?.matches?.length ?? 0,
+        index: result?.index ?? -1,
+      };
+    };
+
+    const clearSearch = () => {
+      const muya = muyaRef.current;
+      if (muya && canCall(muya, 'search')) {
+        muya.search('');
+      }
+    };
+
     useImperativeHandle(
       ref,
       () => ({
@@ -282,6 +336,9 @@ const MuyaEditor = forwardRef<MuyaEditorHandle, Props>(
         hasFocus,
         insertText,
         insertChecklist,
+        search,
+        find: findMatch,
+        clearSearch,
       }),
       []
     );
