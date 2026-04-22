@@ -293,6 +293,21 @@ const buildFolderPath = (foldersArray, notebooksArray, folderId) => {
   return [notebookName, ...parts];
 };
 
+const computeNoteDir = (root, foldersArray, notebooksArray, noteId, note) => {
+  const folderParts = buildFolderPath(
+    foldersArray,
+    notebooksArray,
+    note.folderId || null
+  );
+  const folderDir = path.join(root, ...folderParts);
+  const title = noteTitleFromContent(note.content);
+  const noteDirName = safeName(title, 'New Note');
+  const noteDir = path.join(folderDir, noteDirName);
+  const htmlFile = path.join(noteDir, `${noteDirName}.html`);
+  const mdFile = path.join(noteDir, `${noteDirName}.md`);
+  return { noteDir, htmlFile, mdFile, folderDir, noteDirName, folderParts };
+};
+
 const getOrCreateNoteDir = (
   root,
   foldersArray,
@@ -300,23 +315,10 @@ const getOrCreateNoteDir = (
   noteId,
   note
 ) => {
-  const folderParts = buildFolderPath(
-    foldersArray,
-    notebooksArray,
-    note.folderId || null
-  );
-  const folderDir = path.join(root, ...folderParts);
-  ensureDir(folderDir);
-
-  const title = noteTitleFromContent(note.content);
-  const noteDirName = safeName(title, 'New Note');
-  const noteDir = path.join(folderDir, noteDirName);
-  ensureDir(noteDir);
-  ensureDir(path.join(noteDir, 'assets'));
-
-  const htmlFile = path.join(noteDir, `${noteDirName}.html`);
-  const mdFile = path.join(noteDir, `${noteDirName}.md`);
-  return { noteDir, htmlFile, mdFile, folderDir, noteDirName, folderParts };
+  const result = computeNoteDir(root, foldersArray, notebooksArray, noteId, note);
+  ensureDir(result.noteDir);
+  ensureDir(path.join(result.noteDir, 'assets'));
+  return result;
 };
 
 const validChannels = [
@@ -553,7 +555,7 @@ const electronAPI = {
           htmlFile: desiredHtmlFile,
           mdFile: desiredMdFile,
           noteDir: desiredNoteDir,
-        } = getOrCreateNoteDir(root, foldersArray, notebooksArray, noteId, note);
+        } = computeNoteDir(root, foldersArray, notebooksArray, noteId, note);
         let finalNoteDir = desiredNoteDir;
         let finalHtmlFile = desiredHtmlFile;
         let finalMdFile = desiredMdFile;
@@ -563,7 +565,28 @@ const electronAPI = {
           fs.existsSync(prevDir) &&
           path.resolve(prevDir) !== path.resolve(desiredNoteDir)
         ) {
+          const prevDirName = path.basename(prevDir);
           ensureDir(path.dirname(desiredNoteDir));
+
+          // Remove orphan empty dirs at the target (left by the old premature-
+          // mkdir bug) so the rename lands at the clean canonical path.
+          if (fs.existsSync(desiredNoteDir)) {
+            try {
+              const entries = fs.readdirSync(desiredNoteDir);
+              const isOrphan =
+                entries.length === 0 ||
+                (entries.length === 1 &&
+                  entries[0] === 'assets' &&
+                  fs.readdirSync(path.join(desiredNoteDir, 'assets'))
+                    .length === 0);
+              if (isOrphan) {
+                fs.rmSync(desiredNoteDir, { recursive: true, force: true });
+              }
+            } catch {
+              // best-effort orphan cleanup
+            }
+          }
+
           const uniqueTarget = ensureUniqueDirPath(desiredNoteDir);
           fs.renameSync(prevDir, uniqueTarget);
           cleanupEmptyDirs(path.dirname(prevDir), root);
@@ -571,6 +594,29 @@ const electronAPI = {
           const newDirName = path.basename(uniqueTarget);
           finalHtmlFile = path.join(uniqueTarget, `${newDirName}.html`);
           finalMdFile = path.join(uniqueTarget, `${newDirName}.md`);
+
+          // Remove stale content files left over from the old directory name.
+          if (prevDirName !== newDirName) {
+            try {
+              const staleHtml = path.join(finalNoteDir, `${prevDirName}.html`);
+              const staleMd = path.join(finalNoteDir, `${prevDirName}.md`);
+              if (fs.existsSync(staleHtml)) fs.unlinkSync(staleHtml);
+              if (fs.existsSync(staleMd)) fs.unlinkSync(staleMd);
+            } catch {
+              // best-effort stale file cleanup
+            }
+          }
+        }
+
+        // For new notes (no prevDir), deduplicate against existing dirs on disk.
+        if (!prevDir && fs.existsSync(finalNoteDir)) {
+          const uniqueTarget = ensureUniqueDirPath(finalNoteDir);
+          if (uniqueTarget !== finalNoteDir) {
+            finalNoteDir = uniqueTarget;
+            const newDirName = path.basename(uniqueTarget);
+            finalHtmlFile = path.join(uniqueTarget, `${newDirName}.html`);
+            finalMdFile = path.join(uniqueTarget, `${newDirName}.md`);
+          }
         }
 
         ensureDir(finalNoteDir);
