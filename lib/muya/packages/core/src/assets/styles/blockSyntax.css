@@ -324,6 +324,9 @@ li.mu-task-list-item > input[type='checkbox'] {
   margin: calc((1.6em - 20px) / 2) 0 0;
   transform-origin: center;
   cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  caret-color: transparent;
   appearance: none;
   -webkit-appearance: none;
   width: 20px;
@@ -359,9 +362,13 @@ li.mu-task-list-item > span.mu-task-list-checkbox {
   width: 20px;
   height: 20px;
   margin: calc((1.6em - 20px) / 2) 0 0;
+  cursor: pointer;
   border: 1.5px solid var(--checkbox-border-color, #aaa);
   border-radius: 50%;
   background: var(--background-color);
+  user-select: none;
+  -webkit-user-select: none;
+  caret-color: transparent;
   box-sizing: border-box;
   position: relative;
 }
