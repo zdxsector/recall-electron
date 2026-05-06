@@ -321,7 +321,7 @@ li.mu-task-list-item > span.mu-checkbox-checked ~ .mu-content .mu-paragraph-cont
 /* Custom circular checkbox */
 li.mu-task-list-item > input[type='checkbox'] {
   grid-column: 1;
-  margin: calc((1.6em - 20px) / 2 + 2px) 0 0;
+  margin: calc((1.6em - 20px) / 2) 0 0;
   transform-origin: center;
   cursor: pointer;
   appearance: none;
@@ -358,7 +358,7 @@ li.mu-task-list-item > span.mu-task-list-checkbox {
   display: inline-block;
   width: 20px;
   height: 20px;
-  margin: calc((1.6em - 20px) / 2 + 2px) 0 0;
+  margin: calc((1.6em - 20px) / 2) 0 0;
   border: 1.5px solid var(--checkbox-border-color, #aaa);
   border-radius: 50%;
   background: var(--background-color);
