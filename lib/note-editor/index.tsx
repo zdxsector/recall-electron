@@ -14,11 +14,13 @@ type StateProps = {
   hasSearchMatchesInNote: boolean;
   hasSearchQuery: boolean;
   keyboardShortcuts: boolean;
-  noteId: T.EntityId;
-  note: T.Note;
+  noteId: T.EntityId | null;
+  note: T.Note | null;
+  searchQuery: string;
 };
 
 type DispatchProps = {
+  createNote: (note?: Partial<T.Note>) => any;
   toggleNoteList: () => any;
 };
 
@@ -30,6 +32,7 @@ export class NoteEditor extends Component<Props> {
   // Class property declarations for focus management
   private editorHasFocus?: () => boolean;
   private focusNoteEditor?: () => void;
+  private isCreatingEmptyNote = false;
 
   componentDidMount() {
     this.toggleShortcuts(true);
@@ -37,6 +40,12 @@ export class NoteEditor extends Component<Props> {
 
   componentWillUnmount() {
     this.toggleShortcuts(false);
+  }
+
+  componentDidUpdate(prevProps: Props) {
+    if (!prevProps.note && this.props.note) {
+      this.isCreatingEmptyNote = false;
+    }
   }
 
   handleShortcut = (event: KeyboardEvent) => {
@@ -77,11 +86,54 @@ export class NoteEditor extends Component<Props> {
     }
   };
 
+  createNoteFromEmptyEditor = (content?: string) => {
+    if (this.props.note || this.isCreatingEmptyNote) {
+      return;
+    }
+
+    this.isCreatingEmptyNote = true;
+
+    const fallbackContent = this.props.searchQuery;
+    const nextContent = content ?? fallbackContent;
+    const titleContent = nextContent ? `# ${nextContent}` : '# ';
+
+    this.props.createNote({ content: titleContent });
+  };
+
+  handleEmptyEditorKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (event.metaKey || event.ctrlKey || event.altKey) {
+      return;
+    }
+
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      this.createNoteFromEmptyEditor();
+      return;
+    }
+
+    if (event.key.length === 1) {
+      event.preventDefault();
+      this.createNoteFromEmptyEditor(event.key);
+    }
+  };
+
   render() {
-    const { hasSearchQuery, hasSearchMatchesInNote, note, noteId } = this.props;
+    const { hasSearchQuery, hasSearchMatchesInNote, note } = this.props;
 
     if (!note) {
-      return <div className="note-detail-placeholder" />;
+      return (
+        <div
+          aria-label="New note editor"
+          aria-multiline="true"
+          className="note-editor note-editor--empty"
+          onClick={() => this.createNoteFromEmptyEditor()}
+          onKeyDown={this.handleEmptyEditorKeyDown}
+          role="textbox"
+          tabIndex={0}
+        >
+          <div className="note-editor-empty-surface" />
+        </div>
+      );
     }
 
     return (
@@ -101,6 +153,7 @@ const mapStateToProps: S.MapState<StateProps> = (state) => ({
   isEditorActive: !state.ui.showNavigation,
   noteId: state.ui.openedNote,
   note: state.data.notes.get(state.ui.openedNote),
+  searchQuery: state.ui.searchQuery,
   revision: state.ui.selectedRevision,
   hasSearchQuery: state.ui.searchQuery !== '',
   hasSearchMatchesInNote:
@@ -110,6 +163,7 @@ const mapStateToProps: S.MapState<StateProps> = (state) => ({
 });
 
 const mapDispatchToProps: S.MapDispatch<DispatchProps> = {
+  createNote: actions.ui.createNote,
   toggleNoteList: actions.ui.toggleNoteList,
 };
 

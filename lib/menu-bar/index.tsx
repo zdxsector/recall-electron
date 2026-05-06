@@ -8,10 +8,9 @@ import { connect } from 'react-redux';
  * Internal dependencies
  */
 import IconButton from '../icon-button';
-import { isMac, CmdOrCtrl } from '../utils/platform';
+import { isMac } from '../utils/platform';
 import SidebarIcon from '../icons/sidebar';
-import NewNoteIcon from '../icons/new-note';
-import { toggleNavigation, createNote } from '../state/ui/actions';
+import { toggleNavigation as toggleNavigationAction } from '../state/ui/actions';
 import * as selectors from '../state/selectors';
 
 import * as S from '../state';
@@ -26,12 +25,10 @@ type OwnProps = {
 type StateProps = {
   collectionTitle: string;
   isNavigationOpen: boolean;
-  searchQuery: string;
 };
 
 type DispatchProps = {
   toggleNavigation: () => any;
-  onNewNote: (content: string) => any;
 };
 
 type Props = OwnProps & StateProps & DispatchProps;
@@ -39,9 +36,7 @@ type Props = OwnProps & StateProps & DispatchProps;
 export const MenuBar: FunctionComponent<Props> = ({
   collectionTitle,
   isNavigationOpen,
-  searchQuery,
   toggleNavigation,
-  onNewNote,
 }) => {
   // On Windows Electron we use a custom title bar that already includes
   // the navigation toggle + collection title.
@@ -70,19 +65,6 @@ export const MenuBar: FunctionComponent<Props> = ({
             </div>
           </div>
         </div>
-        <div className="menu-bar__right">
-          <div className="menu-bar__new-note">
-            <button
-              type="button"
-              aria-label="New Note"
-              className="icon-button"
-              title={`New Note • ${CmdOrCtrl}+Shift+I`}
-              onClick={() => onNewNote(searchQuery)}
-            >
-              <NewNoteIcon />
-            </button>
-          </div>
-        </div>
       </div>
     </div>
   );
@@ -91,17 +73,13 @@ export const MenuBar: FunctionComponent<Props> = ({
 const mapStateToProps: S.MapState<StateProps> = (state) => ({
   collectionTitle: selectors.collectionTitle(state),
   isNavigationOpen: state.ui.showNavigation,
-  searchQuery: state.ui.searchQuery,
 });
 
 const mapDispatchToProps: S.MapDispatch<DispatchProps, OwnProps> = (
   dispatch
 ) => ({
   toggleNavigation: () => {
-    dispatch(toggleNavigation());
-  },
-  onNewNote: (content: string) => {
-    dispatch(createNote(content));
+    dispatch(toggleNavigationAction());
   },
 });
 

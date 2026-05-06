@@ -22,11 +22,6 @@
   }
 }
 
-// When sidebar is collapsed, note-toolbar may be at left:0 and needs traffic light clearance
-.is-macos .app-layout__nav-column[data-collapsed='true'] ~ .app-layout__note-column .note-toolbar-wrapper {
-  padding-left: 93px;
-}
-
 .note-toolbar-wrapper .offline-badge {
   border: solid 1px var(--note-list-separator-color);
   border-radius: 2px;

@@ -37,6 +37,7 @@ export type SearchResult = { total: number; index: number };
 
 export type MuyaEditorHandle = {
   focus: () => void;
+  focusTitle: () => void;
   hasFocus: () => boolean;
   insertText: (text: string) => void;
   insertChecklist: () => void;
@@ -193,12 +194,25 @@ const MuyaEditor = forwardRef<MuyaEditorHandle, Props>(
       el?.focus();
     };
 
+    const focusTitle = () => {
+      const firstLeafBlock =
+        muyaRef.current?.editor?.scrollPage?.firstContentInDescendant?.();
+
+      if (firstLeafBlock?.blockName === 'atxheading.content') {
+        const offset = String(firstLeafBlock.text ?? '').length;
+        firstLeafBlock.setCursor(offset, offset, true);
+        return;
+      }
+
+      focus();
+    };
+
     const focusPreservingSelection = () => {
       const root = wrapperRef.current;
       if (!root) return;
-      const el = root.querySelector('[contenteditable="true"]') as
-        | HTMLElement
-        | null;
+      const el = root.querySelector(
+        '[contenteditable="true"]'
+      ) as HTMLElement | null;
       const selection = document.getSelection();
       const lastRange = lastSelectionRangeRef.current;
       if (
@@ -283,7 +297,9 @@ const MuyaEditor = forwardRef<MuyaEditorHandle, Props>(
     const scrollToActiveMatch = (searchModule: any) => {
       const idx = searchModule?.index;
       const matches = searchModule?.matches;
-      if (idx == null || idx < 0 || !matches?.length) return;
+      if (idx === null || idx === undefined || idx < 0 || !matches?.length) {
+        return;
+      }
       const match = matches[idx];
       const dom = match?.block?.domNode as HTMLElement | null;
       if (!dom) return;
@@ -300,10 +316,10 @@ const MuyaEditor = forwardRef<MuyaEditorHandle, Props>(
       });
     };
 
-    const search = (value: string): SearchResult => {
+    const search = (query: string): SearchResult => {
       const muya = muyaRef.current;
       if (!muya || !canCall(muya, 'search')) return { total: 0, index: -1 };
-      const result = muya.search(value);
+      const result = muya.search(query);
       scrollToActiveMatch(result);
       return {
         total: result?.matches?.length ?? 0,
@@ -333,6 +349,7 @@ const MuyaEditor = forwardRef<MuyaEditorHandle, Props>(
       ref,
       () => ({
         focus,
+        focusTitle,
         hasFocus,
         insertText,
         insertChecklist,
@@ -425,7 +442,7 @@ const MuyaEditor = forwardRef<MuyaEditorHandle, Props>(
 
       const cancelIdleFlush = () => {
         const h = idleFlushHandleRef.current;
-        if (h == null) return;
+        if (h === null || h === undefined) return;
         try {
           (window as any).cancelIdleCallback?.(h);
         } catch {
@@ -456,10 +473,13 @@ const MuyaEditor = forwardRef<MuyaEditorHandle, Props>(
           return;
         }
         // Fallback when requestIdleCallback isn't available.
-        idleFlushHandleRef.current = window.setTimeout(() => {
-          idleFlushHandleRef.current = null;
-          fn();
-        }, Math.min(250, timeoutMs)) as unknown as number;
+        idleFlushHandleRef.current = window.setTimeout(
+          () => {
+            idleFlushHandleRef.current = null;
+            fn();
+          },
+          Math.min(250, timeoutMs)
+        ) as unknown as number;
       };
 
       const flushFromMuya = (reason: FlushReason = 'input') => {
@@ -629,7 +649,7 @@ const MuyaEditor = forwardRef<MuyaEditorHandle, Props>(
           const isInList = activeElement?.closest?.(
             '.mu-bullet-list, .mu-order-list, .mu-task-list, .mu-list-item'
           );
-          
+
           if (isInList) {
             // Immediate flush for list operations to prevent state desync
             // that can cause "cannot erase next bullet item" issues
@@ -759,7 +779,9 @@ const MuyaEditor = forwardRef<MuyaEditorHandle, Props>(
         if (!f) return false;
         if (f.type && f.type.startsWith('image/')) return true;
         // Some clipboard providers leave `file.type` empty; fall back to extension.
-        return /\.(png|jpe?g|gif|webp|svg|bmp|tiff?)$/i.test(String(f.name || ''));
+        return /\.(png|jpe?g|gif|webp|svg|bmp|tiff?)$/i.test(
+          String(f.name || '')
+        );
       };
 
       const saveUrlToAssets = async (url: string) => {

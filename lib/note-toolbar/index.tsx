@@ -17,11 +17,12 @@ import * as T from '../types';
 type StateProps = {
   isOffline: boolean;
   note: T.Note | null;
+  searchQuery: string;
 };
 
 type DispatchProps = {
   deleteNoteForever: () => any;
-  newNote: () => any;
+  newNote: (content: string) => any;
   restoreNote: () => any;
   trashNote: () => any;
   toggleNoteActions: () => any;
@@ -44,18 +45,22 @@ export class NoteToolbar extends Component<Props> {
   }
 
   renderNormal = () => {
-    const { newNote, isOffline, note, toggleNoteActions, toggleNoteInfo } =
-      this.props;
+    const {
+      newNote,
+      isOffline,
+      note,
+      searchQuery,
+      toggleNoteActions,
+      toggleNoteInfo,
+    } = this.props;
 
-    return !note ? (
-      <div className="note-toolbar-placeholder" />
-    ) : (
+    return (
       <div aria-label="note actions" role="toolbar" className="note-toolbar">
         <div className="note-toolbar__column-left">
-          <div className="note-toolbar__button new-note-toolbar__button-sidebar">
+          <div className="note-toolbar__button menu-bar__new-note">
             <IconButton
               icon={<NewNoteIcon />}
-              onClick={() => newNote()}
+              onClick={() => newNote(searchQuery)}
               title={`New Note • ${CmdOrCtrl}+Shift+I`}
             />
           </div>
@@ -68,36 +73,38 @@ export class NoteToolbar extends Component<Props> {
           </div>
         </div>
         {isOffline && <div className="offline-badge">OFFLINE</div>}
-        <div className="note-toolbar__column-right">
-          <div className="note-toolbar__button">
-            <IconButton
-              icon={<TrashIcon />}
-              onClick={this.props.trashNote}
-              title="Delete note"
-            />
-          </div>
-          {/* <div className="note-toolbar__button">
+        {note && (
+          <div className="note-toolbar__column-right">
+            <div className="note-toolbar__button">
+              <IconButton
+                icon={<TrashIcon />}
+                onClick={this.props.trashNote}
+                title="Delete note"
+              />
+            </div>
+            {/* <div className="note-toolbar__button">
             <IconButton
               icon={<ChecklistIcon />}
               onClick={() => window.dispatchEvent(new Event('toggleChecklist'))}
               title={`Insert Checklist • ${CmdOrCtrl}+Shift+C`}
             />
           </div> */}
-          <div className="note-toolbar__button">
-            <IconButton
-              icon={<InfoIcon />}
-              onClick={toggleNoteInfo}
-              title="Info"
-            />
+            <div className="note-toolbar__button">
+              <IconButton
+                icon={<InfoIcon />}
+                onClick={toggleNoteInfo}
+                title="Info"
+              />
+            </div>
+            <div className="note-toolbar__button">
+              <IconButton
+                icon={<EllipsisOutlineIcon />}
+                onClick={toggleNoteActions}
+                title="Actions"
+              />
+            </div>
           </div>
-          <div className="note-toolbar__button">
-            <IconButton
-              icon={<EllipsisOutlineIcon />}
-              onClick={toggleNoteActions}
-              title="Actions"
-            />
-          </div>
-        </div>
+        )}
       </div>
     );
   };
@@ -142,7 +149,7 @@ export class NoteToolbar extends Component<Props> {
 
 const mapStateToProps: S.MapState<StateProps> = ({
   data,
-  ui: { openedNote },
+  ui: { openedNote, searchQuery },
   simperium: { connectionStatus },
 }) => {
   const note = openedNote ? (data.notes.get(openedNote) ?? null) : null;
@@ -150,12 +157,14 @@ const mapStateToProps: S.MapState<StateProps> = ({
   return {
     isOffline: connectionStatus === 'offline',
     note,
+    searchQuery,
   };
 };
 
 const mapDispatchToProps: S.MapDispatch<DispatchProps> = {
   deleteNoteForever: actions.ui.deleteOpenNoteForever,
-  newNote: actions.ui.createNote,
+  newNote: (content: string) =>
+    actions.ui.createNote({ content: content ? `# ${content}` : '# ' }),
   restoreNote: actions.ui.restoreOpenNote,
   trashNote: actions.ui.trashOpenNote,
   toggleNoteActions: actions.ui.toggleNoteActions,

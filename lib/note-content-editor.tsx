@@ -74,7 +74,7 @@ class NoteContentEditor extends Component<Props, LocalState> {
       clearTimeout(this.matchCountTimer);
       this.matchCountTimer = null;
     }
-    if (this.matchCountIdleHandle != null) {
+    if (this.matchCountIdleHandle !== null) {
       try {
         (window as any).cancelIdleCallback?.(this.matchCountIdleHandle);
       } catch {
@@ -132,7 +132,19 @@ class NoteContentEditor extends Component<Props, LocalState> {
     this.focusEditor();
   };
 
-  focusEditor = () => this.muyaRef.current?.focus();
+  focusEditor = () => {
+    const editor = this.muyaRef.current;
+    if (!editor) {
+      return;
+    }
+
+    if (typeof editor.focusTitle === 'function') {
+      editor.focusTitle();
+      return;
+    }
+
+    editor.focus();
+  };
 
   hasFocus = () => this.muyaRef.current?.hasFocus() || false;
 
@@ -185,7 +197,10 @@ class NoteContentEditor extends Component<Props, LocalState> {
         this.props.storeNumberOfMatchesInNote(count);
       };
 
-      if (isLarge && typeof (window as any).requestIdleCallback === 'function') {
+      if (
+        isLarge &&
+        typeof (window as any).requestIdleCallback === 'function'
+      ) {
         try {
           this.matchCountIdleHandle = (window as any).requestIdleCallback(
             () => {

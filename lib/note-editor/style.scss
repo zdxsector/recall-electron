@@ -5,3 +5,17 @@
   user-select: text;
   background-color: var(--background-color);
 }
+
+.note-editor--empty {
+  min-height: 0;
+}
+
+.note-editor-empty-surface {
+  flex: 1 1 auto;
+  width: 100%;
+  cursor: text;
+
+  &:focus {
+    outline: none;
+  }
+}
