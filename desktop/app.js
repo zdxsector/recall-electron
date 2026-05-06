@@ -38,6 +38,31 @@ const contextMenu = require('./context-menu');
 
 require('module').globalPaths.push(path.resolve(path.join(__dirname)));
 
+const DEFAULT_WINDOW_WIDTH = 1024;
+const DEFAULT_WINDOW_HEIGHT = 768;
+
+const getDefaultWindowBounds = (win) => {
+  const currentBounds = win.getBounds();
+  const { workArea } = screen.getDisplayMatching(currentBounds);
+  const width = Math.min(DEFAULT_WINDOW_WIDTH, workArea.width);
+  const height = Math.min(DEFAULT_WINDOW_HEIGHT, workArea.height);
+
+  return {
+    width,
+    height,
+    x: Math.round(workArea.x + (workArea.width - width) / 2),
+    y: Math.round(workArea.y + (workArea.height - height) / 2),
+  };
+};
+
+const restoreWindowToDefaultSize = (win) => {
+  const bounds = getDefaultWindowBounds(win);
+  if (win.isMaximized()) {
+    win.unmaximize();
+  }
+  win.setBounds(bounds);
+};
+
 module.exports = function main() {
   // Keep a global reference of the window object, if you don't, the window will
   // be closed automatically when the JavaScript object is GCed.
@@ -107,8 +132,8 @@ module.exports = function main() {
     }
 
     const mainWindowState = windowStateKeeper({
-      defaultWidth: 1024,
-      defaultHeight: 768,
+      defaultWidth: DEFAULT_WINDOW_WIDTH,
+      defaultHeight: DEFAULT_WINDOW_HEIGHT,
     });
 
     const isWindows = process.platform === 'win32';
@@ -296,8 +321,14 @@ module.exports = function main() {
       try {
         const win = BrowserWindow.fromWebContents(event.sender);
         if (!win) return;
-        if (win.isMaximized()) {
-          win.unmaximize();
+        const bounds = getDefaultWindowBounds(win);
+        const currentBounds = win.getBounds();
+        const isDefaultSize =
+          Math.abs(currentBounds.width - bounds.width) <= 1 &&
+          Math.abs(currentBounds.height - bounds.height) <= 1;
+
+        if (win.isMaximized() || !isDefaultSize) {
+          restoreWindowToDefaultSize(win);
         } else {
           win.maximize();
         }

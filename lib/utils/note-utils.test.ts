@@ -1,6 +1,7 @@
 import noteTitleAndPreview, {
   maxTitleChars,
   maxPreviewChars,
+  normalizeNoteTitleForDisplay,
 } from './note-utils';
 
 describe('noteTitleAndPreview', () => {
@@ -24,6 +25,34 @@ describe('noteTitleAndPreview', () => {
     note.systemTags = ['markdown'];
     const result = noteTitleAndPreview(note);
     expect(result).toEqual({ preview: '', title: 'No Title' });
+  });
+
+  it('should treat empty heading markers as untitled', () => {
+    note.content = '#\u200b';
+    note.systemTags = ['markdown'];
+    const result = noteTitleAndPreview(note);
+    expect(result).toEqual({ preview: '', title: 'No Title' });
+  });
+
+  it('should normalize marker-only display titles as untitled', () => {
+    expect(normalizeNoteTitleForDisplay('#')).toBe('No Title');
+  });
+
+  it('should remove the heading marker from newly typed h1 titles', () => {
+    note.content = '#My title';
+    note.systemTags = ['markdown'];
+    const result = noteTitleAndPreview(note);
+    expect(result).toEqual({ preview: '', title: 'My title' });
+  });
+
+  it('should skip an empty heading marker before choosing the title line', () => {
+    note.content = '#\nMy title\nThe preview';
+    note.systemTags = ['markdown'];
+    const result = noteTitleAndPreview(note);
+    expect(result).toEqual({
+      title: 'My title',
+      preview: 'The preview',
+    });
   });
 
   it('should skip an invisible first line and use the next visible text line as title', () => {

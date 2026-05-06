@@ -25,14 +25,20 @@ export const normalizeNoteTitleForDisplay = (value: unknown): string => {
   const normalized = stripInvisibleChars(String(value ?? ''))
     .replace(/<[^>]*>?/g, '')
     .trim();
-  return normalized || untitledNoteTitle;
+  if (/^#{1,6}$/.test(normalized)) {
+    return untitledNoteTitle;
+  }
+  const withoutHeadingMarker = normalized
+    .replace(/^#{1,6}(?:\s+|(?=\S))/, '')
+    .trim();
+  return withoutHeadingMarker || untitledNoteTitle;
 };
 
 const IMAGE_LINE_RE = /^!\[([^\]]*)\]\(([^)]+)\)/;
 const IMAGE_LINE_ONLY_RE = /^\s*!\[[^\]]*\]\([^)]+\)\s*$/;
 const HTML_IMAGE_LINE_ONLY_RE = /^\s*<img\b[^>]*>\s*$/i;
 const HTML_IMAGE_ALT_RE = /\balt\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/i;
-const HEADING_RE = /^\s*#{1,6}\s+(.*)$/;
+const HEADING_RE = /^\s*#{1,6}(?:\s+|(?=\S))(.*)$/;
 const TASK_LINE_RE = /^\s*-\s*\[(?: |x|X)\]\s*(.*)$/;
 
 type ReadLineResult = { line: string; nextOffset: number; done: boolean };
@@ -79,6 +85,12 @@ const findTitleLineIndex = (content: string): number => {
     const rawTrimmed = String(line).trim();
     const visibleTrimmed = stripInvisibleChars(rawTrimmed).trim();
     if (visibleTrimmed) {
+      if (/^#{1,6}$/.test(visibleTrimmed)) {
+        if (done) break;
+        i++;
+        continue;
+      }
+
       const imgMatch = IMAGE_LINE_RE.exec(rawTrimmed);
       if (imgMatch || HTML_IMAGE_LINE_ONLY_RE.test(rawTrimmed)) {
         if (firstImageIdx === null) firstImageIdx = i;
@@ -134,7 +146,7 @@ export const getTitle = (content) => {
       if (title) return title.slice(0, maxTitleChars);
     }
 
-    if (/^\s*#{1,6}\s*$/.test(rawTrimmed)) {
+    if (/^#{1,6}$/.test(visibleTrimmed)) {
       if (done) break;
       continue;
     }
@@ -247,13 +259,15 @@ const getPreview = (content: string, searchQuery?: string) => {
       if (done) break;
       continue;
     }
+    if (/^#{1,6}$/.test(visibleTrimmed)) {
+      idx++;
+      if (done) break;
+      continue;
+    }
     // Skip empty task list items (`- [ ]` with no text) so the preview
     // doesn’t show a dangling checkbox row.
     const taskMatch = TASK_LINE_RE.exec(rawTrimmed);
-    if (
-      taskMatch &&
-      !stripInvisibleChars(String(taskMatch[1] ?? '')).trim()
-    ) {
+    if (taskMatch && !stripInvisibleChars(String(taskMatch[1] ?? '')).trim()) {
       idx++;
       if (done) break;
       continue;
