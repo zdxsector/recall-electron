@@ -43,7 +43,7 @@ test.afterAll(async () => {
 // ---------------------------------------------------------------------------
 
 async function createNewNote() {
-  const newNoteBtn = window.locator('[aria-label="New Note"]');
+  const newNoteBtn = window.getByRole('button', { name: /^New Note/ });
   await expect(newNoteBtn).toBeVisible({ timeout: 10_000 });
   await newNoteBtn.click();
   // Wait for editor to mount

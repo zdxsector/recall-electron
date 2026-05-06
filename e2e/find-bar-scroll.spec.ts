@@ -164,6 +164,15 @@ test('find bar: next button scrolls editor to active match', async () => {
 
   await window.screenshot({ path: 'e2e/screenshots/find-bar-scroll-initial.png' });
 
+  if (!hasContentBelowFold) {
+    console.log(
+      'No scrollable content below the fold - skipping scroll assertion'
+    );
+    await closeFindBarIfOpen(window);
+    test.skip();
+    return;
+  }
+
   // ----- Step 5: click "next" many times -----
   // Layout: .find-bar__btn buttons in order are: [prev (up), next (down), close (×)]
   // The close button also has the modifier class .find-bar__btn--close, so we

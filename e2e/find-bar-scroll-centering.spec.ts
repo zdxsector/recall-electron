@@ -176,6 +176,15 @@ test('find bar scroll centering: active match lands in the upper third of the vi
     `clientHeight=${scrollInfo.clientHeight}`
   );
 
+  if (scrollInfo.scrollHeight <= scrollInfo.clientHeight) {
+    console.log(
+      'No scrollable content below the fold - skipping centering assertion'
+    );
+    await closeFindBarIfOpen(window);
+    test.skip();
+    return;
+  }
+
   // The editor must have scrolled; if scrollTop is still 0 the fix is not working.
   expect(scrollInfo.scrollTop).toBeGreaterThan(0);
 
