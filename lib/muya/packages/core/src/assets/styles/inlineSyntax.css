@@ -34,8 +34,8 @@ code.mu-inline-rule {
   color: var(--editor-color);
   font-size: 0.8em;
   font-family:
-    'DejaVu Sans Mono', 'Source Code Pro', 'Droid Sans Mono', Consolas,
-    monospace;
+    'SF Mono', 'SFMono-Regular', 'SF Pro Mono', ui-monospace, Menlo, Monaco,
+    Consolas, 'Liberation Mono', 'Courier New', monospace;
 
   background-color: var(--code-block-bg-color);
   border-radius: 3px;

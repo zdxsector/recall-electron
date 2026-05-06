@@ -1,8 +1,11 @@
 .markdown-body {
   font-family:
+    'SF Pro',
+    'SF Pro Text',
+    'SF Pro Display',
     -apple-system,
-    Segoe UI,
-    Helvetica,
+    BlinkMacSystemFont,
+    'Helvetica Neue',
     Arial,
     sans-serif,
     Apple Color Emoji,
@@ -27,6 +30,9 @@
 }
 
 .markdown-body pre {
+  font-family:
+    'SF Mono', 'SFMono-Regular', 'SF Pro Mono', ui-monospace, Menlo, Monaco,
+    Consolas, 'Liberation Mono', 'Courier New', monospace;
   white-space: pre-wrap;
 }
 

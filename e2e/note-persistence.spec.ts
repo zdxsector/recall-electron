@@ -1,16 +1,18 @@
-import { test, expect, type ElectronApplication, type Page } from '@playwright/test';
-import { _electron as electron } from 'playwright';
+import { test, expect, type Page } from '@playwright/test';
 import path from 'path';
 import fs from 'fs';
-import os from 'os';
+import {
+  closeIsolatedElectronApp,
+  type IsolatedElectronApp,
+  launchIsolatedElectronApp,
+} from './helpers/electron-app';
 
-const NOTES_ROOT_NAME = 'Recall';
 const META_DIR_NAME = '.recall';
 const META_FILE_NAME = 'store.json';
 
-let electronApp: ElectronApplication;
 let window: Page;
 let notesRoot: string;
+let appContext: IsolatedElectronApp;
 
 const readStoreMeta = () => {
   const metaPath = path.join(notesRoot, META_DIR_NAME, META_FILE_NAME);
@@ -39,29 +41,13 @@ const listNoteDirsUnder = (baseDir: string): string[] => {
 
 test.describe('note persistence — folder lifecycle (E2E via preload bridge)', () => {
   test.beforeAll(async () => {
-    const docs = path.join(os.homedir(), 'Documents');
-    notesRoot = path.join(docs, NOTES_ROOT_NAME);
-
-    electronApp = await electron.launch({
-      args: [path.join(__dirname, '..', 'desktop', 'index.js')],
-      cwd: path.join(__dirname, '..'),
-      env: {
-        ...process.env,
-        NODE_ENV: 'test',
-      },
-    });
-
-    window = await electronApp.firstWindow();
-    await window.waitForLoadState('domcontentloaded');
-    await window.locator('.recall-app').waitFor({ timeout: 15_000 });
+    appContext = await launchIsolatedElectronApp({ seedNotes: false });
+    window = appContext.window;
+    notesRoot = appContext.notesRoot;
   });
 
   test.afterAll(async () => {
-    if (electronApp) {
-      try {
-        electronApp.process().kill('SIGKILL');
-      } catch {}
-    }
+    await closeIsolatedElectronApp(appContext);
   });
 
   const makePayload = (

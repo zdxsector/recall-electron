@@ -270,6 +270,135 @@ const noteTitleFromContent = (content) => {
   return title || 'New Note';
 };
 
+const pathPartsFromRel = (relPath) =>
+  String(relPath || '')
+    .split(/[\\/]+/)
+    .map((part) => part.trim())
+    .filter(Boolean);
+
+const getOrCreateRecoveredNotebook = (notebooks, name) => {
+  for (const [notebookId, notebook] of notebooks) {
+    if (notebook?.name === name) {
+      return notebookId;
+    }
+  }
+
+  const notebookId = `recovered-notebook:${name}`;
+  notebooks.set(notebookId, { name, index: notebooks.size });
+  return notebookId;
+};
+
+const getOrCreateRecoveredFolder = (
+  folders,
+  notebookId,
+  parentFolderId,
+  pathKey,
+  name
+) => {
+  for (const [folderId, folder] of folders) {
+    if (
+      folder?.name === name &&
+      folder?.notebookId === notebookId &&
+      (folder?.parentFolderId ?? null) === (parentFolderId ?? null)
+    ) {
+      return folderId;
+    }
+  }
+
+  const folderId = `recovered-folder:${pathKey}`;
+  folders.set(folderId, {
+    name,
+    notebookId,
+    parentFolderId: parentFolderId ?? null,
+    index: folders.size,
+  });
+  return folderId;
+};
+
+const recoverStateFromNotePaths = (root, rawMeta) => {
+  const notesArray = rawMeta?.notes ?? [];
+  const notePaths = rawMeta?.notePaths ?? {};
+  const notePathEntries = Object.entries(notePaths);
+
+  if (notesArray.length > 0 || notePathEntries.length === 0) {
+    return rawMeta;
+  }
+
+  const notebooks = new Map(rawMeta?.notebooks ?? []);
+  const folders = new Map(rawMeta?.folders ?? []);
+  const recoveredNotes = [];
+
+  for (const [noteId, notePath] of notePathEntries) {
+    try {
+      const relCandidates = [notePath?.mdRel, notePath?.htmlRel].filter(Boolean);
+      const fileRel = relCandidates.find((rel) =>
+        fs.existsSync(path.join(root, rel))
+      );
+      if (!fileRel) {
+        continue;
+      }
+
+      const filePath = path.join(root, fileRel);
+      const raw = fs.readFileSync(filePath, 'utf8');
+      const isHtml = /\.html$/i.test(fileRel);
+      const content = isHtml ? legacyHtmlToMarkdown(raw) || raw : raw;
+      const stat = fs.statSync(filePath);
+
+      const dirParts = pathPartsFromRel(
+        notePath?.dirRel || path.dirname(fileRel)
+      );
+      dirParts.pop();
+      const notebookName = dirParts.shift() || 'Notebooks';
+      const notebookId = getOrCreateRecoveredNotebook(notebooks, notebookName);
+      const folderNames = dirParts.length > 0 ? dirParts : ['Inbox'];
+      let parentFolderId = null;
+      const folderPathParts = [notebookName];
+
+      for (const folderName of folderNames) {
+        folderPathParts.push(folderName);
+        parentFolderId = getOrCreateRecoveredFolder(
+          folders,
+          notebookId,
+          parentFolderId,
+          folderPathParts.join('/'),
+          folderName
+        );
+      }
+
+      recoveredNotes.push([
+        noteId,
+        {
+          content,
+          creationDate: stat.birthtimeMs / 1000,
+          modificationDate: stat.mtimeMs / 1000,
+          deleted: false,
+          publishURL: '',
+          shareURL: '',
+          systemTags: ['markdown'],
+          tags: [],
+          folderId: parentFolderId,
+        },
+      ]);
+    } catch (e) {
+      if (DEBUG_PERSIST) {
+        // eslint-disable-next-line no-console
+        console.error('Failed to recover note from notePaths:', noteId, e);
+      }
+    }
+  }
+
+  if (recoveredNotes.length === 0) {
+    return rawMeta;
+  }
+
+  return {
+    ...rawMeta,
+    notes: recoveredNotes,
+    notebooks: Array.from(notebooks.entries()),
+    folders: Array.from(folders.entries()),
+  };
+};
+
 const buildFolderPath = (foldersArray, notebooksArray, folderId) => {
   const folders = new Map(foldersArray || []);
   const notebooks = new Map(notebooksArray || []);
@@ -392,12 +521,17 @@ const electronAPI = {
       if (!rawMeta) {
         return null;
       }
+      const recoveredMeta = recoverStateFromNotePaths(root, rawMeta);
+      const didRecoverState = recoveredMeta !== rawMeta;
+      if (didRecoverState) {
+        writeJsonFile(metaPath, recoveredMeta);
+      }
 
       // Rehydrate notes content from on-disk HTML files.
       // `rawMeta` is expected to be the same shape as the old persisted payload,
       // except that note contents may be omitted or stale.
-      const notesArray = rawMeta.notes ?? [];
-      const notePaths = rawMeta.notePaths ?? {};
+      const notesArray = recoveredMeta.notes ?? [];
+      const notePaths = recoveredMeta.notePaths ?? {};
       let didUpdateNotePaths = false;
       const hydratedNotes = notesArray.map(([noteId, note]) => {
         try {
@@ -476,13 +610,13 @@ const electronAPI = {
       // so the app doesn't need to reconvert on every startup.
       if (didUpdateNotePaths) {
         try {
-          writeJsonFile(metaPath, { ...rawMeta, notePaths });
+          writeJsonFile(metaPath, { ...recoveredMeta, notePaths });
         } catch {
           // best-effort
         }
       }
 
-      return { ...rawMeta, notes: hydratedNotes };
+      return { ...recoveredMeta, notes: hydratedNotes };
     } catch (e) {
       // If anything goes wrong, signal "no state"; the app will
       // simply start from an empty store.

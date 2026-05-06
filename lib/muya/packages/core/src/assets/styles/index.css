@@ -96,10 +96,25 @@ html,
 body {
   font-size: 16px;
   font-family:
-    'SF Pro', 'SF Pro Text', 'SF Pro Display', -apple-system,
-    BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif;
+    'SF Pro',
+    'SF Pro Text',
+    'SF Pro Display',
+    -apple-system,
+    BlinkMacSystemFont,
+    'Helvetica Neue',
+    Arial,
+    sans-serif;
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
+}
+
+code,
+kbd,
+pre,
+samp {
+  font-family:
+    'SF Mono', 'SFMono-Regular', 'SF Pro Mono', ui-monospace, Menlo, Monaco,
+    Consolas, 'Liberation Mono', 'Courier New', monospace;
 }
 
 .mu-highlight {

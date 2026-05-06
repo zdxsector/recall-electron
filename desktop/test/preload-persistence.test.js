@@ -342,3 +342,77 @@ describe('savePersistentState — note folder lifecycle', () => {
     expect(promptDirs.length).toBe(1);
   });
 });
+
+describe('loadPersistentState - notePaths recovery', () => {
+  let root;
+
+  beforeEach(() => {
+    root = mkTmpRoot();
+    fakeIpcRenderer.sendSync = (ch) => {
+      if (ch === 'recall:getPath') return path.dirname(root);
+      return null;
+    };
+  });
+
+  afterEach(() => {
+    try {
+      fs.rmSync(path.dirname(root), { recursive: true, force: true });
+    } catch {}
+  });
+
+  test('rebuilds notes, notebooks, and folders when notes metadata is empty', () => {
+    const noteDirRel = path.join('AI Research', 'Claude', 'Recovered Note');
+    const mdRel = path.join(noteDirRel, 'Recovered Note.md');
+    fs.mkdirSync(path.join(root, noteDirRel), { recursive: true });
+    fs.writeFileSync(
+      path.join(root, mdRel),
+      '# Recovered Note\nBody from disk',
+      'utf8'
+    );
+
+    writeStoreMeta(root, {
+      accountName: null,
+      allowAnalytics: null,
+      notes: [],
+      notebooks: [],
+      folders: [],
+      preferences: [],
+      cvs: [],
+      ghosts: [],
+      lastRemoteUpdate: [],
+      lastSync: [],
+      notePaths: {
+        'note-1': {
+          dirRel: noteDirRel,
+          mdRel,
+          htmlRel: path.join(noteDirRel, 'Recovered Note.html'),
+        },
+      },
+    });
+
+    const loaded = electronAPI.loadPersistentState();
+    expect(loaded.notes).toHaveLength(1);
+    expect(loaded.notes[0][0]).toBe('note-1');
+    expect(loaded.notes[0][1].content).toBe('# Recovered Note\nBody from disk');
+    expect(loaded.notes[0][1].systemTags).toContain('markdown');
+    expect(loaded.notebooks).toEqual([
+      ['recovered-notebook:AI Research', { name: 'AI Research', index: 0 }],
+    ]);
+    expect(loaded.folders).toEqual([
+      [
+        'recovered-folder:AI Research/Claude',
+        {
+          name: 'Claude',
+          notebookId: 'recovered-notebook:AI Research',
+          parentFolderId: null,
+          index: 0,
+        },
+      ],
+    ]);
+
+    const repairedMeta = readStoreMeta(root);
+    expect(repairedMeta.notes).toHaveLength(1);
+    expect(repairedMeta.folders).toHaveLength(1);
+    expect(repairedMeta.notebooks).toHaveLength(1);
+  });
+});

@@ -16,7 +16,9 @@ pre.mu-code-block code,
 pre.mu-code-block {
   white-space: pre;
 
-  /* font-family: Consolas, Monaco, 'Andale Mono', 'Ubuntu Mono', monospace; */
+  font-family:
+    'SF Mono', 'SFMono-Regular', 'SF Pro Mono', ui-monospace, Menlo, Monaco,
+    Consolas, 'Liberation Mono', 'Courier New', monospace;
   text-align: left;
   word-wrap: normal;
   word-break: normal;

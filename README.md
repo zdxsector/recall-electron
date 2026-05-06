@@ -55,7 +55,7 @@ pnpm test:e2e      # Playwright Electron E2E smoke tests
 ### 1. Pre-release checklist
 
 - [ ] All changes are merged to `main`
-- [ ] Version bumped in `package.json` (e.g. `pnpm pkg set version="X.Y.Z"`)
+- [ ] Version bumped in `package.json` (e.g. `pnpm version X.Y.Z --no-git-tag-version`)
 - [ ] All tests pass: `pnpm test && pnpm test:e2e`
 - [ ] Changelog or release notes drafted
 

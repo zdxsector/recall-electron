@@ -64,6 +64,10 @@ const restoreWindowToDefaultSize = (win) => {
 };
 
 module.exports = function main() {
+  if (process.env.NODE_ENV === 'test' && process.env.RECALL_E2E_USER_DATA_PATH) {
+    app.setPath('userData', path.resolve(process.env.RECALL_E2E_USER_DATA_PATH));
+  }
+
   // Keep a global reference of the window object, if you don't, the window will
   // be closed automatically when the JavaScript object is GCed.
   let mainWindow = null;
@@ -92,7 +96,10 @@ module.exports = function main() {
         event.returnValue = null;
         return;
       }
-      event.returnValue = app.getPath('documents');
+      event.returnValue =
+        process.env.NODE_ENV === 'test' && process.env.RECALL_E2E_DOCUMENTS_PATH
+          ? path.resolve(process.env.RECALL_E2E_DOCUMENTS_PATH)
+          : app.getPath('documents');
     } catch {
       event.returnValue = null;
     }

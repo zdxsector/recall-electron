@@ -14,36 +14,23 @@
  * Screenshots are saved to e2e/screenshots/ for visual reference.
  */
 
-import { test, expect, type ElectronApplication, type Page } from '@playwright/test';
-import { _electron as electron } from 'playwright';
-import path from 'path';
+import { test, expect, type Page } from '@playwright/test';
+import {
+  closeIsolatedElectronApp,
+  type IsolatedElectronApp,
+  launchIsolatedElectronApp,
+} from './helpers/electron-app';
 
-let electronApp: ElectronApplication;
 let window: Page;
+let appContext: IsolatedElectronApp;
 
 test.beforeAll(async () => {
-  electronApp = await electron.launch({
-    args: [path.join(__dirname, '..', 'desktop', 'index.js')],
-    cwd: path.join(__dirname, '..'),
-    env: {
-      ...process.env,
-      NODE_ENV: 'test',
-    },
-  });
-
-  window = await electronApp.firstWindow();
-  await window.waitForLoadState('domcontentloaded');
-  await window.locator('.recall-app').waitFor({ timeout: 10_000 });
-  // Allow notes to load from disk
-  await window.waitForTimeout(2000);
+  appContext = await launchIsolatedElectronApp({ settleMs: 2000 });
+  window = appContext.window;
 });
 
 test.afterAll(async () => {
-  if (electronApp) {
-    try {
-      electronApp.process().kill('SIGKILL');
-    } catch {}
-  }
+  await closeIsolatedElectronApp(appContext);
 });
 
 /**

@@ -187,12 +187,14 @@ body[data-theme='dark'] .note-detail-markdown {
     padding: 1em;
     border-radius: $border-radius;
     font-size: 85%;
+    font-family: $mono;
   }
 
   p > code {
     background-color: var(--secondary-highlight-color);
     border-radius: 2px;
     padding: 3px;
+    font-family: $mono;
   }
 
   table {
@@ -227,5 +229,6 @@ body[data-theme='dark'] .note-detail-markdown {
     border-bottom-color: var(--secondary-color);
     border-radius: 3px;
     box-shadow: none;
+    font-family: $mono;
   }
 }

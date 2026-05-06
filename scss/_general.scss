@@ -42,6 +42,13 @@ body {
   -webkit-touch-callout: none;
 }
 
+code,
+kbd,
+pre,
+samp {
+  font-family: $mono;
+}
+
 img,
 svg {
   vertical-align: middle;

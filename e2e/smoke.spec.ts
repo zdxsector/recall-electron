@@ -1,31 +1,22 @@
 import { test, expect, type ElectronApplication, type Page } from '@playwright/test';
-import { _electron as electron } from 'playwright';
-import path from 'path';
+import {
+  closeIsolatedElectronApp,
+  type IsolatedElectronApp,
+  launchIsolatedElectronApp,
+} from './helpers/electron-app';
 
 let electronApp: ElectronApplication;
 let window: Page;
+let appContext: IsolatedElectronApp;
 
 test.beforeAll(async () => {
-  electronApp = await electron.launch({
-    args: [path.join(__dirname, '..', 'desktop', 'index.js')],
-    cwd: path.join(__dirname, '..'),
-    env: {
-      ...process.env,
-      NODE_ENV: 'test',
-    },
-  });
-
-  window = await electronApp.firstWindow();
-  await window.waitForLoadState('domcontentloaded');
-  await window.locator('.recall-app').waitFor({ timeout: 10_000 });
+  appContext = await launchIsolatedElectronApp();
+  electronApp = appContext.electronApp;
+  window = appContext.window;
 });
 
 test.afterAll(async () => {
-  if (electronApp) {
-    try {
-      electronApp.process().kill('SIGKILL');
-    } catch {}
-  }
+  await closeIsolatedElectronApp(appContext);
 });
 
 test('app window opens with correct title', async () => {
@@ -196,6 +187,25 @@ test('app body uses SF Pro font family', async () => {
   const lower = fontFamily.toLowerCase();
   expect(
     lower.includes('sf pro') || lower.includes('-apple-system')
+  ).toBe(true);
+});
+
+test('code blocks use SF Mono font family', async () => {
+  const fontFamily = await window.evaluate(() => {
+    const pre = document.createElement('pre');
+    pre.className = 'mu-code-block';
+    pre.textContent = 'const value = true;';
+    document.body.appendChild(pre);
+    const family = getComputedStyle(pre).fontFamily;
+    pre.remove();
+    return family;
+  });
+  const lower = fontFamily.toLowerCase();
+  expect(
+    lower.includes('sf mono') ||
+      lower.includes('sfmono') ||
+      lower.includes('sf pro mono') ||
+      lower.includes('ui-monospace')
   ).toBe(true);
 });
 
