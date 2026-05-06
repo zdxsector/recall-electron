@@ -46,7 +46,9 @@ export default function referenceImage(
   return isSuccess
     ? [
         h(selector, tag),
-        h(`img.${CLASS_NAMES.MU_COPY_REMOVE}`, { props: { alt, src, title } }),
+        h(`img.${CLASS_NAMES.MU_COPY_REMOVE}`, {
+          props: { alt, decoding: 'async', loading: 'lazy', src, title },
+        }),
       ]
     : [h(selector, tag)];
 }

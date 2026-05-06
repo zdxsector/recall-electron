@@ -206,6 +206,7 @@
     justify-content: center;
     padding: 6px 2px 6px 8px;
     border-bottom: 1px solid var(--note-list-separator-color);
+    contain: layout paint style;
   }
 
   .note-list-item-thumb-img {
@@ -214,6 +215,8 @@
     border-radius: 6px;
     object-fit: cover;
     flex: 0 0 auto;
+    contain: strict;
+    display: block;
   }
 
   // ── Status icons (right) ──────────────────────────────────────────────────

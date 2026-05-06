@@ -297,14 +297,23 @@ blockquote .mu-hide.mu-math > .mu-math-render {
   overflow: visible;
 }
 
+.mu-inline-image.left,
+.mu-inline-image.center,
+.mu-inline-image.right {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 250px;
+}
+
 .mu-image-marked-text ~ img {
   display: inline-block;
   max-width: 100%;
   margin: 0 auto;
+  contain: paint;
 }
 
 .mu-inline-image .mu-image-container img {
   max-width: 100%;
+  contain: paint;
 }
 
 .mu-inline-image.mu-image-success {

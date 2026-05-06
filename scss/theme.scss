@@ -311,6 +311,19 @@ body[data-theme='dark'] .muya-editor-root [contenteditable='true']::after {
   width: 100%;
 }
 
+body.is-window-resizing {
+  .menu-bar,
+  .note-toolbar-wrapper {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
+  .muya-editor-root img,
+  .note-list-item-thumb-img {
+    will-change: transform;
+  }
+}
+
 .note-detail-textarea .note-content-editor-shell.cursor-pointer div {
   cursor: pointer;
 }

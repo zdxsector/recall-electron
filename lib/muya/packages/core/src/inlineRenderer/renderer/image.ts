@@ -72,14 +72,14 @@ export default function image(
    * @returns
    */
   const renderImageContainer = (...args: VNode[]) => {
-    const data = {};
+    const containerData = {};
     if (title) {
-      Object.assign(data, {
+      Object.assign(containerData, {
         dataset: { title },
       });
     }
 
-    return h(`span.${CLASS_NAMES.MU_IMAGE_CONTAINER}`, data, args);
+    return h(`span.${CLASS_NAMES.MU_IMAGE_CONTAINER}`, containerData, args);
   };
 
   if (typeof token.attrs['data-align'] === 'string')
@@ -137,21 +137,23 @@ export default function image(
     }
 
     const renderImage = () => {
-      const data = {
+      const imageData = {
         props: {
           alt: alt.replace(/[`*{}[\]()#+\-.!_>~:|<$]/g, ''),
+          decoding: 'async',
+          loading: 'lazy',
           src,
           title,
         },
       };
 
       if (typeof width === 'string' && width)
-        Object.assign(data.props, { width });
+        Object.assign(imageData.props, { width });
 
       if (typeof height === 'string' && height)
-        Object.assign(data.props, { height });
+        Object.assign(imageData.props, { height });
 
-      return h('img', data);
+      return h('img', imageData);
     };
 
     return isSuccess

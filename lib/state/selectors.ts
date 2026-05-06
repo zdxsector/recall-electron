@@ -1,5 +1,6 @@
 import * as S from './';
 import * as T from '../types';
+import { SINGLE_COLUMN_WIDTH } from '../utils/breakpoints';
 
 /**
  * "Narrow" views hide the note editor
@@ -7,7 +8,7 @@ import * as T from '../types';
  * @see _variables.scss for 750 constant as $single-column value
  */
 export const isSmallScreen: S.Selector<boolean> = (state) =>
-  state.browser.windowWidth <= 750;
+  state.browser.windowWidth <= SINGLE_COLUMN_WIDTH;
 
 export const getTheme: S.Selector<'light' | 'dark'> = (state) =>
   state.settings.theme === 'system'

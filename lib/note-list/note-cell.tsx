@@ -19,7 +19,8 @@ import * as S from '../state';
 import * as T from '../types';
 
 const MD_IMAGE_RE = /!\[([^\]]*)\]\(([^)]+?)\)/;
-const HTML_IMG_SRC_RE = /<img\b[^>]*\bsrc\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/i;
+const HTML_IMG_SRC_RE =
+  /<img\b[^>]*\bsrc\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/i;
 const HTML_IMG_ALT_RE = /\balt\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/i;
 const THUMBNAIL_SEARCH_LIMIT = 2000;
 
@@ -56,7 +57,6 @@ const formatNoteDate = (epochSeconds: number): string => {
     year: '2-digit',
   });
 };
-
 
 type OwnProps = {
   invalidateHeight: () => any;
@@ -176,10 +176,13 @@ export class NoteCell extends Component<Props> {
       if (!rawSrc) {
         const html = HTML_IMG_SRC_RE.exec(content);
         if (html && html.index < THUMBNAIL_SEARCH_LIMIT) {
-          rawSrc = ((html[1] ?? html[2] ?? html[3]) || '').trim().replace(/^<|>$/g, '');
+          rawSrc = ((html[1] ?? html[2] ?? html[3]) || '')
+            .trim()
+            .replace(/^<|>$/g, '');
           const altMatch = HTML_IMG_ALT_RE.exec(content);
           if (altMatch) {
-            alt = ((altMatch[1] ?? altMatch[2] ?? altMatch[3]) || '').trim() || alt;
+            alt =
+              ((altMatch[1] ?? altMatch[2] ?? altMatch[3]) || '').trim() || alt;
           }
         }
       }
@@ -192,8 +195,13 @@ export class NoteCell extends Component<Props> {
       const resolveFn = window.electron?.resolveNoteAssetFileUrl;
       const resolvedSrc =
         normalizedSrc.startsWith('assets/') && typeof resolveFn === 'function'
-          ? resolveFn({ noteId, note, folders, notebooks, rel: normalizedSrc }) ||
-            rawSrc
+          ? resolveFn({
+              noteId,
+              note,
+              folders,
+              notebooks,
+              rel: normalizedSrc,
+            }) || rawSrc
           : rawSrc;
 
       if (!resolvedSrc) return null;
@@ -250,6 +258,7 @@ export class NoteCell extends Component<Props> {
                 src={thumbnail.src}
                 alt={thumbnail.alt}
                 loading="lazy"
+                decoding="async"
                 draggable={false}
               />
             </div>

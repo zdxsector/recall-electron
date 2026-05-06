@@ -26,15 +26,15 @@ export default function loadImageAsync(
       .then(({ url, width, height }) => {
         const imageText: HTMLElement | null = document.querySelector(`#${id}`);
         const img = document.createElement('img');
+        img.decoding = 'async';
+        img.loading = 'lazy';
         img.src = url;
         if (attrs.alt)
           img.alt = attrs.alt.replace(/[`*{}[\]()#+\-.!_>~:|<$]/g, '');
         if (attrs.title) img.setAttribute('title', attrs.title);
-        if (attrs.width)
-          img.setAttribute('width', String(attrs.width));
+        if (attrs.width) img.setAttribute('width', String(attrs.width));
 
-        if (attrs.height)
-          img.setAttribute('height', String(attrs.height));
+        if (attrs.height) img.setAttribute('height', String(attrs.height));
 
         if (imageClass) img.classList.add(imageClass);
 
@@ -81,11 +81,11 @@ export default function loadImageAsync(
         });
       });
   } else {
-    const imageInfo = this.loadImageMap.get(src)!;
-    id = imageInfo.id;
-    isSuccess = imageInfo.isSuccess;
-    w = imageInfo.width;
-    h = imageInfo.height;
+    const cachedImageInfo = this.loadImageMap.get(src)!;
+    id = cachedImageInfo.id;
+    isSuccess = cachedImageInfo.isSuccess;
+    w = cachedImageInfo.width;
+    h = cachedImageInfo.height;
   }
 
   return { id, isSuccess, width: w, height: h };
