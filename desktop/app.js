@@ -78,8 +78,14 @@ const restoreWindowToDefaultSize = (win) => {
 };
 
 module.exports = function main() {
-  if (process.env.NODE_ENV === 'test' && process.env.RECALL_E2E_USER_DATA_PATH) {
-    app.setPath('userData', path.resolve(process.env.RECALL_E2E_USER_DATA_PATH));
+  if (
+    process.env.NODE_ENV === 'test' &&
+    process.env.RECALL_E2E_USER_DATA_PATH
+  ) {
+    app.setPath(
+      'userData',
+      path.resolve(process.env.RECALL_E2E_USER_DATA_PATH)
+    );
   }
 
   // Keep a global reference of the window object, if you don't, the window will
@@ -319,7 +325,10 @@ module.exports = function main() {
                   ? `www${cookie.domain}`
                   : cookie.domain;
               const cookieUrl = `${protocol}${host}${cookie.path || '/'}`;
-              return session.defaultSession.cookies.remove(cookieUrl, cookie.name);
+              return session.defaultSession.cookies.remove(
+                cookieUrl,
+                cookie.name
+              );
             })
           );
         } catch {
@@ -364,7 +373,10 @@ module.exports = function main() {
           }
           if (Number.isFinite(overlay.height)) {
             // Clamp to a sensible range.
-            next.height = Math.max(24, Math.min(80, Math.round(overlay.height)));
+            next.height = Math.max(
+              24,
+              Math.min(80, Math.round(overlay.height))
+            );
           }
         }
 
@@ -623,7 +635,9 @@ module.exports = function main() {
         const data = await fs.promises.readFile(filePath);
         const ext = path.extname(filePath).toLowerCase();
         return new Response(data, {
-          headers: { 'Content-Type': mimeTypes[ext] || 'application/octet-stream' },
+          headers: {
+            'Content-Type': mimeTypes[ext] || 'application/octet-stream',
+          },
         });
       } catch {
         return new Response('Not found', { status: 404 });

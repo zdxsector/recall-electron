@@ -33,16 +33,18 @@ type DispatchProps = {
 type Props = DispatchProps & StateProps;
 
 type LocalState = {
-  authUnavailable: boolean;
+  embeddedAuthUnavailable: boolean;
   isUnlocking: boolean;
+  systemAuthUnavailable: boolean;
   unlockError: string | null;
 };
 
 export class NoteEditor extends Component<Props, LocalState> {
   static displayName = 'NoteEditor';
   state: LocalState = {
-    authUnavailable: false,
+    embeddedAuthUnavailable: false,
     isUnlocking: false,
+    systemAuthUnavailable: false,
     unlockError: null,
   };
 
@@ -56,13 +58,16 @@ export class NoteEditor extends Component<Props, LocalState> {
   private nativeAuthUpdateFrame: number | null = null;
   private attemptedNativeAuthNoteId: T.EntityId | null = null;
   private trustedUnlockSucceededNoteId: T.EntityId | null = null;
+  private isComponentMounted = false;
 
   componentDidMount() {
+    this.isComponentMounted = true;
     this.toggleShortcuts(true);
     this.syncNativeAuthOverlay();
   }
 
   componentWillUnmount() {
+    this.isComponentMounted = false;
     this.toggleShortcuts(false);
     this.teardownNativeAuthOverlay();
   }
@@ -75,8 +80,9 @@ export class NoteEditor extends Component<Props, LocalState> {
       this.attemptedNativeAuthNoteId = null;
       this.trustedUnlockSucceededNoteId = null;
       this.setState({
-        authUnavailable: false,
+        embeddedAuthUnavailable: false,
         isUnlocking: false,
+        systemAuthUnavailable: false,
         unlockError: null,
       });
     }
@@ -250,7 +256,11 @@ export class NoteEditor extends Component<Props, LocalState> {
         reason: `View "${getLockedNoteTitle(note)}" in Recall`,
       });
 
-      if (this.props.noteId !== noteId || !this.isShowingLockedNote()) {
+      if (
+        !this.isComponentMounted ||
+        this.props.noteId !== noteId ||
+        !this.isShowingLockedNote()
+      ) {
         return;
       }
 
@@ -261,14 +271,19 @@ export class NoteEditor extends Component<Props, LocalState> {
 
       const code = result?.code || result?.error;
       this.setState({
-        authUnavailable: this.isAuthUnavailableCode(code),
+        embeddedAuthUnavailable: this.isEmbeddedAuthUnavailableCode(code),
         isUnlocking: false,
+        systemAuthUnavailable: this.isSystemAuthUnavailableCode(code),
         unlockError: this.getUnlockErrorMessage(code),
       });
     } catch {
+      if (!this.isComponentMounted) {
+        return;
+      }
       this.setState({
-        authUnavailable: true,
+        embeddedAuthUnavailable: true,
         isUnlocking: false,
+        systemAuthUnavailable: false,
         unlockError: 'This note could not be unlocked.',
       });
     }
@@ -338,6 +353,10 @@ export class NoteEditor extends Component<Props, LocalState> {
         reason: `View "${getLockedNoteTitle(note)}" in Recall`,
       });
 
+      if (!this.isComponentMounted || this.props.noteId !== noteId) {
+        return;
+      }
+
       if (result?.ok && typeof result.content === 'string') {
         this.trustedUnlockSucceededNoteId = noteId;
         storeUnlockedNoteContent(noteId, result.content);
@@ -348,11 +367,15 @@ export class NoteEditor extends Component<Props, LocalState> {
 
       const code = result?.code || result?.error;
       this.setState({
-        authUnavailable: this.isAuthUnavailableCode(code),
+        embeddedAuthUnavailable: false,
         isUnlocking: false,
+        systemAuthUnavailable: this.isSystemAuthUnavailableCode(code),
         unlockError: this.getUnlockErrorMessage(code),
       });
     } catch {
+      if (!this.isComponentMounted) {
+        return;
+      }
       this.setState({
         isUnlocking: false,
         unlockError: 'This note could not be unlocked.',
@@ -365,7 +388,11 @@ export class NoteEditor extends Component<Props, LocalState> {
       return;
     }
 
-    if (this.state.authUnavailable && window.electron?.isMac) {
+    if (
+      this.state.embeddedAuthUnavailable &&
+      !this.state.systemAuthUnavailable &&
+      window.electron?.isMac
+    ) {
       await this.hideNativeAuthOverlay();
       await this.handleUnlockNote({ allowModalFallback: true });
       return;
@@ -376,12 +403,16 @@ export class NoteEditor extends Component<Props, LocalState> {
     this.showNativeAuthOverlay();
   };
 
-  isAuthUnavailableCode = (code?: string) =>
-    code === 'unsupported_platform' ||
+  isEmbeddedAuthUnavailableCode = (code?: string) =>
     code === 'unavailable' ||
     code === 'embedded_ui_unavailable' ||
     code === 'native_addon_unavailable' ||
     code === 'native_addon_load_failed';
+
+  isSystemAuthUnavailableCode = (code?: string) =>
+    code === 'unsupported_platform' ||
+    code === 'fallback_unavailable' ||
+    code === 'system_auth_unavailable';
 
   getUnlockErrorMessage = (code?: string) => {
     if (code === 'cancelled') {
@@ -390,7 +421,10 @@ export class NoteEditor extends Component<Props, LocalState> {
     if (code === 'timeout') {
       return 'Authentication timed out.';
     }
-    if (this.isAuthUnavailableCode(code)) {
+    if (this.isEmbeddedAuthUnavailableCode(code)) {
+      return 'Embedded authentication is unavailable.';
+    }
+    if (this.isSystemAuthUnavailableCode(code)) {
       return 'System authentication is unavailable on this device.';
     }
     if (code === 'authentication_failed') {
@@ -401,9 +435,17 @@ export class NoteEditor extends Component<Props, LocalState> {
 
   renderLockedNote = () => {
     const isMac = window.electron?.isMac;
-    const { authUnavailable, isUnlocking, unlockError } = this.state;
-    const actionLabel =
-      authUnavailable && isMac ? 'Use System Authentication' : 'Try Again';
+    const {
+      embeddedAuthUnavailable,
+      isUnlocking,
+      systemAuthUnavailable,
+      unlockError,
+    } = this.state;
+    const canUseSystemFallback =
+      embeddedAuthUnavailable && isMac && !systemAuthUnavailable;
+    const actionLabel = canUseSystemFallback
+      ? 'Use System Authentication'
+      : 'Try Again';
     return (
       <div className="note-editor note-editor--locked">
         <div className="note-editor-locked-panel" role="group">
@@ -429,9 +471,11 @@ export class NoteEditor extends Component<Props, LocalState> {
           </div>
           <h2>This note is locked.</h2>
           <p>
-            {authUnavailable
+            {systemAuthUnavailable && !isUnlocking
               ? 'System authentication is unavailable. Use an app-specific note password when one is configured.'
-              : 'Use Touch ID or system authentication to view this note.'}
+              : canUseSystemFallback && !isUnlocking
+                ? 'Embedded authentication is unavailable. Use system authentication fallback or an app-specific note password when one is configured.'
+                : 'Use Touch ID or system authentication to view this note.'}
           </p>
           <button
             aria-busy={isUnlocking}

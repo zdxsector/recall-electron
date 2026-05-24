@@ -96,6 +96,7 @@ const unlockEncryptedNote = async ({
   const hasTrustedNativeAuth =
     typeof nativeAuthService?.consumeTrustedAuth === 'function' &&
     nativeAuthService.consumeTrustedAuth(noteId);
+  let authCode = 'success';
 
   if (!hasTrustedNativeAuth) {
     let authResult;
@@ -112,17 +113,23 @@ const unlockEncryptedNote = async ({
     if (!authResult?.ok) {
       return errorResult(authResult?.code || 'authentication_failed');
     }
+    authCode = authResult.code || 'success';
   }
 
   if (allowMockContent && String(encryptedContent).startsWith('mock:')) {
-    return { ok: true, content: decryptMockContent(encryptedContent) };
+    return {
+      ok: true,
+      code: authCode,
+      content: decryptMockContent(encryptedContent),
+    };
   }
 
   if (allowMockContent) {
     return errorResult('mock_encrypted_content_required');
   }
 
-  return decryptWithSafeStorage(safeStorage, encryptedContent);
+  const decrypted = decryptWithSafeStorage(safeStorage, encryptedContent);
+  return decrypted.ok ? { ...decrypted, code: authCode } : decrypted;
 };
 
 const registerSecureNotesIpc = ({

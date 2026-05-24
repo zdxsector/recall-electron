@@ -186,7 +186,11 @@ describe('secure notes IPC', () => {
       safeStorage: makeSafeStorage(),
     });
 
-    expect(result).toEqual({ ok: true, content: '# Secret\nBody' });
+    expect(result).toEqual({
+      ok: true,
+      code: 'success',
+      content: '# Secret\nBody',
+    });
     expect(result).not.toHaveProperty('password');
     expect(result).not.toHaveProperty('key');
     expect(result).not.toHaveProperty('encryptedContent');
@@ -245,7 +249,11 @@ describe('secure notes IPC', () => {
     expect(authenticate).toHaveBeenCalledWith(
       expect.objectContaining({ allowModalFallback: true, noteId: 'note-1' })
     );
-    expect(result).toEqual({ ok: true, content: '# Secret\nBody' });
+    expect(result).toEqual({
+      ok: true,
+      code: 'success',
+      content: '# Secret\nBody',
+    });
   });
 
   test('cancelled auth does not decrypt content', async () => {

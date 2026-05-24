@@ -166,6 +166,7 @@ const createNativeAuthService = ({
     if (
       code === 'unavailable' ||
       code === 'unsupported_platform' ||
+      code === 'system_auth_unavailable' ||
       code === 'embedded_ui_unavailable' ||
       code === 'native_addon_unavailable' ||
       code === 'native_addon_load_failed'
@@ -185,14 +186,21 @@ const createNativeAuthService = ({
   ) =>
     typeof result?.code === 'string' && result.code ? result.code : fallback;
 
-  const mockAuthResult = (noteId, { grantTrusted = false } = {}) => {
+  const mockAuthResult = (
+    noteId,
+    {
+      grantTrusted = false,
+      successCode = 'success',
+      unavailableCode = 'unavailable',
+    } = {}
+  ) => {
     const result = normalizeMockResult(env.SECURE_NOTES_AUTH_MOCK_RESULT);
     if (result === 'success') {
       if (grantTrusted) {
         grantTrustedAuth(noteId);
       }
       record('auth-result-success', { noteId });
-      return successResult();
+      return successResult(successCode);
     }
     if (result === 'cancel') {
       recordAuthFailure(noteId, 'cancelled');
@@ -203,8 +211,8 @@ const createNativeAuthService = ({
       return errorResult('timeout');
     }
     if (result === 'unavailable') {
-      recordAuthFailure(noteId, 'unavailable');
-      return errorResult('unavailable');
+      recordAuthFailure(noteId, unavailableCode);
+      return errorResult(unavailableCode);
     }
 
     recordAuthFailure(noteId, 'authentication_failed');
@@ -409,7 +417,10 @@ const createNativeAuthService = ({
     }
 
     if (isMockMode) {
-      return mockAuthResult(noteId);
+      return mockAuthResult(noteId, {
+        successCode: 'embedded_ui_unavailable_using_modal_fallback',
+        unavailableCode: 'system_auth_unavailable',
+      });
     }
 
     if (addon && typeof addon.authenticate === 'function') {
@@ -422,11 +433,13 @@ const createNativeAuthService = ({
         });
         if (result?.ok) {
           record('auth-result-success', { noteId });
-          return successResult();
+          return successResult('embedded_ui_unavailable_using_modal_fallback');
         }
         const code = normalizeNativeAuthCode(result);
-        recordAuthFailure(noteId, code);
-        return errorResult(code);
+        const publicCode =
+          code === 'unavailable' ? 'system_auth_unavailable' : code;
+        recordAuthFailure(noteId, publicCode);
+        return errorResult(publicCode);
       } catch {
         record('auth-result-failure', { noteId, code: 'native_addon_failed' });
         return errorResult('native_addon_failed');
@@ -434,15 +447,18 @@ const createNativeAuthService = ({
     }
 
     if (typeof systemPreferences?.promptTouchID !== 'function') {
-      record('auth-result-unavailable', { noteId, code: 'unavailable' });
-      return errorResult('unavailable');
+      record('auth-result-unavailable', {
+        noteId,
+        code: 'system_auth_unavailable',
+      });
+      return errorResult('system_auth_unavailable');
     }
 
     try {
       devLog('native-auth: falling back to evaluatePolicy modal');
       await systemPreferences.promptTouchID(reason);
       record('auth-result-success', { noteId });
-      return successResult();
+      return successResult('embedded_ui_unavailable_using_modal_fallback');
     } catch {
       record('auth-result-cancel', { noteId, code: 'cancelled' });
       return errorResult('cancelled');

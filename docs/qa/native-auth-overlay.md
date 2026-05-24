@@ -34,6 +34,9 @@ Steps added after the original implementation step 10:
 - If embedded UI is unavailable, the renderer keeps the note locked and may
   offer an explicit system-auth fallback. Only that explicit fallback may invoke
   modal `evaluatePolicy` authentication.
+- Successful explicit modal fallback returns
+  `embedded_ui_unavailable_using_modal_fallback`; if fallback auth itself is not
+  available, the main process returns `system_auth_unavailable`.
 - Mock auth is enabled only when `SECURE_NOTES_AUTH_MOCK=1` and the app is
   running in `NODE_ENV=test` or `PLAYWRIGHT_TEST=1`.
 - Packaged production builds do not default to mock auth.

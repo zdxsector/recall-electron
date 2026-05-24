@@ -38,7 +38,10 @@ describe('NativeAuthService', () => {
         noteId: 'note-1',
         reason: 'Open note',
       })
-    ).resolves.toEqual({ ok: true, code: 'success' });
+    ).resolves.toEqual({
+      ok: true,
+      code: 'embedded_ui_unavailable_using_modal_fallback',
+    });
     expect(promptTouchID).not.toHaveBeenCalled();
     expect(addon.authenticate).not.toHaveBeenCalled();
     expect(addon.show).not.toHaveBeenCalled();
@@ -99,7 +102,7 @@ describe('NativeAuthService', () => {
       })
     ).resolves.toEqual({
       ok: true,
-      code: 'success',
+      code: 'embedded_ui_unavailable_using_modal_fallback',
     });
     expect(promptTouchID).toHaveBeenCalledTimes(1);
   });
@@ -165,7 +168,7 @@ describe('NativeAuthService', () => {
       })
     ).resolves.toEqual({
       ok: true,
-      code: 'success',
+      code: 'embedded_ui_unavailable_using_modal_fallback',
     });
     expect(promptTouchID).toHaveBeenCalledTimes(1);
   });

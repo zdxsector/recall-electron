@@ -337,7 +337,9 @@ const recoverStateFromNotePaths = (root, rawMeta) => {
 
   for (const [noteId, notePath] of notePathEntries) {
     try {
-      const relCandidates = [notePath?.mdRel, notePath?.htmlRel].filter(Boolean);
+      const relCandidates = [notePath?.mdRel, notePath?.htmlRel].filter(
+        Boolean
+      );
       const fileRel = relCandidates.find((rel) =>
         fs.existsSync(path.join(root, rel))
       );
@@ -453,7 +455,13 @@ const getOrCreateNoteDir = (
   noteId,
   note
 ) => {
-  const result = computeNoteDir(root, foldersArray, notebooksArray, noteId, note);
+  const result = computeNoteDir(
+    root,
+    foldersArray,
+    notebooksArray,
+    noteId,
+    note
+  );
   ensureDir(result.noteDir);
   ensureDir(path.join(result.noteDir, 'assets'));
   return result;
@@ -737,8 +745,8 @@ const electronAPI = {
                 entries.length === 0 ||
                 (entries.length === 1 &&
                   entries[0] === 'assets' &&
-                  fs.readdirSync(path.join(desiredNoteDir, 'assets'))
-                    .length === 0);
+                  fs.readdirSync(path.join(desiredNoteDir, 'assets')).length ===
+                    0);
               if (isOrphan) {
                 fs.rmSync(desiredNoteDir, { recursive: true, force: true });
               }
@@ -964,14 +972,21 @@ const electronAPI = {
         // Resize large images to improve performance and reduce storage
         const size = img.getSize();
         let finalImg = img;
-        if (size.width > MAX_IMAGE_DIMENSION || size.height > MAX_IMAGE_DIMENSION) {
+        if (
+          size.width > MAX_IMAGE_DIMENSION ||
+          size.height > MAX_IMAGE_DIMENSION
+        ) {
           const scale = Math.min(
             MAX_IMAGE_DIMENSION / size.width,
             MAX_IMAGE_DIMENSION / size.height
           );
           const newWidth = Math.round(size.width * scale);
           const newHeight = Math.round(size.height * scale);
-          finalImg = img.resize({ width: newWidth, height: newHeight, quality: 'good' });
+          finalImg = img.resize({
+            width: newWidth,
+            height: newHeight,
+            quality: 'good',
+          });
         }
 
         // Yield again before encoding
@@ -1108,14 +1123,21 @@ const electronAPI = {
       // Resize if too large
       const size = img.getSize();
       let finalBuffer = nodeBuffer;
-      if (size.width > MAX_IMAGE_DIMENSION || size.height > MAX_IMAGE_DIMENSION) {
+      if (
+        size.width > MAX_IMAGE_DIMENSION ||
+        size.height > MAX_IMAGE_DIMENSION
+      ) {
         const scale = Math.min(
           MAX_IMAGE_DIMENSION / size.width,
           MAX_IMAGE_DIMENSION / size.height
         );
         const newWidth = Math.round(size.width * scale);
         const newHeight = Math.round(size.height * scale);
-        const resized = img.resize({ width: newWidth, height: newHeight, quality: 'good' });
+        const resized = img.resize({
+          width: newWidth,
+          height: newHeight,
+          quality: 'good',
+        });
 
         // Yield before encoding
         await new Promise((resolve) => setImmediate(resolve));

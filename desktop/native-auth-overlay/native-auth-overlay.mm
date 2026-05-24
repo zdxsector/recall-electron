@@ -326,6 +326,7 @@ NSRect RectInAppKitPoints(const AuthRect &rect, NSWindow *window) {
 @property(nonatomic, copy) NSString *key;
 @property(nonatomic, strong) LAContext *context;
 #if RECALL_HAS_EMBEDDED_AUTH_UI
+@property(nonatomic, strong) NSView *container;
 @property(nonatomic, strong) LAAuthenticationView *view;
 #endif
 @property(nonatomic) void *baton;
@@ -345,8 +346,9 @@ void FinishSession(RecallNativeAuthSession *session, bool ok, NSString *code) {
 
   session.completed = YES;
 #if RECALL_HAS_EMBEDDED_AUTH_UI
-  if (session.view) {
-    [session.view removeFromSuperview];
+  if (session.container) {
+    [session.container removeFromSuperview];
+    session.container = nil;
     session.view = nil;
   }
 #endif
@@ -436,27 +438,39 @@ void StartEmbeddedAuth(AuthBaton *baton) {
     session.baton = baton;
     session.debug = baton->input.debug;
 
+    NSView *container = [[NSView alloc] initWithFrame:RectInAppKitPoints(baton->input.rect, window)];
+    container.wantsLayer = YES;
+    container.autoresizingMask = NSViewNotSizable;
+
     LAAuthenticationView *view =
         [[LAAuthenticationView alloc] initWithContext:context controlSize:NSControlSizeLarge];
-    view.frame = RectInAppKitPoints(baton->input.rect, window);
-    view.autoresizingMask = NSViewNotSizable;
-    [hostView addSubview:view positioned:NSWindowAbove relativeTo:nil];
+    view.frame = container.bounds;
+    view.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
+    [container addSubview:view];
+    [hostView addSubview:container positioned:NSWindowAbove relativeTo:nil];
+    session.container = container;
     session.view = view;
     Sessions()[session.key] = session;
 
     DebugLog(baton->input, "native-auth: embedded view attached");
 
     NSString *reason = [NSString stringWithUTF8String:baton->input.reason.c_str()];
-    [context evaluatePolicy:LAPolicyDeviceOwnerAuthenticationWithBiometrics
-            localizedReason:reason
-                      reply:^(BOOL success, NSError *error) {
-                        dispatch_async(dispatch_get_main_queue(), ^{
-                          FinishSession(
-                              session,
-                              success,
-                              success ? @"success" : MapLAErrorCode(error));
-                        });
-                      }];
+    dispatch_async(dispatch_get_main_queue(), ^{
+      if (session.completed) {
+        return;
+      }
+
+      [context evaluatePolicy:LAPolicyDeviceOwnerAuthenticationWithBiometrics
+              localizedReason:reason
+                        reply:^(BOOL success, NSError *error) {
+                          dispatch_async(dispatch_get_main_queue(), ^{
+                            FinishSession(
+                                session,
+                                success,
+                                success ? @"success" : MapLAErrorCode(error));
+                          });
+                        }];
+    });
     return;
   }
 #endif
@@ -565,7 +579,8 @@ napi_value Update(napi_env env, napi_callback_info info) {
 #if RECALL_HAS_EMBEDDED_AUTH_UI
       NSView *electronView = ViewFromNativeHandle(input.nativeWindowHandle);
       NSWindow *window = electronView.window;
-      session.view.frame = RectInAppKitPoints(input.rect, window);
+      session.container.frame = RectInAppKitPoints(input.rect, window);
+      session.view.frame = session.container.bounds;
 #endif
       updated = true;
     }
