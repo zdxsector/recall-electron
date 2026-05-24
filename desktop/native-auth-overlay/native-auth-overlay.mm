@@ -17,7 +17,7 @@
 
 namespace {
 
-constexpr CGFloat kEmbeddedAuthBadgePadding = 6.0;
+constexpr CGFloat kEmbeddedAuthBadgePadding = 9.0;
 
 struct AuthRect {
   double x = 0;
@@ -336,6 +336,7 @@ NSRect EmbeddedAuthViewFrame(NSRect bounds) {
 #if RECALL_HAS_EMBEDDED_AUTH_UI
 @property(nonatomic, strong) NSView *container;
 @property(nonatomic, strong) NSView *clipView;
+@property(nonatomic, strong) NSView *contentView;
 @property(nonatomic, strong) LAAuthenticationView *view;
 #endif
 @property(nonatomic) void *baton;
@@ -359,6 +360,7 @@ void FinishSession(RecallNativeAuthSession *session, bool ok, NSString *code) {
     [session.container removeFromSuperview];
     session.container = nil;
     session.clipView = nil;
+    session.contentView = nil;
     session.view = nil;
   }
 #endif
@@ -466,15 +468,22 @@ void StartEmbeddedAuth(AuthBaton *baton) {
     clipView.layer.masksToBounds = YES;
     clipView.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
 
+    NSView *contentView = [[NSView alloc] initWithFrame:EmbeddedAuthViewFrame(clipView.bounds)];
+    contentView.wantsLayer = YES;
+    contentView.layer.masksToBounds = YES;
+    contentView.autoresizingMask = NSViewNotSizable;
+
     LAAuthenticationView *view =
-        [[LAAuthenticationView alloc] initWithContext:context controlSize:NSControlSizeRegular];
-    view.frame = EmbeddedAuthViewFrame(clipView.bounds);
+        [[LAAuthenticationView alloc] initWithContext:context controlSize:NSControlSizeSmall];
+    view.frame = contentView.bounds;
     view.autoresizingMask = NSViewNotSizable;
-    [clipView addSubview:view];
+    [contentView addSubview:view];
+    [clipView addSubview:contentView];
     [container addSubview:clipView];
     [hostView addSubview:container positioned:NSWindowAbove relativeTo:nil];
     session.container = container;
     session.clipView = clipView;
+    session.contentView = contentView;
     session.view = view;
     Sessions()[session.key] = session;
 
@@ -610,7 +619,8 @@ napi_value Update(napi_env env, napi_callback_info info) {
       session.clipView.layer.cornerRadius =
           MIN(session.clipView.bounds.size.width, session.clipView.bounds.size.height) /
           2.0;
-      session.view.frame = EmbeddedAuthViewFrame(session.clipView.bounds);
+      session.contentView.frame = EmbeddedAuthViewFrame(session.clipView.bounds);
+      session.view.frame = session.contentView.bounds;
 #endif
       updated = true;
     }
