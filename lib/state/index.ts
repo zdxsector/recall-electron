@@ -56,16 +56,26 @@ export const makeStore = (
 ) =>
   persistence
     .loadState(accountName)
-    .then(([initialData, persistenceMiddleware]) =>
-      createStore<State, A.ActionType, {}, {}>(
-        reducers,
-        {
-          ...initialData,
-          settings: {
-            ...initialData.settings,
-            accountName: initialData.settings?.accountName ?? accountName,
-          },
+    .then(([initialData, persistenceMiddleware]) => {
+      const defaultSettings = settings(undefined, {
+        type: '__INIT_SETTINGS__',
+      } as unknown as A.ActionType);
+      const initialState = {
+        ...initialData,
+        settings: {
+          ...defaultSettings,
+          ...initialData.settings,
+          accountName: initialData.settings?.accountName ?? accountName,
+          lockedNotesPasswordMode:
+            initialData.settings?.lockedNotesPasswordMode ?? 'login',
+          lockedNotesUseTouchId:
+            initialData.settings?.lockedNotesUseTouchId ?? true,
         },
+      } as State;
+
+      return createStore<State, A.ActionType, {}, {}>(
+        reducers,
+        initialState,
         composeEnhancers(
           persistState('settings', {
             key: 'curNote',
@@ -89,8 +99,8 @@ export const makeStore = (
             ...(persistenceMiddleware ? [persistenceMiddleware] : [])
           )
         )
-      )
-    );
+      );
+    });
 
 export type Store = {
   dispatch: Dispatch;

@@ -44,6 +44,18 @@
       color: var(--accent-color);
     }
   }
+
+  .settings-locked-notes-actions {
+    margin: -18px 0 30px;
+    text-align: center;
+
+    p {
+      color: var(--settings-fg-color);
+      font-size: 12px;
+      line-height: 1.4;
+      margin: 8px 0 0;
+    }
+  }
 }
 
 .settings-group {

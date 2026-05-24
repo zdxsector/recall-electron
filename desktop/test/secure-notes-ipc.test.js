@@ -37,6 +37,9 @@ describe('secure notes IPC', () => {
       ipcMain,
       nativeAuthService: {
         authenticate: jest.fn(),
+        changeCustomPassword: jest.fn(),
+        getLoginUsername: jest.fn(),
+        hasCustomPassword: jest.fn(),
         hide: jest.fn(),
         show: jest.fn(),
         update: jest.fn(),
@@ -58,6 +61,18 @@ describe('secure notes IPC', () => {
     );
     expect(ipcMain.handle).toHaveBeenCalledWith(
       'secure-notes:system-auth:unlock',
+      expect.any(Function)
+    );
+    expect(ipcMain.handle).toHaveBeenCalledWith(
+      'secure-notes:locked-notes:get-login-username',
+      expect.any(Function)
+    );
+    expect(ipcMain.handle).toHaveBeenCalledWith(
+      'secure-notes:locked-notes:has-custom-password',
+      expect.any(Function)
+    );
+    expect(ipcMain.handle).toHaveBeenCalledWith(
+      'secure-notes:locked-notes:change-password',
       expect.any(Function)
     );
   });
@@ -92,6 +107,56 @@ describe('secure notes IPC', () => {
       win,
       expect.objectContaining({ noteId: 'note-1' })
     );
+  });
+
+  test('locked notes password IPC resolves BrowserWindow from event.sender', async () => {
+    const ipcMain = makeIpcMain();
+    const win = { isDestroyed: () => false };
+    const BrowserWindow = makeBrowserWindow(win);
+    const nativeAuthService = {
+      authenticate: jest.fn(),
+      changeCustomPassword: jest.fn().mockResolvedValue({
+        ok: true,
+        code: 'success',
+      }),
+      getLoginUsername: jest.fn().mockResolvedValue({
+        ok: true,
+        code: 'success',
+        username: 'sly',
+      }),
+      hasCustomPassword: jest.fn().mockResolvedValue({
+        ok: true,
+        code: 'success',
+        configured: true,
+      }),
+      hide: jest.fn(),
+      show: jest.fn(),
+      update: jest.fn(),
+    };
+    registerSecureNotesIpc({
+      BrowserWindow,
+      ipcMain,
+      nativeAuthService,
+      safeStorage: makeSafeStorage(),
+    });
+
+    const event = { sender: { id: 123 } };
+    await expect(
+      ipcMain.invoke('secure-notes:locked-notes:get-login-username', event)
+    ).resolves.toEqual({ ok: true, code: 'success', username: 'sly' });
+    await expect(
+      ipcMain.invoke('secure-notes:locked-notes:has-custom-password', event)
+    ).resolves.toEqual({ ok: true, code: 'success', configured: true });
+    await expect(
+      ipcMain.invoke('secure-notes:locked-notes:change-password', event, {
+        windowId: 'forged-window-id',
+      })
+    ).resolves.toEqual({ ok: true, code: 'success' });
+
+    expect(BrowserWindow.fromWebContents).toHaveBeenCalledWith(event.sender);
+    expect(nativeAuthService.changeCustomPassword).toHaveBeenCalledWith(win, {
+      reason: undefined,
+    });
   });
 
   test('malformed payloads return typed errors', async () => {

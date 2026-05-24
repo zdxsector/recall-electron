@@ -20,6 +20,8 @@
           "-framework",
           "OpenDirectory",
           "-framework",
+          "Security",
+          "-framework",
           "SystemConfiguration"
         ]
       }

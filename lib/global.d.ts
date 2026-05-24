@@ -55,6 +55,21 @@ type ElectronBridge = {
         error?: string;
       }>;
     };
+    lockedNotes: {
+      getLoginUsername: () => Promise<{
+        ok: boolean;
+        code?: string;
+        error?: string;
+        username?: string;
+      }>;
+      hasCustomPassword: () => Promise<{
+        ok: boolean;
+        code?: string;
+        configured?: boolean;
+        error?: string;
+      }>;
+      changePassword: (args?: { reason?: string }) => Promise<NativeAuthResult>;
+    };
     test: {
       getEvents: () => Promise<
         Array<{
@@ -94,7 +109,9 @@ type ElectronBridge = {
 };
 
 type NativeAuthOverlayPayload = {
+  authMethod?: 'login' | 'custom';
   noteId: string;
+  passwordPlaceholder?: string;
   reason?: string;
   rect: {
     x: number;
@@ -110,6 +127,7 @@ type NativeAuthOverlayPayload = {
   };
   viewportHeight: number;
   devicePixelRatio: number;
+  useTouchId?: boolean;
 };
 
 type NativeAuthResult = {
