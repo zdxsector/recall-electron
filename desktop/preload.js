@@ -1312,6 +1312,23 @@ const electronAPI = {
   windowIsMaximized: () => ipcRenderer.invoke('window:isMaximized'),
   setTitleBarOverlay: (overlay) =>
     ipcRenderer.send('window:setTitleBarOverlay', overlay),
+  secureNotes: {
+    nativeAuth: {
+      show: (payload) =>
+        ipcRenderer.invoke('secure-notes:native-auth:show', payload),
+      update: (payload) =>
+        ipcRenderer.invoke('secure-notes:native-auth:update', payload),
+      hide: (payload) =>
+        ipcRenderer.invoke('secure-notes:native-auth:hide', payload),
+    },
+    systemAuth: {
+      unlock: (payload) =>
+        ipcRenderer.invoke('secure-notes:system-auth:unlock', payload),
+    },
+    test: {
+      getEvents: () => ipcRenderer.invoke('secure-notes:test-events:get'),
+    },
+  },
   onWindowMaximized: (callback) => {
     const handler = (_, isMaximized) => callback(isMaximized);
     ipcRenderer.on('window:maximized', handler);

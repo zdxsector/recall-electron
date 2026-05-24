@@ -69,7 +69,6 @@
   align-items: center;
   background: #222;
   border-radius: 999px;
-  bottom: 6px;
   box-shadow:
     0 8px 20px rgba(0, 0, 0, 0.28),
     0 0 0 1px rgba(255, 255, 255, 0.08);
@@ -77,8 +76,6 @@
   display: flex;
   height: 58px;
   justify-content: center;
-  position: absolute;
-  right: 4px;
   width: 58px;
 
   svg {
@@ -88,29 +85,32 @@
   }
 }
 
-.note-editor-locked-form {
-  margin-top: 2px;
-  width: min(100%, 280px);
+.note-editor-locked-anchor {
+  bottom: 6px;
+  height: 58px;
+  position: absolute;
+  right: 4px;
+  width: 58px;
 }
 
-.note-editor-locked-password {
+.note-editor-locked-touch-id--hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.note-editor-locked-button {
   appearance: none;
   background: var(--background-color);
   border: 1px solid var(--secondary-highlight-color);
   border-radius: 10px;
-  color: transparent;
+  color: var(--foreground-color);
   cursor: pointer;
   font-size: 16px;
   height: 42px;
   outline: none;
   padding: 0 18px;
   text-align: center;
-  width: 100%;
-
-  &::placeholder {
-    color: var(--foreground-color);
-    opacity: 0.72;
-  }
+  width: min(100%, 280px);
 
   &:focus {
     border-color: var(--foreground-color);

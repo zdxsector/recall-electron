@@ -6,6 +6,7 @@ import FingerprintIcon from '../icons/fingerprint';
 import LockIcon from '../icons/lock';
 import actions from '../state/actions';
 import * as selectors from '../state/selectors';
+import { domRectToNativeAuthPayload } from '../utils/native-auth-rect';
 import { getLockedNoteTitle, isNoteLocked } from '../utils/locked-note';
 
 import * as S from '../state';
@@ -32,25 +33,38 @@ type DispatchProps = {
 type Props = DispatchProps & StateProps;
 
 type LocalState = {
+  authUnavailable: boolean;
   isUnlocking: boolean;
   unlockError: string | null;
 };
 
 export class NoteEditor extends Component<Props, LocalState> {
   static displayName = 'NoteEditor';
-  state: LocalState = { isUnlocking: false, unlockError: null };
+  state: LocalState = {
+    authUnavailable: false,
+    isUnlocking: false,
+    unlockError: null,
+  };
 
   // Class property declarations for focus management
   private editorHasFocus?: () => boolean;
   private focusNoteEditor?: () => void;
   private isCreatingEmptyNote = false;
+  private nativeAuthAnchorRef = React.createRef<HTMLDivElement>();
+  private nativeAuthNoteId: T.EntityId | null = null;
+  private nativeAuthResizeObserver?: ResizeObserver;
+  private nativeAuthUpdateFrame: number | null = null;
+  private attemptedNativeAuthNoteId: T.EntityId | null = null;
+  private trustedUnlockSucceededNoteId: T.EntityId | null = null;
 
   componentDidMount() {
     this.toggleShortcuts(true);
+    this.syncNativeAuthOverlay();
   }
 
   componentWillUnmount() {
     this.toggleShortcuts(false);
+    this.teardownNativeAuthOverlay();
   }
 
   componentDidUpdate(prevProps: Props) {
@@ -58,8 +72,15 @@ export class NoteEditor extends Component<Props, LocalState> {
       this.isCreatingEmptyNote = false;
     }
     if (prevProps.noteId !== this.props.noteId) {
-      this.setState({ isUnlocking: false, unlockError: null });
+      this.attemptedNativeAuthNoteId = null;
+      this.trustedUnlockSucceededNoteId = null;
+      this.setState({
+        authUnavailable: false,
+        isUnlocking: false,
+        unlockError: null,
+      });
     }
+    this.syncNativeAuthOverlay(prevProps);
   }
 
   handleShortcut = (event: KeyboardEvent) => {
@@ -88,9 +109,9 @@ export class NoteEditor extends Component<Props, LocalState> {
 
   editFieldHasFocus = () => this.editorHasFocus && this.editorHasFocus();
 
-  storeEditorHasFocus = (f) => (this.editorHasFocus = f);
+  storeEditorHasFocus = (f: () => boolean) => (this.editorHasFocus = f);
 
-  storeFocusEditor = (f) => (this.focusNoteEditor = f);
+  storeFocusEditor = (f: () => void) => (this.focusNoteEditor = f);
 
   toggleShortcuts = (doEnable: boolean) => {
     if (doEnable) {
@@ -131,31 +152,205 @@ export class NoteEditor extends Component<Props, LocalState> {
     }
   };
 
-  handleUnlockNote = async () => {
+  isShowingLockedNote = () => {
+    const { note, noteId, unlockedContent } = this.props;
+    return (
+      !!note &&
+      isNoteLocked(note) &&
+      unlockedContent === null &&
+      this.trustedUnlockSucceededNoteId !== noteId
+    );
+  };
+
+  getNativeAuthPayload = () => {
+    const anchor = this.nativeAuthAnchorRef.current;
+    const { noteId } = this.props;
+    if (!anchor || !noteId) {
+      return null;
+    }
+
+    return domRectToNativeAuthPayload(
+      noteId,
+      anchor.getBoundingClientRect(),
+      window.innerHeight,
+      window.devicePixelRatio || 1
+    );
+  };
+
+  startResizeObserver = () => {
+    const anchor = this.nativeAuthAnchorRef.current;
+    if (!anchor || this.nativeAuthResizeObserver) {
+      return;
+    }
+
+    if (typeof ResizeObserver !== 'undefined') {
+      this.nativeAuthResizeObserver = new ResizeObserver(() => {
+        this.scheduleNativeAuthOverlayUpdate();
+      });
+      this.nativeAuthResizeObserver.observe(anchor);
+    }
+
+    window.addEventListener('resize', this.scheduleNativeAuthOverlayUpdate);
+  };
+
+  stopResizeObserver = () => {
+    if (this.nativeAuthResizeObserver) {
+      this.nativeAuthResizeObserver.disconnect();
+      this.nativeAuthResizeObserver = undefined;
+    }
+    window.removeEventListener('resize', this.scheduleNativeAuthOverlayUpdate);
+    if (this.nativeAuthUpdateFrame !== null) {
+      cancelAnimationFrame(this.nativeAuthUpdateFrame);
+      this.nativeAuthUpdateFrame = null;
+    }
+  };
+
+  scheduleNativeAuthOverlayUpdate = () => {
+    if (this.nativeAuthUpdateFrame !== null) {
+      return;
+    }
+
+    this.nativeAuthUpdateFrame = requestAnimationFrame(() => {
+      this.nativeAuthUpdateFrame = null;
+      this.updateNativeAuthOverlay();
+    });
+  };
+
+  updateNativeAuthOverlay = async () => {
+    if (!this.isShowingLockedNote() || !this.nativeAuthNoteId) {
+      return;
+    }
+
+    const payload = this.getNativeAuthPayload();
+    if (!payload) {
+      return;
+    }
+
+    try {
+      await window.electron.secureNotes.nativeAuth.update(payload);
+    } catch {
+      // Overlay alignment is best-effort; the trusted unlock path is separate.
+    }
+  };
+
+  showNativeAuthOverlay = async () => {
+    const payload = this.getNativeAuthPayload();
+    const { note, noteId } = this.props;
+    if (!payload || !noteId || !note) {
+      return;
+    }
+
+    this.nativeAuthNoteId = noteId;
+    this.attemptedNativeAuthNoteId = noteId;
+    this.startResizeObserver();
+    this.setState({ isUnlocking: true, unlockError: null });
+    try {
+      const result = await window.electron.secureNotes.nativeAuth.show({
+        ...payload,
+        reason: `View "${getLockedNoteTitle(note)}" in Recall`,
+      });
+
+      if (this.props.noteId !== noteId || !this.isShowingLockedNote()) {
+        return;
+      }
+
+      if (result?.ok) {
+        await this.handleUnlockNote({ fromNativeAuth: true });
+        return;
+      }
+
+      const code = result?.code || result?.error;
+      this.setState({
+        authUnavailable: this.isAuthUnavailableCode(code),
+        isUnlocking: false,
+        unlockError: this.getUnlockErrorMessage(code),
+      });
+    } catch {
+      this.setState({
+        authUnavailable: true,
+        isUnlocking: false,
+        unlockError: 'This note could not be unlocked.',
+      });
+    }
+  };
+
+  hideNativeAuthOverlay = async () => {
+    const noteId = this.nativeAuthNoteId;
+    this.nativeAuthNoteId = null;
+    this.stopResizeObserver();
+    try {
+      await window.electron.secureNotes.nativeAuth.hide({
+        noteId: noteId ?? undefined,
+      });
+    } catch {
+      // best-effort cleanup
+    }
+  };
+
+  teardownNativeAuthOverlay = () => {
+    this.hideNativeAuthOverlay();
+  };
+
+  syncNativeAuthOverlay = (prevProps?: Props) => {
+    const isLocked = this.isShowingLockedNote();
+    const noteChanged = prevProps && prevProps.noteId !== this.props.noteId;
+
+    if (!isLocked) {
+      if (this.nativeAuthNoteId !== null) {
+        this.hideNativeAuthOverlay();
+      }
+      return;
+    }
+
+    if (noteChanged && this.nativeAuthNoteId !== null) {
+      this.hideNativeAuthOverlay();
+    }
+
+    if (
+      this.nativeAuthNoteId !== this.props.noteId &&
+      this.attemptedNativeAuthNoteId !== this.props.noteId
+    ) {
+      this.showNativeAuthOverlay();
+    } else {
+      this.scheduleNativeAuthOverlayUpdate();
+    }
+  };
+
+  handleUnlockNote = async ({
+    allowModalFallback = false,
+    fromNativeAuth = false,
+  }: { allowModalFallback?: boolean; fromNativeAuth?: boolean } = {}) => {
     const { note, noteId, storeUnlockedNoteContent } = this.props;
-    if (!noteId || !note?.locked?.encryptedContent || this.state.isUnlocking) {
+    if (
+      !noteId ||
+      !note?.locked?.encryptedContent ||
+      (this.state.isUnlocking && !fromNativeAuth)
+    ) {
       return;
     }
 
     this.setState({ isUnlocking: true, unlockError: null });
     try {
-      const result = await window.electron.decryptNoteContent({
+      const result = await window.electron.secureNotes.systemAuth.unlock({
+        allowModalFallback,
+        noteId,
         encryptedContent: note.locked.encryptedContent,
         reason: `View "${getLockedNoteTitle(note)}" in Recall`,
       });
 
       if (result?.ok && typeof result.content === 'string') {
+        this.trustedUnlockSucceededNoteId = noteId;
         storeUnlockedNoteContent(noteId, result.content);
+        this.hideNativeAuthOverlay();
         this.setState({ isUnlocking: false, unlockError: null });
         return;
       }
 
+      const code = result?.code || result?.error;
       this.setState({
+        authUnavailable: this.isAuthUnavailableCode(code),
         isUnlocking: false,
-        unlockError:
-          result?.error === 'authentication-failed'
-            ? 'Authentication was cancelled or failed.'
-            : 'This note could not be unlocked.',
+        unlockError: this.getUnlockErrorMessage(code),
       });
     } catch {
       this.setState({
@@ -165,14 +360,50 @@ export class NoteEditor extends Component<Props, LocalState> {
     }
   };
 
-  handleUnlockSubmit = (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    this.handleUnlockNote();
+  handleLockedNoteButtonClick = async () => {
+    if (this.state.isUnlocking) {
+      return;
+    }
+
+    if (this.state.authUnavailable && window.electron?.isMac) {
+      await this.hideNativeAuthOverlay();
+      await this.handleUnlockNote({ allowModalFallback: true });
+      return;
+    }
+
+    await this.hideNativeAuthOverlay();
+    this.attemptedNativeAuthNoteId = null;
+    this.showNativeAuthOverlay();
+  };
+
+  isAuthUnavailableCode = (code?: string) =>
+    code === 'unsupported_platform' ||
+    code === 'unavailable' ||
+    code === 'embedded_ui_unavailable' ||
+    code === 'native_addon_unavailable' ||
+    code === 'native_addon_load_failed';
+
+  getUnlockErrorMessage = (code?: string) => {
+    if (code === 'cancelled') {
+      return 'Authentication was cancelled.';
+    }
+    if (code === 'timeout') {
+      return 'Authentication timed out.';
+    }
+    if (this.isAuthUnavailableCode(code)) {
+      return 'System authentication is unavailable on this device.';
+    }
+    if (code === 'authentication_failed') {
+      return 'Authentication failed.';
+    }
+    return 'This note could not be unlocked.';
   };
 
   renderLockedNote = () => {
     const isMac = window.electron?.isMac;
-    const { isUnlocking, unlockError } = this.state;
+    const { authUnavailable, isUnlocking, unlockError } = this.state;
+    const actionLabel =
+      authUnavailable && isMac ? 'Use System Authentication' : 'Try Again';
     return (
       <div className="note-editor note-editor--locked">
         <div className="note-editor-locked-panel" role="group">
@@ -180,33 +411,38 @@ export class NoteEditor extends Component<Props, LocalState> {
             <div className="note-editor-locked-icon">
               <LockIcon filled />
             </div>
-            {isMac && (
-              <div className="note-editor-locked-touch-id">
-                <FingerprintIcon />
-              </div>
-            )}
+            <div
+              className="note-editor-locked-anchor"
+              ref={this.nativeAuthAnchorRef}
+            >
+              {isMac && (
+                <div className="note-editor-locked-touch-id">
+                  <FingerprintIcon />
+                </div>
+              )}
+              {!isMac && (
+                <div className="note-editor-locked-touch-id note-editor-locked-touch-id--hidden">
+                  <FingerprintIcon />
+                </div>
+              )}
+            </div>
           </div>
           <h2>This note is locked.</h2>
           <p>
-            {isMac
-              ? 'Touch ID or enter your Mac login password to view this note.'
-              : 'Authenticate with your system keychain to view this note.'}
+            {authUnavailable
+              ? 'System authentication is unavailable. Use an app-specific note password when one is configured.'
+              : 'Use Touch ID or system authentication to view this note.'}
           </p>
-          <form
-            className="note-editor-locked-form"
-            onSubmit={this.handleUnlockSubmit}
+          <button
+            aria-busy={isUnlocking}
+            aria-label="Unlock locked note"
+            className="note-editor-locked-button"
+            disabled={isUnlocking}
+            onClick={this.handleLockedNoteButtonClick}
+            type="button"
           >
-            <input
-              aria-busy={isUnlocking}
-              aria-label="Unlock locked note"
-              className="note-editor-locked-password"
-              disabled={isUnlocking}
-              onClick={this.handleUnlockNote}
-              placeholder={isUnlocking ? 'Authenticating...' : 'Enter password'}
-              readOnly
-              type="password"
-            />
-          </form>
+            {isUnlocking ? 'Authenticating...' : actionLabel}
+          </button>
           {unlockError && (
             <div className="note-editor-locked-error" role="alert">
               {unlockError}
@@ -253,23 +489,26 @@ export class NoteEditor extends Component<Props, LocalState> {
   }
 }
 
-const mapStateToProps: S.MapState<StateProps> = (state) => ({
-  keyboardShortcuts: state.settings.keyboardShortcuts,
-  isEditorActive: !state.ui.showNavigation,
-  noteId: state.ui.openedNote,
-  note: state.data.notes.get(state.ui.openedNote),
-  unlockedContent:
-    state.ui.openedNote !== null
-      ? (state.ui.unlockedNoteContent.get(state.ui.openedNote) ?? null)
-      : null,
-  searchQuery: state.ui.searchQuery,
-  revision: state.ui.selectedRevision,
-  hasSearchQuery: state.ui.searchQuery !== '',
-  hasSearchMatchesInNote:
-    !!state.ui.numberOfMatchesInNote && state.ui.numberOfMatchesInNote > 0,
-  isSearchActive: !!state.ui.searchQuery.length,
-  isSmallScreen: selectors.isSmallScreen(state),
-});
+const mapStateToProps: S.MapState<StateProps> = (state) => {
+  const openedNote = state.ui.openedNote;
+  return {
+    keyboardShortcuts: state.settings.keyboardShortcuts,
+    isEditorActive: !state.ui.showNavigation,
+    noteId: openedNote,
+    note:
+      openedNote !== null ? (state.data.notes.get(openedNote) ?? null) : null,
+    unlockedContent:
+      openedNote !== null
+        ? (state.ui.unlockedNoteContent.get(openedNote) ?? null)
+        : null,
+    searchQuery: state.ui.searchQuery,
+    hasSearchQuery: state.ui.searchQuery !== '',
+    hasSearchMatchesInNote:
+      !!state.ui.numberOfMatchesInNote && state.ui.numberOfMatchesInNote > 0,
+    isSearchActive: !!state.ui.searchQuery.length,
+    isSmallScreen: selectors.isSmallScreen(state),
+  };
+};
 
 const mapDispatchToProps: S.MapDispatch<DispatchProps> = {
   createNote: actions.ui.createNote,

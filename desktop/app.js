@@ -37,27 +37,23 @@ const platform = require('./detect/platform');
 const updater = require('./updater');
 const { isDev } = require('./env');
 const contextMenu = require('./context-menu');
+const { createNativeAuthService } = require('./native-auth-service');
+const {
+  isValidEncryptedContent,
+  isValidNoteContent,
+  registerSecureNotesIpc,
+  unlockEncryptedNote,
+} = require('./secure-notes-ipc');
 
 require('module').globalPaths.push(path.resolve(path.join(__dirname)));
 
 const DEFAULT_WINDOW_WIDTH = 1024;
 const DEFAULT_WINDOW_HEIGHT = 768;
-const MAX_LOCKED_NOTE_BYTES = 10 * 1024 * 1024;
 
 const isTrustedSender = (sender) => {
   const win = BrowserWindow.fromWebContents(sender);
   return !!win && !win.isDestroyed();
 };
-
-const isValidNoteContent = (content) =>
-  typeof content === 'string' &&
-  Buffer.byteLength(content, 'utf8') <= MAX_LOCKED_NOTE_BYTES;
-
-const isValidEncryptedContent = (content) =>
-  typeof content === 'string' &&
-  content.length > 0 &&
-  content.length <= MAX_LOCKED_NOTE_BYTES * 2 &&
-  /^[A-Za-z0-9+/=]+$/.test(content);
 
 const getDefaultWindowBounds = (win) => {
   const currentBounds = win.getBounds();
@@ -91,6 +87,16 @@ module.exports = function main() {
   let mainWindow = null;
   let isAuthenticated;
   let shouldQuit = false;
+  const nativeAuthService = createNativeAuthService({
+    app,
+    systemPreferences,
+  });
+  const secureNotesIpc = registerSecureNotesIpc({
+    BrowserWindow,
+    ipcMain,
+    nativeAuthService,
+    safeStorage,
+  });
 
   // Checks to see if the application was asked to quit instead of just close the window
   // we then use this variable to check if we should quit the app.
@@ -159,46 +165,17 @@ module.exports = function main() {
   });
 
   ipcMain.handle('recall:decryptNoteContent', async (event, payload = {}) => {
-    try {
-      if (!isTrustedSender(event.sender)) {
-        return { ok: false, error: 'untrusted-sender' };
-      }
-
-      const encryptedContent = payload?.encryptedContent;
-      if (!isValidEncryptedContent(encryptedContent)) {
-        return { ok: false, error: 'invalid-content' };
-      }
-
-      if (!safeStorage?.isEncryptionAvailable()) {
-        return { ok: false, error: 'encryption-unavailable' };
-      }
-
-      if (
-        process.platform === 'darwin' &&
-        typeof systemPreferences?.promptTouchID === 'function'
-      ) {
-        const reason =
-          typeof payload?.reason === 'string' && payload.reason.trim()
-            ? payload.reason.trim().slice(0, 140)
-            : 'View this locked note in Recall';
-        try {
-          await systemPreferences.promptTouchID(reason);
-        } catch {
-          return {
-            ok: false,
-            error: 'authentication-failed',
-            cancelled: true,
-          };
-        }
-      }
-
-      const content = safeStorage.decryptString(
-        Buffer.from(encryptedContent, 'base64')
-      );
-      return { ok: true, content };
-    } catch {
-      return { ok: false, error: 'decrypt-failed' };
-    }
+    return unlockEncryptedNote({
+      BrowserWindow,
+      event,
+      nativeAuthService,
+      payload: {
+        ...payload,
+        noteId: payload?.noteId || '__legacy_locked_note__',
+      },
+      safeStorage,
+      allowLegacyNoteId: true,
+    });
   });
 
   app.on('will-finish-launching', function () {
@@ -504,6 +481,7 @@ module.exports = function main() {
     // Fullscreen should be disabled on launch
     if (platform.isOSX()) {
       mainWindow.on('close', () => {
+        secureNotesIpc.cleanupWindow(mainWindow);
         mainWindow.setFullScreen(false);
       });
     } else {
@@ -513,6 +491,7 @@ module.exports = function main() {
     let closeTimeout = null;
 
     mainWindow.on('close', (event) => {
+      secureNotesIpc.cleanupWindow(mainWindow);
       if (shouldQuit) {
         if (closeTimeout) {
           clearTimeout(closeTimeout);
@@ -546,6 +525,7 @@ module.exports = function main() {
 
     // Emitted when the window is closed.
     mainWindow.on('closed', function () {
+      secureNotesIpc.cleanupWindow(mainWindow);
       // Dereference the window object, usually you would store windows
       // in an array if your app supports multi windows, this is the time
       // when you should delete the corresponding element.
@@ -609,6 +589,12 @@ module.exports = function main() {
       window.webContents.executeJavaScript(
         "document.addEventListener('drop', event => event.preventDefault());"
       );
+    });
+    window.webContents.on('did-start-navigation', () => {
+      secureNotesIpc.cleanupWindow(window);
+    });
+    window.webContents.on('render-process-gone', () => {
+      secureNotesIpc.cleanupWindow(window);
     });
   });
 

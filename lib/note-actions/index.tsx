@@ -18,8 +18,8 @@ import * as T from '../types';
 type StateProps = {
   hasRevisions: boolean;
   isPinned: boolean;
-  noteId: T.EntityId;
-  note: T.Note;
+  noteId: T.EntityId | null;
+  note: T.Note | undefined;
   unlockedContent: string | null;
 };
 
@@ -66,7 +66,7 @@ export class NoteActions extends Component<Props, LocalState> {
 
   render() {
     const { hasRevisions, isPinned, note, unlockedContent } = this.props;
-    const noteIsLocked = isNoteLocked(note);
+    const noteIsLocked = !!note && isNoteLocked(note);
     const shouldUnlock = noteIsLocked && unlockedContent === null;
     const pinLabel = isPinned ? 'Unpin Note' : 'Pin Note';
     const lockLabel = shouldUnlock ? 'Unlock Note' : 'Lock Note';
@@ -145,6 +145,10 @@ export class NoteActions extends Component<Props, LocalState> {
   }
 
   pinNote = (shouldPin: boolean) => {
+    if (!this.props.noteId) {
+      return;
+    }
+
     this.props.pinNote(this.props.noteId, shouldPin);
     this.props.onFocusTrapDeactivate();
   };
@@ -205,7 +209,9 @@ export class NoteActions extends Component<Props, LocalState> {
 
     this.setState({ isLocking: true, lockError: null });
     try {
-      const result = await window.electron.decryptNoteContent({
+      const result = await window.electron.secureNotes.systemAuth.unlock({
+        allowModalFallback: true,
+        noteId,
         encryptedContent: note.locked.encryptedContent,
         reason: `View "${getLockedNoteTitle(note)}" in Recall`,
       });
@@ -216,10 +222,11 @@ export class NoteActions extends Component<Props, LocalState> {
         return;
       }
 
+      const code = result?.code || result?.error;
       this.setState({
         isLocking: false,
         lockError:
-          result?.error === 'authentication-failed'
+          code === 'cancelled' || code === 'authentication_failed'
             ? 'Authentication was cancelled or failed.'
             : 'This note could not be unlocked.',
       });
@@ -236,13 +243,14 @@ const mapStateToProps: S.MapState<StateProps> = ({
   data,
   ui: { openedNote, unlockedNoteContent },
 }) => {
-  const note = data.notes.get(openedNote);
+  const note = openedNote !== null ? data.notes.get(openedNote) : undefined;
 
   return {
     noteId: openedNote,
     note: note,
-    hasRevisions: !!data.noteRevisions.get(openedNote)?.size,
-    isPinned: note?.systemTags.includes('pinned'),
+    hasRevisions:
+      openedNote !== null && !!data.noteRevisions.get(openedNote)?.size,
+    isPinned: !!note?.systemTags.includes('pinned'),
     unlockedContent:
       openedNote !== null
         ? (unlockedNoteContent.get(openedNote) ?? null)
