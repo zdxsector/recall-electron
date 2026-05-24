@@ -9,6 +9,7 @@ import ImportDialog from '../dialogs/import';
 import KeybindingsDialog from '../dialogs/keybindings';
 import LogoutConfirmation from '../dialogs/logout-confirmation';
 import SettingsDialog from '../dialogs/settings';
+import ShareDialog from '../dialogs/share';
 import { closeDialog } from '../state/ui/actions';
 
 import * as S from '../state';
@@ -62,6 +63,8 @@ export class DialogRenderer extends Component<Props> {
               <LogoutConfirmation key="logout-confirmation" />
             ) : 'SETTINGS' === dialog.type ? (
               <SettingsDialog key="settings" />
+            ) : 'SHARE' === dialog.type ? (
+              <ShareDialog key="share" />
             ) : null}
           </Modal>
         ))}

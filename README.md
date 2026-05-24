@@ -8,6 +8,7 @@ Successor of [simplenote](https://github.com/Automattic/simplenote-electron) for
 - This is using custom muya editor for live preview while editing
 - Fully offline version
 - Notebook-note folder feature
+- Locked notes backed by platform keychain encryption and macOS Touch ID unlock
 - Optimized performance
 
 ## Running

@@ -20,6 +20,21 @@ type ElectronBridge = {
   isMac: boolean;
   isLinux: boolean;
   isWindows: boolean;
+  encryptNoteContent: (args: { content: string }) => Promise<{
+    ok: boolean;
+    encryptedContent?: string;
+    lockedAt?: number;
+    error?: string;
+  }>;
+  decryptNoteContent: (args: {
+    encryptedContent: string;
+    reason?: string;
+  }) => Promise<{
+    ok: boolean;
+    content?: string;
+    error?: string;
+    cancelled?: boolean;
+  }>;
   loadPersistentState: () => any;
   savePersistentState: (data: any) => void;
   loadAllRevisions: () => any;

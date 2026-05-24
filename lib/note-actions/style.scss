@@ -49,6 +49,45 @@
     &:hover {
       background-color: var(--alternative-highlight-color);
     }
+
+    &:disabled {
+      cursor: default;
+      opacity: 0.65;
+
+      &:hover {
+        background-color: transparent;
+      }
+    }
+  }
+
+  .note-actions-item-button {
+    background: transparent;
+    border: none;
+    color: inherit;
+    font-family: inherit;
+    width: calc(100% - 10px);
+  }
+
+  .note-actions-item-icon {
+    align-items: center;
+    display: flex;
+    flex: 0 0 22px;
+    height: 18px;
+    justify-content: center;
+    margin-right: 10px;
+    width: 22px;
+
+    svg {
+      height: 18px;
+      width: 18px;
+    }
+  }
+
+  .note-actions-error {
+    color: var(--tertiary-highlight-color);
+    font-size: 12px;
+    line-height: 1.35;
+    padding: 4px 14px 8px 46px;
   }
 
   .note-actions-item-disabled {

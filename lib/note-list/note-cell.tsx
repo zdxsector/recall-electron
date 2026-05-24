@@ -2,6 +2,7 @@ import React, { Component, CSSProperties } from 'react';
 import { connect } from 'react-redux';
 import classNames from 'classnames';
 
+import LockIcon from '../icons/lock';
 import PublishIcon from '../icons/published-small';
 import SmallPinnedIcon from '../icons/pinned-small';
 import SmallSyncIcon from '../icons/sync-small';
@@ -11,6 +12,7 @@ import {
   normalizeNoteTitleForDisplay,
   noteTitleAndPreview,
 } from '../utils/note-utils';
+import { isNoteLocked } from '../utils/locked-note';
 import { withCheckboxCharacters } from '../utils/task-transform';
 
 import actions from '../state/actions';
@@ -141,6 +143,7 @@ export class NoteCell extends Component<Props> {
     const title = normalizeNoteTitleForDisplay(rawTitle);
     const isPinned = note.systemTags.includes('pinned');
     const isPublished = !!note.publishURL;
+    const noteIsLocked = isNoteLocked(note);
     const recentlyUpdated =
       lastUpdated - this.createdAt > 1000 && Date.now() - lastUpdated < 1200;
 
@@ -159,7 +162,7 @@ export class NoteCell extends Component<Props> {
       .replace(/\n+/g, ' ')
       .trim();
 
-    const shouldShowThumbnail = !(searchQuery ?? '').trim();
+    const shouldShowThumbnail = !noteIsLocked && !(searchQuery ?? '').trim();
     const thumbnail = (() => {
       if (!shouldShowThumbnail) return null;
 
@@ -213,6 +216,7 @@ export class NoteCell extends Component<Props> {
     const classes = classNames('note-list-item', {
       'note-list-item-selected': isOpened,
       'note-list-item-pinned': isPinned,
+      'note-list-item-locked': noteIsLocked,
       'note-recently-updated': recentlyUpdated,
       'published-note': isPublished,
       'note-list-item-has-thumbnail': hasThumbnail,
@@ -222,13 +226,19 @@ export class NoteCell extends Component<Props> {
       <div style={style} className={classes} role="row">
         <div className="note-list-item-content" role="cell">
           <div className="note-list-item-status">
-            <button
-              aria-label={pinnerLabel}
-              className={pinnerClasses}
-              onClick={() => pinNote(noteId, !isPinned)}
-            >
-              <SmallPinnedIcon />
-            </button>
+            {noteIsLocked ? (
+              <span className="note-list-item-lock" aria-label="Locked note">
+                <LockIcon />
+              </span>
+            ) : (
+              <button
+                aria-label={pinnerLabel}
+                className={pinnerClasses}
+                onClick={() => pinNote(noteId, !isPinned)}
+              >
+                <SmallPinnedIcon />
+              </button>
+            )}
           </div>
 
           <button

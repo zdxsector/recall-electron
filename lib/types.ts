@@ -14,6 +14,14 @@ export type Entity<T> = {
 export type TagName = Brand<string, 'TagName'>;
 export type SystemTag = 'markdown' | 'pinned' | 'published' | 'shared';
 
+export type LockedNote = {
+  encryptedContent: string;
+  previewTitle: string;
+  lockedAt: SecondsEpoch;
+  updatedAt?: SecondsEpoch;
+  encryptionVersion?: 1;
+};
+
 // Offline-only organization model (Notebooks / Folders)
 export type NotebookId = Brand<string, 'NotebookId'>;
 export type FolderId = Brand<string, 'FolderId'>;
@@ -27,6 +35,7 @@ export type Note = {
   shareURL?: string;
   systemTags: SystemTag[];
   tags: TagName[];
+  locked?: LockedNote | null;
   // Offline-only folder assignment. If missing, note belongs to the default folder.
   folderId?: FolderId | null;
 };

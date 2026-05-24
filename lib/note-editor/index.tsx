@@ -2,8 +2,11 @@ import React, { Component } from 'react';
 import { connect } from 'react-redux';
 import SearchResultsBar from '../search-results-bar';
 import NoteDetail from '../note-detail';
+import FingerprintIcon from '../icons/fingerprint';
+import LockIcon from '../icons/lock';
 import actions from '../state/actions';
 import * as selectors from '../state/selectors';
+import { getLockedNoteTitle, isNoteLocked } from '../utils/locked-note';
 
 import * as S from '../state';
 import * as T from '../types';
@@ -17,17 +20,25 @@ type StateProps = {
   noteId: T.EntityId | null;
   note: T.Note | null;
   searchQuery: string;
+  unlockedContent: string | null;
 };
 
 type DispatchProps = {
   createNote: (note?: Partial<T.Note>) => any;
+  storeUnlockedNoteContent: (noteId: T.EntityId, content: string) => any;
   toggleNoteList: () => any;
 };
 
 type Props = DispatchProps & StateProps;
 
-export class NoteEditor extends Component<Props> {
+type LocalState = {
+  isUnlocking: boolean;
+  unlockError: string | null;
+};
+
+export class NoteEditor extends Component<Props, LocalState> {
   static displayName = 'NoteEditor';
+  state: LocalState = { isUnlocking: false, unlockError: null };
 
   // Class property declarations for focus management
   private editorHasFocus?: () => boolean;
@@ -45,6 +56,9 @@ export class NoteEditor extends Component<Props> {
   componentDidUpdate(prevProps: Props) {
     if (!prevProps.note && this.props.note) {
       this.isCreatingEmptyNote = false;
+    }
+    if (prevProps.noteId !== this.props.noteId) {
+      this.setState({ isUnlocking: false, unlockError: null });
     }
   }
 
@@ -117,8 +131,95 @@ export class NoteEditor extends Component<Props> {
     }
   };
 
+  handleUnlockNote = async () => {
+    const { note, noteId, storeUnlockedNoteContent } = this.props;
+    if (!noteId || !note?.locked?.encryptedContent || this.state.isUnlocking) {
+      return;
+    }
+
+    this.setState({ isUnlocking: true, unlockError: null });
+    try {
+      const result = await window.electron.decryptNoteContent({
+        encryptedContent: note.locked.encryptedContent,
+        reason: `View "${getLockedNoteTitle(note)}" in Recall`,
+      });
+
+      if (result?.ok && typeof result.content === 'string') {
+        storeUnlockedNoteContent(noteId, result.content);
+        this.setState({ isUnlocking: false, unlockError: null });
+        return;
+      }
+
+      this.setState({
+        isUnlocking: false,
+        unlockError:
+          result?.error === 'authentication-failed'
+            ? 'Authentication was cancelled or failed.'
+            : 'This note could not be unlocked.',
+      });
+    } catch {
+      this.setState({
+        isUnlocking: false,
+        unlockError: 'This note could not be unlocked.',
+      });
+    }
+  };
+
+  handleUnlockSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    this.handleUnlockNote();
+  };
+
+  renderLockedNote = () => {
+    const isMac = window.electron?.isMac;
+    const { isUnlocking, unlockError } = this.state;
+    return (
+      <div className="note-editor note-editor--locked">
+        <div className="note-editor-locked-panel" role="group">
+          <div className="note-editor-locked-symbol" aria-hidden="true">
+            <div className="note-editor-locked-icon">
+              <LockIcon filled />
+            </div>
+            {isMac && (
+              <div className="note-editor-locked-touch-id">
+                <FingerprintIcon />
+              </div>
+            )}
+          </div>
+          <h2>This note is locked.</h2>
+          <p>
+            {isMac
+              ? 'Touch ID or enter your Mac login password to view this note.'
+              : 'Authenticate with your system keychain to view this note.'}
+          </p>
+          <form
+            className="note-editor-locked-form"
+            onSubmit={this.handleUnlockSubmit}
+          >
+            <input
+              aria-busy={isUnlocking}
+              aria-label="Unlock locked note"
+              className="note-editor-locked-password"
+              disabled={isUnlocking}
+              onClick={this.handleUnlockNote}
+              placeholder={isUnlocking ? 'Authenticating...' : 'Enter password'}
+              readOnly
+              type="password"
+            />
+          </form>
+          {unlockError && (
+            <div className="note-editor-locked-error" role="alert">
+              {unlockError}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   render() {
-    const { hasSearchQuery, hasSearchMatchesInNote, note } = this.props;
+    const { hasSearchQuery, hasSearchMatchesInNote, note, unlockedContent } =
+      this.props;
 
     if (!note) {
       return (
@@ -134,6 +235,10 @@ export class NoteEditor extends Component<Props> {
           <div className="note-editor-empty-surface" />
         </div>
       );
+    }
+
+    if (isNoteLocked(note) && unlockedContent === null) {
+      return this.renderLockedNote();
     }
 
     return (
@@ -153,6 +258,10 @@ const mapStateToProps: S.MapState<StateProps> = (state) => ({
   isEditorActive: !state.ui.showNavigation,
   noteId: state.ui.openedNote,
   note: state.data.notes.get(state.ui.openedNote),
+  unlockedContent:
+    state.ui.openedNote !== null
+      ? (state.ui.unlockedNoteContent.get(state.ui.openedNote) ?? null)
+      : null,
   searchQuery: state.ui.searchQuery,
   revision: state.ui.selectedRevision,
   hasSearchQuery: state.ui.searchQuery !== '',
@@ -164,6 +273,7 @@ const mapStateToProps: S.MapState<StateProps> = (state) => ({
 
 const mapDispatchToProps: S.MapDispatch<DispatchProps> = {
   createNote: actions.ui.createNote,
+  storeUnlockedNoteContent: actions.ui.storeUnlockedNoteContent,
   toggleNoteList: actions.ui.toggleNoteList,
 };
 

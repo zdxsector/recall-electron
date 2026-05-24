@@ -270,6 +270,13 @@ const noteTitleFromContent = (content) => {
   return title || 'New Note';
 };
 
+const lockedNoteTitle = (note) =>
+  String(note?.locked?.previewTitle || noteTitleFromContent(note?.content))
+    .replace(/\s+/g, ' ')
+    .trim() || 'New Note';
+
+const lockedNotePlaceholder = (note) => `# ${lockedNoteTitle(note)}\n\nLocked`;
+
 const pathPartsFromRel = (relPath) =>
   String(relPath || '')
     .split(/[\\/]+/)
@@ -429,7 +436,9 @@ const computeNoteDir = (root, foldersArray, notebooksArray, noteId, note) => {
     note.folderId || null
   );
   const folderDir = path.join(root, ...folderParts);
-  const title = noteTitleFromContent(note.content);
+  const title = note?.locked?.encryptedContent
+    ? lockedNoteTitle(note)
+    : noteTitleFromContent(note.content);
   const noteDirName = safeName(title, 'New Note');
   const noteDir = path.join(folderDir, noteDirName);
   const htmlFile = path.join(noteDir, `${noteDirName}.html`);
@@ -468,6 +477,13 @@ const validChannels = [
 ];
 
 const electronAPI = {
+  encryptNoteContent: ({ content } = {}) =>
+    ipcRenderer.invoke('recall:encryptNoteContent', { content }),
+  decryptNoteContent: ({ encryptedContent, reason } = {}) =>
+    ipcRenderer.invoke('recall:decryptNoteContent', {
+      encryptedContent,
+      reason,
+    }),
   confirmLogout: (changes) => {
     const response = ipcRenderer.sendSync('recall:showMessageBoxSync', {
       type: 'warning',
@@ -535,6 +551,16 @@ const electronAPI = {
       let didUpdateNotePaths = false;
       const hydratedNotes = notesArray.map(([noteId, note]) => {
         try {
+          if (note?.locked?.encryptedContent) {
+            return [
+              noteId,
+              {
+                ...note,
+                content: note.content || lockedNotePlaceholder(note),
+              },
+            ];
+          }
+
           // Prefer markdown, but support legacy htmlRel for backward compatibility.
           const htmlRel = notePaths?.[noteId]?.htmlRel;
           const mdRel = notePaths?.[noteId]?.mdRel;
@@ -756,7 +782,9 @@ const electronAPI = {
         ensureDir(finalNoteDir);
         ensureDir(path.join(finalNoteDir, 'assets'));
         ensureDir(path.dirname(finalHtmlFile));
-        const markdown = String(note.content || '');
+        const markdown = note?.locked?.encryptedContent
+          ? lockedNotePlaceholder(note)
+          : String(note.content || '');
         const html = markdownConverter
           ? markdownConverter.makeHtml(markdown)
           : markdown;

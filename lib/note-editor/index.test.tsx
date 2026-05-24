@@ -1,5 +1,5 @@
 import React from 'react';
-import renderer from 'react-test-renderer';
+import renderer, { act } from 'react-test-renderer';
 
 jest.mock('../note-detail', () => () => null);
 jest.mock('../search-results-bar', () => () => null);
@@ -17,7 +17,9 @@ const baseProps = {
   note: null,
   noteId: null,
   searchQuery: '',
+  storeUnlockedNoteContent: jest.fn(),
   toggleNoteList: jest.fn(),
+  unlockedContent: null,
 };
 
 describe('NoteEditor empty state', () => {
@@ -64,5 +66,67 @@ describe('NoteEditor empty state', () => {
     tree.root.findByProps({ 'aria-label': 'New note editor' }).props.onClick();
 
     expect(createNote).toHaveBeenCalledWith({ content: '# Draft title' });
+  });
+});
+
+describe('NoteEditor locked state', () => {
+  it('uses the password field as a native unlock trigger', async () => {
+    const decryptNoteContent = jest.fn().mockResolvedValue({
+      ok: true,
+      content: '# Secret\nBody',
+    });
+    const storeUnlockedNoteContent = jest.fn();
+
+    Object.defineProperty(window, 'electron', {
+      configurable: true,
+      value: {
+        decryptNoteContent,
+        isMac: true,
+      },
+    });
+
+    const tree = renderer.create(
+      <NoteEditor
+        {...baseProps}
+        note={
+          {
+            content: '# Secret\n\nLocked',
+            creationDate: 1,
+            deleted: false,
+            locked: {
+              encryptedContent: 'YWJjMTIz',
+              encryptionVersion: 1,
+              lockedAt: 1,
+              previewTitle: 'Secret',
+            },
+            modificationDate: 1,
+            systemTags: [],
+            tags: [],
+          } as any
+        }
+        noteId={'note-locked' as any}
+        storeUnlockedNoteContent={storeUnlockedNoteContent}
+      />
+    );
+
+    const input = tree.root.findByProps({
+      'aria-label': 'Unlock locked note',
+    });
+
+    expect(input.props.readOnly).toBe(true);
+    expect(input.props.type).toBe('password');
+
+    await act(async () => {
+      input.props.onClick();
+    });
+
+    expect(decryptNoteContent).toHaveBeenCalledWith({
+      encryptedContent: 'YWJjMTIz',
+      reason: 'View "Secret" in Recall',
+    });
+    expect(storeUnlockedNoteContent).toHaveBeenCalledWith(
+      'note-locked',
+      '# Secret\nBody'
+    );
   });
 });

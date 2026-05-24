@@ -1,8 +1,4 @@
-import {
-  test,
-  expect,
-  type Page,
-} from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 import {
   closeIsolatedElectronApp,
   type IsolatedElectronApp,
@@ -86,9 +82,7 @@ test.describe('First block is always h1', () => {
     await createNewNote();
     const firstBlock = await getFirstBlock();
 
-    const tagName = await firstBlock.evaluate((el) =>
-      el.tagName.toLowerCase()
-    );
+    const tagName = await firstBlock.evaluate((el) => el.tagName.toLowerCase());
     expect(tagName).toBe('h1');
 
     const hasHeadingClass = await firstBlock.evaluate((el) =>
@@ -102,7 +96,9 @@ test.describe('First block is always h1', () => {
 
     // Click directly into the h1 content element to ensure focus
     const container = await getEditorContainer();
-    const h1Content = container.locator('.mu-atx-heading .mu-atxheading-content');
+    const h1Content = container.locator(
+      '.mu-atx-heading .mu-atxheading-content'
+    );
     await h1Content.first().click();
     await window.waitForTimeout(300);
 
@@ -112,9 +108,7 @@ test.describe('First block is always h1', () => {
     await window.waitForTimeout(300);
 
     const firstBlock = await getFirstBlock();
-    const tagName = await firstBlock.evaluate((el) =>
-      el.tagName.toLowerCase()
-    );
+    const tagName = await firstBlock.evaluate((el) => el.tagName.toLowerCase());
     expect(tagName).toBe('h1');
 
     const text = await firstBlock.textContent();
@@ -137,9 +131,7 @@ test.describe('First block is always h1', () => {
     await window.waitForTimeout(300);
 
     const firstBlock = await getFirstBlock();
-    const tagName = await firstBlock.evaluate((el) =>
-      el.tagName.toLowerCase()
-    );
+    const tagName = await firstBlock.evaluate((el) => el.tagName.toLowerCase());
     expect(tagName).toBe('h1');
   });
 
@@ -153,9 +145,7 @@ test.describe('First block is always h1', () => {
     await clearEditorContent();
 
     const firstBlock = await getFirstBlock();
-    const tagName = await firstBlock.evaluate((el) =>
-      el.tagName.toLowerCase()
-    );
+    const tagName = await firstBlock.evaluate((el) => el.tagName.toLowerCase());
     expect(tagName).toBe('h1');
   });
 
@@ -173,9 +163,7 @@ test.describe('First block is always h1', () => {
 
     // First block should remain h1
     const firstBlock = await getFirstBlock();
-    const tagName = await firstBlock.evaluate((el) =>
-      el.tagName.toLowerCase()
-    );
+    const tagName = await firstBlock.evaluate((el) => el.tagName.toLowerCase());
     expect(tagName).toBe('h1');
   });
 });
@@ -285,9 +273,7 @@ test.describe('Clipboard copy/paste', () => {
 
     // First block should be h1 after cutting all
     const firstBlock = await getFirstBlock();
-    const tagName = await firstBlock.evaluate((el) =>
-      el.tagName.toLowerCase()
-    );
+    const tagName = await firstBlock.evaluate((el) => el.tagName.toLowerCase());
     expect(tagName).toBe('h1');
   });
 });
@@ -374,14 +360,14 @@ test.describe('Element block operations', () => {
 
     // Insert code block via shortcut (Alt+Cmd+C on mac, Alt+Ctrl+C on other)
     const isMac = process.platform === 'darwin';
-    await window.keyboard.press(
-      isMac ? 'Alt+Meta+c' : 'Alt+Control+c'
-    );
+    await window.keyboard.press(isMac ? 'Alt+Meta+c' : 'Alt+Control+c');
     await window.waitForTimeout(500);
 
     // Look for a code block element
     const container = await getEditorContainer();
-    const codeBlock = container.locator('.mu-code-block, .mu-fenced-code, figure.mu-code-block');
+    const codeBlock = container.locator(
+      '.mu-code-block, .mu-fenced-code, figure.mu-code-block'
+    );
     const count = await codeBlock.count();
 
     // The code block should exist (or at minimum, no crash occurred)
@@ -427,6 +413,58 @@ test.describe('Element block operations', () => {
           e.includes('Cannot read properties of null')
       );
     expect(relevantErrors).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Toolbar block operations
+// ---------------------------------------------------------------------------
+
+test.describe('Toolbar block operations', () => {
+  test('table button inserts a rendered Muya table', async () => {
+    await createNewNote();
+    await focusEditor();
+
+    await window.keyboard.type('Toolbar table', { delay: 20 });
+    await window.keyboard.press('Enter');
+    await window.waitForTimeout(300);
+
+    await window.getByRole('button', { name: 'Insert Table' }).click();
+
+    const container = await getEditorContainer();
+    await expect(container.locator('.mu-table')).toBeVisible({
+      timeout: 5000,
+    });
+
+    const text = await container.textContent();
+    expect(text).not.toContain('| Column 1 | Column 2 |');
+  });
+
+  test('Aa menu exposes Code and creates a code block', async () => {
+    await createNewNote();
+    await focusEditor();
+
+    await window.keyboard.type('Toolbar code', { delay: 20 });
+    await window.keyboard.press('Enter');
+    await window.waitForTimeout(300);
+    await window.keyboard.type('const answer = 42;', { delay: 20 });
+    await window.waitForTimeout(300);
+
+    await window.getByRole('button', { name: 'Text format' }).click();
+    const codeItem = window.getByRole('menuitem', { name: 'Code' });
+    await expect(codeItem).toBeVisible({ timeout: 5000 });
+    await expect(
+      window.getByRole('menuitem', { name: 'Monostyled' })
+    ).toHaveCount(0);
+
+    await codeItem.click();
+
+    const container = await getEditorContainer();
+    const codeBlock = container
+      .locator('.mu-code-block, .mu-fenced-code')
+      .last();
+    await expect(codeBlock).toBeVisible({ timeout: 5000 });
+    await expect(codeBlock).toContainText('const answer = 42;');
   });
 });
 
@@ -556,9 +594,7 @@ test.describe('Editor stability', () => {
     await window.waitForTimeout(300);
 
     // Redo
-    await window.keyboard.press(
-      isMac ? 'Meta+Shift+z' : 'Control+Shift+z'
-    );
+    await window.keyboard.press(isMac ? 'Meta+Shift+z' : 'Control+Shift+z');
     await window.waitForTimeout(300);
 
     const relevantErrors = consoleErrors
@@ -612,7 +648,10 @@ test.describe('Image resize persistence', () => {
     await createNewNote();
     await window.waitForTimeout(1500);
 
-    const noteItem = window.locator('.note-list').locator('text=Width persist data').first();
+    const noteItem = window
+      .locator('.note-list')
+      .locator('text=Width persist data')
+      .first();
     await expect(noteItem).toBeVisible({ timeout: 5000 });
     await noteItem.click();
     await window.waitForTimeout(2000);
@@ -641,7 +680,8 @@ test.describe('Image resize persistence', () => {
     await window.keyboard.press('Enter');
     await window.waitForTimeout(300);
 
-    const assetSrc = 'recall-asset:///Users/test/Documents/notes/assets/pasted-123.png';
+    const assetSrc =
+      'recall-asset:///Users/test/Documents/notes/assets/pasted-123.png';
     const imgTag = `<img alt="test" src="${assetSrc}" width="216">`;
     await window.evaluate((tag: string) => {
       document.execCommand('insertText', false, tag);
@@ -651,7 +691,10 @@ test.describe('Image resize persistence', () => {
     await createNewNote();
     await window.waitForTimeout(1500);
 
-    const noteItem = window.locator('.note-list').locator('text=Width persist asset').first();
+    const noteItem = window
+      .locator('.note-list')
+      .locator('text=Width persist asset')
+      .first();
     await expect(noteItem).toBeVisible({ timeout: 5000 });
     await noteItem.click();
     await window.waitForTimeout(2000);
@@ -671,13 +714,15 @@ test.describe('Image resize persistence', () => {
   });
 
   test('normalizeForStorage and materializeForEditor preserve width', async () => {
-    const input = '<img alt="test" src="recall-asset:///Users/x/notes/assets/img.png" width="300">';
+    const input =
+      '<img alt="test" src="recall-asset:///Users/x/notes/assets/img.png" width="300">';
 
     const result = await window.evaluate((tag: string) => {
       let normalized = tag;
       normalized = normalized.replace(
         /(<img\b[^>]*?\bsrc\s*=\s*")(?:file|recall-asset):\/\/[^"]*\/assets\/([^"]+)(")/gi,
-        (_m: string, pre: string, name: string, post: string) => `${pre}assets/${name}${post}`
+        (_m: string, pre: string, name: string, post: string) =>
+          `${pre}assets/${name}${post}`
       );
       let materialized = normalized;
       materialized = materialized.replace(

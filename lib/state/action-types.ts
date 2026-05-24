@@ -63,10 +63,7 @@ export type CreateNoteWithId = Action<
 >;
 export type DeleteOpenNoteForever = Action<'DELETE_OPEN_NOTE_FOREVER'>;
 export type ExportNotes = Action<'EXPORT_NOTES'>;
-export type FilterNotes = Action<
-  'FILTER_NOTES',
-  { noteIds: T.EntityId[] }
->;
+export type FilterNotes = Action<'FILTER_NOTES', { noteIds: T.EntityId[] }>;
 export type FocusSearchField = Action<'FOCUS_SEARCH_FIELD'>;
 export type HideAlternateLoginPrompt = Action<'HIDE_ALTERNATE_LOGIN_PROMPT'>;
 export type Logout = Action<'LOGOUT'>;
@@ -113,6 +110,14 @@ export type ShowDialog = Action<
 export type StoreEditorSelection = Action<
   'STORE_EDITOR_SELECTION',
   { noteId: T.EntityId; start: number; end: number; direction: 'RTL' | 'LTR' }
+>;
+export type StoreUnlockedNoteContent = Action<
+  'STORE_UNLOCKED_NOTE_CONTENT',
+  { noteId: T.EntityId; content: string }
+>;
+export type ClearUnlockedNoteContent = Action<
+  'CLEAR_UNLOCKED_NOTE_CONTENT',
+  { noteId: T.EntityId }
 >;
 export type StoreNumberOfMatchesInNote = Action<
   'STORE_NUMBER_OF_MATCHES_IN_NOTE',
@@ -321,6 +326,7 @@ export type ActionType =
   | CloseDialog
   | CloseRevision
   | CloseWindow
+  | ClearUnlockedNoteContent
   | CreateNote
   | CreateNoteWithId
   | DeleteOpenNoteForever
@@ -385,6 +391,7 @@ export type ActionType =
   | ShowAlternateLoginPrompt
   | ShowDialog
   | StoreEditorSelection
+  | StoreUnlockedNoteContent
   | StoreNumberOfMatchesInNote
   | StoreSearchSelection
   | SubmitPendingChange

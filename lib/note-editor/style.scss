@@ -10,6 +10,125 @@
   min-height: 0;
 }
 
+.note-editor--locked {
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+  user-select: none;
+}
+
+.note-editor-locked-panel {
+  align-items: center;
+  color: var(--primary-color);
+  display: flex;
+  flex-direction: column;
+  max-width: 520px;
+  padding: 24px;
+  text-align: center;
+
+  h2 {
+    font-size: 24px;
+    font-weight: 700;
+    line-height: 1.25;
+    margin: 18px 0 8px;
+  }
+
+  p {
+    color: var(--foreground-color);
+    font-size: 16px;
+    line-height: 1.4;
+    margin: 0 0 22px;
+  }
+}
+
+.note-editor-locked-symbol {
+  align-items: center;
+  display: flex;
+  height: 128px;
+  justify-content: center;
+  position: relative;
+  width: 128px;
+}
+
+.note-editor-locked-icon {
+  align-items: center;
+  color: #555;
+  display: flex;
+  height: 112px;
+  justify-content: center;
+  margin-right: 12px;
+  width: 104px;
+
+  svg {
+    height: 112px;
+    width: 104px;
+  }
+}
+
+.note-editor-locked-touch-id {
+  align-items: center;
+  background: #222;
+  border-radius: 999px;
+  bottom: 6px;
+  box-shadow:
+    0 8px 20px rgba(0, 0, 0, 0.28),
+    0 0 0 1px rgba(255, 255, 255, 0.08);
+  color: #ff4964;
+  display: flex;
+  height: 58px;
+  justify-content: center;
+  position: absolute;
+  right: 4px;
+  width: 58px;
+
+  svg {
+    height: 42px;
+    stroke-width: 1.8;
+    width: 42px;
+  }
+}
+
+.note-editor-locked-form {
+  margin-top: 2px;
+  width: min(100%, 280px);
+}
+
+.note-editor-locked-password {
+  appearance: none;
+  background: var(--background-color);
+  border: 1px solid var(--secondary-highlight-color);
+  border-radius: 10px;
+  color: transparent;
+  cursor: pointer;
+  font-size: 16px;
+  height: 42px;
+  outline: none;
+  padding: 0 18px;
+  text-align: center;
+  width: 100%;
+
+  &::placeholder {
+    color: var(--foreground-color);
+    opacity: 0.72;
+  }
+
+  &:focus {
+    border-color: var(--foreground-color);
+    box-shadow: 0 0 0 2px var(--secondary-highlight-color);
+  }
+
+  &:disabled {
+    cursor: default;
+    opacity: 0.7;
+  }
+}
+
+.note-editor-locked-error {
+  color: var(--tertiary-highlight-color);
+  font-size: 13px;
+  margin-top: 12px;
+}
+
 .note-editor-empty-surface {
   flex: 1 1 auto;
   width: 100%;

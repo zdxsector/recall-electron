@@ -22,6 +22,7 @@ import {
   TableDragBar,
   TableRowColumMenu,
 } from '@muyajs/core';
+import { ScrollPage } from '@muyajs/core/block/scrollPage';
 import { replaceBlockByLabel } from '@muyajs/core/ui/paragraphQuickInsertMenu/config';
 
 type Props = {
@@ -34,6 +35,7 @@ type Props = {
 };
 
 export type SearchResult = { total: number; index: number };
+type InlineFormatCommand = 'bold' | 'italic' | 'underline' | 'strikeThrough';
 
 export type MuyaEditorHandle = {
   focus: () => void;
@@ -41,6 +43,10 @@ export type MuyaEditorHandle = {
   hasFocus: () => boolean;
   insertText: (text: string) => void;
   insertChecklist: () => void;
+  insertTable: () => void;
+  applyBlockFormat: (label: string) => void;
+  toggleInlineFormat: (command: InlineFormatCommand) => void;
+  toggleBold: () => void;
   search: (value: string) => SearchResult;
   find: (action: 'previous' | 'next') => SearchResult;
   clearSearch: () => void;
@@ -69,6 +75,30 @@ const ensureMuyaPlugins = () => {
 
 const canCall = (obj: any, methodName: string) =>
   obj && typeof obj[methodName] === 'function';
+
+const SUPPORTED_BLOCK_FORMATS = new Set([
+  'paragraph',
+  'atx-heading 1',
+  'atx-heading 2',
+  'atx-heading 3',
+  'atx-heading 4',
+  'atx-heading 5',
+  'atx-heading 6',
+  'code-block',
+  'table',
+  'task-list',
+  'bullet-list',
+  'order-list',
+]);
+
+const getPlainBlockText = (block: any): string => {
+  return String(block?.text ?? '')
+    .replace(/^\s*#{1,6}\s+/, '')
+    .replace(/^\s*>\s?/, '')
+    .replace(/^\s*[-*+]\s*\[[ xX]\]\s+/, '')
+    .replace(/^\s*[-*+]\s+/, '')
+    .replace(/^\s*\d+[.)]\s+/, '');
+};
 
 // Configurable debounce delay for content changes (ms)
 const CONTENT_CHANGE_DEBOUNCE_MS = 60;
@@ -263,35 +293,139 @@ const MuyaEditor = forwardRef<MuyaEditorHandle, Props>(
       sel.addRange(range);
     };
 
-    const insertChecklist = () => {
-      focusPreservingSelection();
+    const getSelectionContext = () => {
       const muya = muyaRef.current;
       const selection = muya?.editor?.selection?.getSelection?.();
       const anchorBlock = selection?.anchorBlock as any;
       const parentBlock = anchorBlock?.parent;
+      return { muya, anchorBlock, parentBlock };
+    };
 
+    const replaceCurrentBlock = (label: string) => {
+      if (!SUPPORTED_BLOCK_FORMATS.has(label)) {
+        return false;
+      }
+
+      focusPreservingSelection();
+      const { muya, anchorBlock, parentBlock } = getSelectionContext();
+      if (!muya || !parentBlock) {
+        return false;
+      }
+
+      try {
+        if (label === 'code-block') {
+          const text = getPlainBlockText(anchorBlock);
+          const codeBlock = ScrollPage.loadBlock('code-block').create(muya, {
+            name: 'code-block',
+            meta: {
+              lang: '',
+              type: 'fenced',
+            },
+            text,
+          });
+          parentBlock.replaceWith(codeBlock);
+          codeBlock
+            .firstContentInDescendant?.()
+            ?.setCursor?.(text.length, text.length, true);
+          return true;
+        }
+
+        replaceBlockByLabel({
+          block: parentBlock,
+          muya,
+          label,
+          text: getPlainBlockText(anchorBlock),
+        });
+        return true;
+      } catch {
+        return false;
+      }
+    };
+
+    const setCursorInFirstEditableCell = (tableBlock: any) => {
+      const firstBodyCell = tableBlock?.firstChild
+        ?.find?.(1)
+        ?.firstContentInDescendant?.();
+      const firstCell = tableBlock?.firstContentInDescendant?.();
+      const cursorBlock = firstBodyCell ?? firstCell;
+      cursorBlock?.setCursor?.(0, 0, true);
+    };
+
+    const insertTableBlock = () => {
+      focusPreservingSelection();
+      const { muya, anchorBlock, parentBlock } = getSelectionContext();
+      if (!muya) {
+        return false;
+      }
+
+      try {
+        const tableBlock = (
+          ScrollPage.loadBlock('table') as any
+        ).createWithHeader(muya, ['Column 1', 'Column 2']);
+        const isEmptyParagraph =
+          parentBlock?.blockName === 'paragraph' &&
+          getPlainBlockText(anchorBlock).trim().length === 0;
+
+        if (parentBlock && isEmptyParagraph) {
+          parentBlock.replaceWith(tableBlock);
+        } else if (parentBlock?.parent?.insertAfter) {
+          parentBlock.parent.insertAfter(tableBlock, parentBlock);
+        } else {
+          const scrollPage = muya?.editor?.scrollPage;
+          if (!scrollPage?.append) {
+            return false;
+          }
+          scrollPage.append(tableBlock, 'user');
+        }
+
+        setCursorInFirstEditableCell(tableBlock);
+        return true;
+      } catch {
+        return false;
+      }
+    };
+
+    const insertChecklist = () => {
       // If we can, convert the current paragraph to a task list item so it renders
       // as a checkbox rather than raw "- [ ]" text.
+      focusPreservingSelection();
+      const { parentBlock } = getSelectionContext();
       if (
-        muya &&
-        parentBlock &&
-        typeof parentBlock.blockName === 'string' &&
-        parentBlock.blockName === 'paragraph'
+        parentBlock?.blockName === 'paragraph' &&
+        replaceCurrentBlock('task-list')
       ) {
-        try {
-          replaceBlockByLabel({
-            block: parentBlock,
-            muya,
-            label: 'task-list',
-            text: anchorBlock?.text ?? '',
-          });
-          return;
-        } catch {
-          // fall back to inserting markdown
-        }
+        return;
       }
 
       insertText('- [ ] ');
+    };
+
+    const insertTable = () => {
+      if (insertTableBlock()) {
+        return;
+      }
+
+      const prefix = lastKnownValueRef.current?.endsWith('\n') ? '' : '\n\n';
+      insertText(`${prefix}| Column 1 | Column 2 |\n| --- | --- |\n|  |  |\n`);
+    };
+
+    const applyBlockFormat = (label: string) => {
+      replaceCurrentBlock(label);
+    };
+
+    const toggleInlineFormat = (command: InlineFormatCommand) => {
+      focusPreservingSelection();
+      try {
+        if (document.queryCommandSupported?.(command)) {
+          document.execCommand(command);
+        }
+      } catch {
+        // ignore
+      }
+    };
+
+    const toggleBold = () => {
+      toggleInlineFormat('bold');
     };
 
     const scrollToActiveMatch = (searchModule: any) => {
@@ -353,6 +487,10 @@ const MuyaEditor = forwardRef<MuyaEditorHandle, Props>(
         hasFocus,
         insertText,
         insertChecklist,
+        insertTable,
+        applyBlockFormat,
+        toggleInlineFormat,
+        toggleBold,
         search,
         find: findMatch,
         clearSearch,

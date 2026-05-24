@@ -9,7 +9,9 @@ const {
   Menu,
   session,
   nativeTheme,
+  safeStorage,
   screen,
+  systemPreferences,
   protocol,
 } = require('electron');
 
@@ -40,6 +42,22 @@ require('module').globalPaths.push(path.resolve(path.join(__dirname)));
 
 const DEFAULT_WINDOW_WIDTH = 1024;
 const DEFAULT_WINDOW_HEIGHT = 768;
+const MAX_LOCKED_NOTE_BYTES = 10 * 1024 * 1024;
+
+const isTrustedSender = (sender) => {
+  const win = BrowserWindow.fromWebContents(sender);
+  return !!win && !win.isDestroyed();
+};
+
+const isValidNoteContent = (content) =>
+  typeof content === 'string' &&
+  Buffer.byteLength(content, 'utf8') <= MAX_LOCKED_NOTE_BYTES;
+
+const isValidEncryptedContent = (content) =>
+  typeof content === 'string' &&
+  content.length > 0 &&
+  content.length <= MAX_LOCKED_NOTE_BYTES * 2 &&
+  /^[A-Za-z0-9+/=]+$/.test(content);
 
 const getDefaultWindowBounds = (win) => {
   const currentBounds = win.getBounds();
@@ -111,6 +129,75 @@ module.exports = function main() {
       event.returnValue = dialog.showMessageBoxSync(win, options || {});
     } catch {
       event.returnValue = 0;
+    }
+  });
+
+  ipcMain.handle('recall:encryptNoteContent', async (event, payload = {}) => {
+    try {
+      if (!isTrustedSender(event.sender)) {
+        return { ok: false, error: 'untrusted-sender' };
+      }
+
+      const content = payload?.content;
+      if (!isValidNoteContent(content)) {
+        return { ok: false, error: 'invalid-content' };
+      }
+
+      if (!safeStorage?.isEncryptionAvailable()) {
+        return { ok: false, error: 'encryption-unavailable' };
+      }
+
+      const encrypted = safeStorage.encryptString(content);
+      return {
+        ok: true,
+        encryptedContent: encrypted.toString('base64'),
+        lockedAt: Date.now() / 1000,
+      };
+    } catch {
+      return { ok: false, error: 'encrypt-failed' };
+    }
+  });
+
+  ipcMain.handle('recall:decryptNoteContent', async (event, payload = {}) => {
+    try {
+      if (!isTrustedSender(event.sender)) {
+        return { ok: false, error: 'untrusted-sender' };
+      }
+
+      const encryptedContent = payload?.encryptedContent;
+      if (!isValidEncryptedContent(encryptedContent)) {
+        return { ok: false, error: 'invalid-content' };
+      }
+
+      if (!safeStorage?.isEncryptionAvailable()) {
+        return { ok: false, error: 'encryption-unavailable' };
+      }
+
+      if (
+        process.platform === 'darwin' &&
+        typeof systemPreferences?.promptTouchID === 'function'
+      ) {
+        const reason =
+          typeof payload?.reason === 'string' && payload.reason.trim()
+            ? payload.reason.trim().slice(0, 140)
+            : 'View this locked note in Recall';
+        try {
+          await systemPreferences.promptTouchID(reason);
+        } catch {
+          return {
+            ok: false,
+            error: 'authentication-failed',
+            cancelled: true,
+          };
+        }
+      }
+
+      const content = safeStorage.decryptString(
+        Buffer.from(encryptedContent, 'base64')
+      );
+      return { ok: true, content };
+    } catch {
+      return { ok: false, error: 'decrypt-failed' };
     }
   });
 

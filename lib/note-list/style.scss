@@ -144,6 +144,23 @@
     }
   }
 
+  .note-list-item-lock {
+    color: var(--foreground-color);
+    display: flex;
+    height: 16px;
+    justify-content: center;
+    margin: 0 auto;
+    opacity: 0.8;
+    width: 16px;
+
+    svg {
+      height: 16px;
+      stroke-width: 2;
+      vertical-align: top;
+      width: 16px;
+    }
+  }
+
   .note-list-item-text {
     flex: 1 1 auto;
     overflow: hidden;
