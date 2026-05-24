@@ -46,4 +46,34 @@ describe('domRectToNativeAuthPayload', () => {
       )
     ).toBeNull();
   });
+
+  test('optional password overlay rect is included when valid', () => {
+    expect(
+      domRectToNativeAuthPayload(
+        'note-1',
+        { left: 10, top: 20, width: 58, height: 58 } as DOMRect,
+        800,
+        2,
+        { left: 30, top: 90, width: 320, height: 96 } as DOMRect
+      )
+    ).toEqual({
+      noteId: 'note-1',
+      rect: { x: 10, y: 20, width: 58, height: 58 },
+      passwordRect: { x: 30, y: 90, width: 320, height: 96 },
+      viewportHeight: 800,
+      devicePixelRatio: 2,
+    });
+  });
+
+  test('invalid optional password overlay rect is rejected', () => {
+    expect(
+      domRectToNativeAuthPayload(
+        'note-1',
+        { left: 10, top: 20, width: 58, height: 58 } as DOMRect,
+        800,
+        1,
+        { left: 30, top: 90, width: 0, height: 96 } as DOMRect
+      )
+    ).toBeNull();
+  });
 });

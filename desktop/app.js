@@ -93,8 +93,14 @@ module.exports = function main() {
   let mainWindow = null;
   let isAuthenticated;
   let shouldQuit = false;
+  const nativeAuthPlatform =
+    process.env.NODE_ENV === 'test' &&
+    typeof process.env.SECURE_NOTES_AUTH_PLATFORM_OVERRIDE === 'string'
+      ? process.env.SECURE_NOTES_AUTH_PLATFORM_OVERRIDE
+      : process.platform;
   const nativeAuthService = createNativeAuthService({
     app,
+    platform: nativeAuthPlatform,
     systemPreferences,
   });
   const secureNotesIpc = registerSecureNotesIpc({

@@ -5,7 +5,10 @@ const { domRectToAppKitRect } = require('./native-auth-geometry');
 const AUTH_RESULT_CODES = new Set([
   'success',
   'cancel',
+  'cancelled',
+  'error',
   'failure',
+  'invalid_password',
   'unavailable',
   'timeout',
 ]);
@@ -206,6 +209,14 @@ const createNativeAuthService = ({
       recordAuthFailure(noteId, 'cancelled');
       return errorResult('cancelled');
     }
+    if (result === 'cancelled') {
+      recordAuthFailure(noteId, 'cancelled');
+      return errorResult('cancelled');
+    }
+    if (result === 'invalid_password') {
+      recordAuthFailure(noteId, 'invalid_password');
+      return errorResult('invalid_password');
+    }
     if (result === 'timeout') {
       recordAuthFailure(noteId, 'timeout');
       return errorResult('timeout');
@@ -213,6 +224,10 @@ const createNativeAuthService = ({
     if (result === 'unavailable') {
       recordAuthFailure(noteId, unavailableCode);
       return errorResult(unavailableCode);
+    }
+    if (result === 'error') {
+      recordAuthFailure(noteId, 'verification_error');
+      return errorResult('verification_error');
     }
 
     recordAuthFailure(noteId, 'authentication_failed');
@@ -230,7 +245,19 @@ const createNativeAuthService = ({
       return errorResult('invalid_rect');
     }
 
-    return { noteId, rect };
+    const normalized = { noteId, rect };
+    if (payload?.passwordRect !== undefined) {
+      const passwordRect = domRectToAppKitRect({
+        ...payload,
+        rect: payload.passwordRect,
+      });
+      if (!passwordRect) {
+        return errorResult('invalid_rect');
+      }
+      normalized.passwordRect = passwordRect;
+    }
+
+    return normalized;
   };
 
   const callAddonShow = async (win, payload) => {
@@ -246,6 +273,9 @@ const createNativeAuthService = ({
 
     if (isMockMode) {
       record('auth-overlay-show', { noteId: normalized.noteId });
+      if (normalized.passwordRect) {
+        record('auth-password-overlay-show', { noteId: normalized.noteId });
+      }
       return mockAuthResult(normalized.noteId, { grantTrusted: true });
     }
 
@@ -268,13 +298,17 @@ const createNativeAuthService = ({
           ? win.getNativeWindowHandle()
           : null;
       devLog('native-auth: attempting embedded LAAuthenticationView');
-      const result = await addon.show({
+      const addonPayload = {
         debug: canLogNativeAuth(),
         nativeWindowHandle,
         noteId: normalized.noteId,
         reason: safeReason(payload?.reason),
         rect: normalized.rect,
-      });
+      };
+      if (normalized.passwordRect) {
+        addonPayload.passwordRect = normalized.passwordRect;
+      }
+      const result = await addon.show(addonPayload);
 
       record('auth-overlay-show', { noteId: normalized.noteId });
 
@@ -312,6 +346,9 @@ const createNativeAuthService = ({
 
     if (isMockMode) {
       record('auth-overlay-update', { noteId: normalized.noteId });
+      if (normalized.passwordRect) {
+        record('auth-password-overlay-update', { noteId: normalized.noteId });
+      }
       return successResult();
     }
 
@@ -334,11 +371,15 @@ const createNativeAuthService = ({
         typeof win?.getNativeWindowHandle === 'function'
           ? win.getNativeWindowHandle()
           : null;
-      const result = await addon.update({
+      const addonPayload = {
         nativeWindowHandle,
         noteId: normalized.noteId,
         rect: normalized.rect,
-      });
+      };
+      if (normalized.passwordRect) {
+        addonPayload.passwordRect = normalized.passwordRect;
+      }
+      const result = await addon.update(addonPayload);
       record('auth-overlay-update', { noteId: normalized.noteId });
       return result?.ok === false
         ? errorResult(normalizeNativeAuthCode(result, 'native_addon_failed'))

@@ -12,9 +12,15 @@
           "-framework",
           "AppKit",
           "-framework",
+          "Foundation",
+          "-framework",
           "LocalAuthentication",
           "-weak_framework",
-          "LocalAuthenticationEmbeddedUI"
+          "LocalAuthenticationEmbeddedUI",
+          "-framework",
+          "OpenDirectory",
+          "-framework",
+          "SystemConfiguration"
         ]
       }
     }

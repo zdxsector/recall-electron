@@ -102,6 +102,12 @@ type NativeAuthOverlayPayload = {
     width: number;
     height: number;
   };
+  passwordRect?: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  };
   viewportHeight: number;
   devicePixelRatio: number;
 };

@@ -77,6 +77,14 @@
   z-index: 1;
 }
 
+.note-editor-native-password-anchor {
+  height: 96px;
+  margin: 0 0 18px;
+  max-width: 100%;
+  pointer-events: none;
+  width: 320px;
+}
+
 .note-editor-locked-button {
   appearance: none;
   background: var(--background-color);

@@ -9,9 +9,12 @@ const launchAuthApp = async (
   mockResult:
     | 'success'
     | 'cancel'
+    | 'cancelled'
     | 'failure'
+    | 'invalid_password'
     | 'unavailable'
-    | 'timeout' = 'cancel'
+    | 'error'
+    | 'timeout' = 'cancelled'
 ) =>
   launchIsolatedElectronApp({
     env: {
@@ -24,7 +27,15 @@ const launchAuthApp = async (
 
 const setMockResult = async (
   appContext: IsolatedElectronApp,
-  result: 'success' | 'cancel' | 'failure' | 'unavailable' | 'timeout'
+  result:
+    | 'success'
+    | 'cancel'
+    | 'cancelled'
+    | 'failure'
+    | 'invalid_password'
+    | 'unavailable'
+    | 'error'
+    | 'timeout'
 ) => {
   await appContext.electronApp.evaluate((_, nextResult) => {
     process.env.SECURE_NOTES_AUTH_MOCK_RESULT = nextResult;
@@ -58,7 +69,10 @@ test.describe('locked note native auth mock mode', () => {
     await expect
       .poll(async () => {
         const events = await getAuthEvents(window);
-        return events.some((item) => item.event === 'auth-overlay-show');
+        return (
+          events.some((item) => item.event === 'auth-overlay-show') &&
+          events.some((item) => item.event === 'auth-password-overlay-show')
+        );
       })
       .toBe(true);
   });
@@ -72,8 +86,8 @@ test.describe('locked note native auth mock mode', () => {
     await expect(window.getByText(/Mock unlocked secret body/)).toBeVisible();
   });
 
-  test('mock auth cancel keeps the note locked', async () => {
-    appContext = await launchAuthApp('cancel');
+  test('mock auth cancelled keeps the note locked', async () => {
+    appContext = await launchAuthApp('cancelled');
     window = appContext.window;
 
     await selectNote(window, 'Locked QA Secret');
@@ -91,6 +105,16 @@ test.describe('locked note native auth mock mode', () => {
     await selectNote(window, 'Locked QA Secret');
     await expect(window.locator('.note-editor--locked')).toBeVisible();
     await expect(window.getByText('Authentication failed.')).toBeVisible();
+    await expect(window.getByText(/Mock unlocked secret body/)).toHaveCount(0);
+  });
+
+  test('mock password invalid result keeps the note locked', async () => {
+    appContext = await launchAuthApp('invalid_password');
+    window = appContext.window;
+
+    await selectNote(window, 'Locked QA Secret');
+    await expect(window.locator('.note-editor--locked')).toBeVisible();
+    await expect(window.getByText('Invalid password.')).toBeVisible();
     await expect(window.getByText(/Mock unlocked secret body/)).toHaveCount(0);
   });
 
@@ -161,7 +185,10 @@ test.describe('locked note native auth mock mode', () => {
     await expect
       .poll(async () => {
         const events = await getAuthEvents(window);
-        return events.some((item) => item.event === 'auth-overlay-update');
+        return (
+          events.some((item) => item.event === 'auth-overlay-update') &&
+          events.some((item) => item.event === 'auth-password-overlay-update')
+        );
       })
       .toBe(true);
   });
@@ -201,14 +228,30 @@ test.describe('locked note native auth mock mode', () => {
     await expect(window.getByText('Authentication timed out.')).toBeVisible();
   });
 
-  test('mock result can change between attempts without real Touch ID', async () => {
-    appContext = await launchAuthApp('cancel');
+  test('non-macOS unsupported path does not crash', async () => {
+    appContext = await launchIsolatedElectronApp({
+      env: {
+        SECURE_NOTES_AUTH_PLATFORM_OVERRIDE: 'linux',
+      },
+      seedLockedNotes: true,
+      settleMs: 500,
+    });
     window = appContext.window;
 
     await selectNote(window, 'Locked QA Secret');
+    await expect(window.locator('.note-editor--locked')).toBeVisible();
     await expect(
-      window.getByText('Authentication was cancelled.')
+      window.getByText('System authentication is unavailable on this device.')
     ).toBeVisible();
+    await expect(window.getByText(/Mock unlocked secret body/)).toHaveCount(0);
+  });
+
+  test('password failure does not break later native auth success', async () => {
+    appContext = await launchAuthApp('invalid_password');
+    window = appContext.window;
+
+    await selectNote(window, 'Locked QA Secret');
+    await expect(window.getByText('Invalid password.')).toBeVisible();
     await setMockResult(appContext, 'success');
     await window.getByRole('button', { name: 'Unlock locked note' }).click();
     await expect(window.getByText(/Mock unlocked secret body/)).toBeVisible();

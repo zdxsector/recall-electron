@@ -1,11 +1,14 @@
+export type NativeAuthOverlayRect = {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+};
+
 export type NativeAuthOverlayPayload = {
   noteId: string;
-  rect: {
-    x: number;
-    y: number;
-    width: number;
-    height: number;
-  };
+  rect: NativeAuthOverlayRect;
+  passwordRect?: NativeAuthOverlayRect;
   viewportHeight: number;
   devicePixelRatio: number;
 };
@@ -16,7 +19,8 @@ export const domRectToNativeAuthPayload = (
   noteId: string,
   rect: Pick<DOMRect, 'left' | 'top' | 'width' | 'height'>,
   viewportHeight: number,
-  devicePixelRatio: number
+  devicePixelRatio: number,
+  passwordRect?: Pick<DOMRect, 'left' | 'top' | 'width' | 'height'> | null
 ): NativeAuthOverlayPayload | null => {
   if (!noteId || typeof noteId !== 'string') {
     return null;
@@ -37,7 +41,7 @@ export const domRectToNativeAuthPayload = (
     return null;
   }
 
-  return {
+  const payload: NativeAuthOverlayPayload = {
     noteId,
     rect: {
       x: rect.left,
@@ -48,4 +52,26 @@ export const domRectToNativeAuthPayload = (
     viewportHeight,
     devicePixelRatio,
   };
+
+  if (passwordRect) {
+    if (
+      !isFiniteNumber(passwordRect.left) ||
+      !isFiniteNumber(passwordRect.top) ||
+      !isFiniteNumber(passwordRect.width) ||
+      !isFiniteNumber(passwordRect.height) ||
+      passwordRect.width <= 0 ||
+      passwordRect.height <= 0
+    ) {
+      return null;
+    }
+
+    payload.passwordRect = {
+      x: passwordRect.left,
+      y: passwordRect.top,
+      width: passwordRect.width,
+      height: passwordRect.height,
+    };
+  }
+
+  return payload;
 };

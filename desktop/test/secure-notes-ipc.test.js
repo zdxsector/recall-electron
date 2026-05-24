@@ -334,6 +334,32 @@ describe('secure notes IPC', () => {
     expect(safeStorage.decryptString).not.toHaveBeenCalled();
   });
 
+  test('password failure does not decrypt or unlock content', async () => {
+    const safeStorage = makeSafeStorage();
+    const result = await unlockEncryptedNote({
+      BrowserWindow: makeBrowserWindow(),
+      event: { sender: {} },
+      nativeAuthService: {
+        authenticate: jest
+          .fn()
+          .mockResolvedValue({ ok: false, code: 'invalid_password' }),
+        isMockMode: () => false,
+      },
+      payload: {
+        noteId: 'note-1',
+        encryptedContent: 'YWJjMTIz',
+      },
+      safeStorage,
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      code: 'invalid_password',
+      error: 'invalid_password',
+    });
+    expect(safeStorage.decryptString).not.toHaveBeenCalled();
+  });
+
   test('missing noteId is handled safely', async () => {
     await expect(
       unlockEncryptedNote({

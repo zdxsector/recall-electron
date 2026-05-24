@@ -95,13 +95,23 @@ describe('NoteEditor locked state', () => {
   } as any;
 
   const createNodeMock = (element: any) => {
-    if (element.type === 'div') {
+    if (element.props?.className === 'note-editor-locked-anchor') {
       return {
         getBoundingClientRect: () => ({
           left: 10,
           top: 20,
           width: 58,
           height: 58,
+        }),
+      };
+    }
+    if (element.props?.className === 'note-editor-native-password-anchor') {
+      return {
+        getBoundingClientRect: () => ({
+          left: 30,
+          top: 90,
+          width: 320,
+          height: 96,
         }),
       };
     }
@@ -165,10 +175,16 @@ describe('NoteEditor locked state', () => {
     expect(
       tree!.root.findAllByProps({ className: 'note-editor-locked-anchor' })
     ).toHaveLength(1);
+    expect(
+      tree!.root.findAllByProps({
+        className: 'note-editor-native-password-anchor',
+      })
+    ).toHaveLength(1);
     expect(electron.show).toHaveBeenCalledWith({
       noteId: 'note-locked',
       reason: 'View "Secret" in Recall',
       rect: { x: 10, y: 20, width: 58, height: 58 },
+      passwordRect: { x: 30, y: 90, width: 320, height: 96 },
       viewportHeight: 800,
       devicePixelRatio: 2,
     });
@@ -207,7 +223,7 @@ describe('NoteEditor locked state', () => {
     );
   });
 
-  it('uses native password fallback while embedded auth is pending', async () => {
+  it('keeps macOS password entry in the native overlay while auth is pending', async () => {
     const electron = setupElectron(
       {
         ok: true,
@@ -231,25 +247,14 @@ describe('NoteEditor locked state', () => {
       await Promise.resolve();
     });
 
-    await act(async () => {
-      await tree!.root
-        .findByProps({ 'aria-label': 'Use native password authentication' })
-        .props.onClick();
-      await Promise.resolve();
-      await Promise.resolve();
-    });
-
-    expect(electron.hide).toHaveBeenCalledWith({ noteId: 'note-locked' });
-    expect(electron.unlock).toHaveBeenCalledWith({
-      allowModalFallback: true,
-      noteId: 'note-locked',
-      encryptedContent: 'YWJjMTIz',
-      reason: 'View "Secret" in Recall',
-    });
-    expect(storeUnlockedNoteContent).toHaveBeenCalledWith(
-      'note-locked',
-      '# Secret\nBody'
-    );
+    expect(
+      tree!.root.findAllByProps({
+        'aria-label': 'Use native password authentication',
+      })
+    ).toHaveLength(0);
+    expect(electron.hide).not.toHaveBeenCalled();
+    expect(electron.unlock).not.toHaveBeenCalled();
+    expect(storeUnlockedNoteContent).not.toHaveBeenCalled();
   });
 
   it('cancelled auth does not unlock the note', async () => {

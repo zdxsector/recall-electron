@@ -5,6 +5,7 @@ const { createNativeAuthService } = require('../native-auth-service');
 const validOverlayPayload = {
   noteId: 'note-1',
   rect: { x: 10, y: 20, width: 58, height: 58 },
+  passwordRect: { x: 30, y: 90, width: 320, height: 96 },
   viewportHeight: 800,
   devicePixelRatio: 1,
 };
@@ -49,8 +50,11 @@ describe('NativeAuthService', () => {
 
   test.each([
     ['cancel', 'cancelled'],
+    ['cancelled', 'cancelled'],
     ['failure', 'authentication_failed'],
+    ['invalid_password', 'invalid_password'],
     ['unavailable', 'unavailable'],
+    ['error', 'verification_error'],
     ['timeout', 'timeout'],
   ])('mock %s returns typed %s result', async (mockResult, code) => {
     const service = createNativeAuthService({
@@ -210,6 +214,78 @@ describe('NativeAuthService', () => {
     await expect(service.hide({}, { noteId: 'note-1' })).resolves.toEqual({
       ok: true,
       code: 'success',
+    });
+  });
+
+  test('native addon receives validated password overlay geometry', async () => {
+    const addon = {
+      show: jest.fn().mockResolvedValue({ ok: false, code: 'cancelled' }),
+      update: jest.fn().mockResolvedValue({ ok: true, code: 'success' }),
+    };
+    const win = {
+      getNativeWindowHandle: jest.fn(() => Buffer.from('window')),
+    };
+    const service = createNativeAuthService({
+      app: mockApp(),
+      env: { NODE_ENV: 'test' },
+      nativeAddon: addon,
+      platform: 'darwin',
+    });
+
+    await service.show(win, validOverlayPayload);
+    await service.update(win, validOverlayPayload);
+
+    expect(addon.show).toHaveBeenCalledWith(
+      expect.objectContaining({
+        noteId: 'note-1',
+        rect: { x: 10, y: 722, width: 58, height: 58, scaleFactor: 1 },
+        passwordRect: {
+          x: 30,
+          y: 614,
+          width: 320,
+          height: 96,
+          scaleFactor: 1,
+        },
+      })
+    );
+    expect(addon.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        noteId: 'note-1',
+        rect: { x: 10, y: 722, width: 58, height: 58, scaleFactor: 1 },
+        passwordRect: {
+          x: 30,
+          y: 614,
+          width: 320,
+          height: 96,
+          scaleFactor: 1,
+        },
+      })
+    );
+  });
+
+  test('invalid password overlay rect is rejected', async () => {
+    const service = createNativeAuthService({
+      app: mockApp(),
+      env: {
+        NODE_ENV: 'test',
+        SECURE_NOTES_AUTH_MOCK: '1',
+        SECURE_NOTES_AUTH_MOCK_RESULT: 'success',
+      },
+      platform: 'darwin',
+    });
+
+    await expect(
+      service.show(
+        {},
+        {
+          ...validOverlayPayload,
+          passwordRect: { x: 30, y: 90, width: 0, height: 96 },
+        }
+      )
+    ).resolves.toEqual({
+      ok: false,
+      code: 'invalid_rect',
+      error: 'invalid_rect',
     });
   });
 });

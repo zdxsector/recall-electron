@@ -1,9 +1,9 @@
 # Native Auth Overlay QA
 
 This checklist covers locked notes that use the main-process `NativeAuthService`
-boundary. CI uses deterministic mock auth; real Touch ID, macOS password fallback,
-and display-specific LAAuthenticationView overlay behavior still require manual
-macOS validation.
+boundary. CI uses deterministic mock auth; real Touch ID, native ODRecord
+password fallback, and display-specific LAAuthenticationView overlay behavior
+still require manual macOS validation.
 
 ## Implementation Steps
 
@@ -47,12 +47,16 @@ Mock result values:
 
 - `SECURE_NOTES_AUTH_MOCK_RESULT=success`
 - `SECURE_NOTES_AUTH_MOCK_RESULT=cancel`
+- `SECURE_NOTES_AUTH_MOCK_RESULT=cancelled`
 - `SECURE_NOTES_AUTH_MOCK_RESULT=failure`
+- `SECURE_NOTES_AUTH_MOCK_RESULT=invalid_password`
 - `SECURE_NOTES_AUTH_MOCK_RESULT=unavailable`
+- `SECURE_NOTES_AUTH_MOCK_RESULT=error`
 - `SECURE_NOTES_AUTH_MOCK_RESULT=timeout`
 
 Safe test observability is exposed only through the mock/test path. Events may
 include `auth-overlay-show`, `auth-overlay-update`, `auth-overlay-hide`,
+`auth-password-overlay-show`, `auth-password-overlay-update`,
 `auth-result-success`, `auth-result-cancel`, and `auth-result-failure`. Events
 must not include note bodies, passwords, ciphertext, encryption keys, or OS
 secrets.
@@ -101,7 +105,7 @@ Record before testing:
 
 - Touch ID success unlocks the note.
 - Touch ID cancel keeps note locked.
-- Password fallback through macOS LocalAuthentication works, if available.
+- Password fallback through the native NSSecureTextField and ODRecord path works.
 - Repeated cancel does not break future attempts.
 - Locked note remains hidden while auth is pending.
 - Note content is never visible before successful auth.
@@ -158,9 +162,9 @@ Record before testing:
   or Macs without available biometric authentication use the unavailable path and
   must rely on the explicit modal fallback when appropriate.
 - The embedded view path uses Apple's compact `LAAuthenticationView` for Touch
-  ID/watch authentication. Mac password fallback is handled only by native
-  `LAPolicyDeviceOwnerAuthentication` UI, not by an HTML password field or a
-  renderer-collected password.
+  ID/watch authentication. Mac password fallback is handled only by the native
+  AppKit `NSSecureTextField` plus OpenDirectory `ODRecord.verifyPassword` path,
+  not by an HTML password field or a renderer-collected password.
 - Locked notes are authentication-gated with Electron `safeStorage` encrypted
   ciphertext. This is not a separate per-note Keychain item or user-managed
   encryption key store.
