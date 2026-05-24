@@ -17,11 +17,7 @@
 
 namespace {
 
-constexpr CGFloat kEmbeddedAuthGlyphPadding = 4.0;
-constexpr CGFloat kFingerprintMinX = 2.1;
-constexpr CGFloat kFingerprintMaxX = 21.8;
-constexpr CGFloat kFingerprintMinY = 3.0;
-constexpr CGFloat kFingerprintMaxY = 23.2;
+constexpr CGFloat kEmbeddedAuthSymbolScale = 0.72;
 
 struct AuthRect {
   double x = 0;
@@ -350,70 +346,46 @@ NSRect RectInAppKitPoints(const AuthRect &rect, NSWindow *window) {
   [[NSColor colorWithCalibratedWhite:0.12 alpha:1.0] setFill];
   [[NSBezierPath bezierPathWithOvalInRect:bounds] fill];
 
-  NSRect glyphBounds =
-      NSInsetRect(bounds, kEmbeddedAuthGlyphPadding, kEmbeddedAuthGlyphPadding);
-  CGFloat glyphWidth = kFingerprintMaxX - kFingerprintMinX;
-  CGFloat glyphHeight = kFingerprintMaxY - kFingerprintMinY;
-  CGFloat scale = MIN(glyphBounds.size.width / glyphWidth,
-                      glyphBounds.size.height / glyphHeight);
-  CGFloat originX =
-      NSMidX(glyphBounds) - (((kFingerprintMinX + kFingerprintMaxX) / 2.0) * scale);
-  CGFloat originY =
-      NSMidY(glyphBounds) - (((kFingerprintMinY + kFingerprintMaxY) / 2.0) * scale);
+  if (@available(macOS 11.0, *)) {
+    NSImage *symbol =
+        [NSImage imageWithSystemSymbolName:@"touchid" accessibilityDescription:nil];
+    if (!symbol) {
+      return;
+    }
 
-  auto point = [&](CGFloat x, CGFloat y) {
-    return NSMakePoint(originX + (x * scale), originY + (y * scale));
-  };
+    CGFloat symbolSize = floor(MIN(bounds.size.width, bounds.size.height) *
+                               kEmbeddedAuthSymbolScale);
+    NSImageSymbolConfiguration *configuration =
+        [NSImageSymbolConfiguration configurationWithPointSize:symbolSize
+                                                       weight:NSFontWeightRegular
+                                                        scale:NSImageSymbolScaleMedium];
+    NSImage *configuredSymbol = [symbol imageWithSymbolConfiguration:configuration] ?: symbol;
+    NSImage *tintedSymbol =
+        [[NSImage alloc] initWithSize:NSMakeSize(symbolSize, symbolSize)];
+    NSRect imageRect = NSMakeRect(0, 0, symbolSize, symbolSize);
+    [tintedSymbol lockFocus];
+    [configuredSymbol drawInRect:imageRect
+                         fromRect:NSZeroRect
+                        operation:NSCompositingOperationSourceOver
+                         fraction:1.0
+                   respectFlipped:NO
+                            hints:nil];
+    [[NSColor colorWithCalibratedRed:1.0 green:0.29 blue:0.39 alpha:1.0] setFill];
+    NSRectFillUsingOperation(imageRect, NSCompositingOperationSourceIn);
+    [tintedSymbol unlockFocus];
 
-  NSBezierPath *fingerprint = [NSBezierPath bezierPath];
-  auto move = [&](CGFloat x, CGFloat y) {
-    [fingerprint moveToPoint:point(x, y)];
-  };
-  auto relativeCurve = [&](CGFloat dx1,
-                           CGFloat dy1,
-                           CGFloat dx2,
-                           CGFloat dy2,
-                           CGFloat dx,
-                           CGFloat dy) {
-    NSPoint current = fingerprint.currentPoint;
-    [fingerprint curveToPoint:NSMakePoint(current.x + (dx * scale), current.y + (dy * scale))
-                 controlPoint1:NSMakePoint(current.x + (dx1 * scale), current.y + (dy1 * scale))
-                 controlPoint2:NSMakePoint(current.x + (dx2 * scale), current.y + (dy2 * scale))];
-  };
-
-  move(4.9, 6.5);
-  relativeCurve(3.6, -3.3, 10.4, -3.4, 14.1, -0.1);
-  move(3.3, 10.9);
-  relativeCurve(1.5, -4.1, 4.9, -6.5, 9.2, -6.5);
-  relativeCurve(3.8, 0.0, 7.1, 2.3, 8.7, 5.7);
-  move(21.7, 13.1);
-  relativeCurve(0.5, 2.5, 0.3, 5.0, -0.5, 7.1);
-  move(2.3, 16.1);
-  relativeCurve(-0.2, -1.4, 0.0, -2.8, 0.4, -4.1);
-  move(5.3, 22.0);
-  relativeCurve(1.5, -2.2, 2.2, -4.5, 2.1, -7.2);
-  relativeCurve(0.0, -3.6, 2.1, -5.9, 5.1, -5.9);
-  relativeCurve(2.9, 0.0, 5.1, 2.1, 5.1, 5.2);
-  move(18.9, 21.1);
-  relativeCurve(0.7, -2.3, 1.0, -4.6, 0.8, -6.8);
-  move(8.4, 23.1);
-  relativeCurve(1.4, -2.4, 2.0, -5.2, 2.0, -8.0);
-  relativeCurve(0.0, -1.4, 0.7, -2.3, 1.9, -2.3);
-  relativeCurve(1.1, 0.0, 1.9, 0.9, 1.9, 2.3);
-  relativeCurve(0.0, 3.2, -0.6, 5.9, -1.7, 8.0);
-  move(15.3, 22.7);
-  relativeCurve(1.0, -2.3, 1.5, -5.0, 1.4, -7.9);
-  move(11.1, 17.4);
-  relativeCurve(-0.2, 2.3, -0.9, 4.3, -2.1, 5.8);
-  move(5.3, 16.2);
-  relativeCurve(-0.1, -4.8, 2.8, -8.9, 7.2, -8.9);
-  relativeCurve(1.8, 0.0, 3.5, 0.5, 4.9, 1.6);
-
-  fingerprint.lineWidth = MAX(2.0, bounds.size.width / 24.0);
-  fingerprint.lineCapStyle = NSLineCapStyleRound;
-  fingerprint.lineJoinStyle = NSLineJoinStyleRound;
-  [[NSColor colorWithCalibratedRed:1.0 green:0.29 blue:0.39 alpha:1.0] setStroke];
-  [fingerprint stroke];
+    NSRect symbolRect = NSMakeRect(
+        NSMidX(bounds) - (symbolSize / 2.0),
+        NSMidY(bounds) - (symbolSize / 2.0),
+        symbolSize,
+        symbolSize);
+    [tintedSymbol drawInRect:symbolRect
+                    fromRect:NSZeroRect
+                   operation:NSCompositingOperationSourceOver
+                    fraction:1.0
+              respectFlipped:YES
+                       hints:nil];
+  }
 }
 
 @end
