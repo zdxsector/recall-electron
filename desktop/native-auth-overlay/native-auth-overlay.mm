@@ -327,6 +327,7 @@ NSRect RectInAppKitPoints(const AuthRect &rect, NSWindow *window) {
 @property(nonatomic, strong) LAContext *context;
 #if RECALL_HAS_EMBEDDED_AUTH_UI
 @property(nonatomic, strong) NSView *container;
+@property(nonatomic, strong) NSView *clipView;
 @property(nonatomic, strong) LAAuthenticationView *view;
 #endif
 @property(nonatomic) void *baton;
@@ -349,6 +350,7 @@ void FinishSession(RecallNativeAuthSession *session, bool ok, NSString *code) {
   if (session.container) {
     [session.container removeFromSuperview];
     session.container = nil;
+    session.clipView = nil;
     session.view = nil;
   }
 #endif
@@ -438,17 +440,33 @@ void StartEmbeddedAuth(AuthBaton *baton) {
     session.baton = baton;
     session.debug = baton->input.debug;
 
-    NSView *container = [[NSView alloc] initWithFrame:RectInAppKitPoints(baton->input.rect, window)];
+    NSView *container =
+        [[NSView alloc] initWithFrame:RectInAppKitPoints(baton->input.rect, window)];
     container.wantsLayer = YES;
+    container.layer.masksToBounds = NO;
+    container.layer.shadowColor = [NSColor blackColor].CGColor;
+    container.layer.shadowOffset = CGSizeMake(0, -8);
+    container.layer.shadowOpacity = 0.28;
+    container.layer.shadowRadius = 18;
     container.autoresizingMask = NSViewNotSizable;
 
+    NSView *clipView = [[NSView alloc] initWithFrame:container.bounds];
+    clipView.wantsLayer = YES;
+    clipView.layer.backgroundColor = [NSColor colorWithCalibratedWhite:0.12 alpha:1.0].CGColor;
+    clipView.layer.cornerRadius =
+        MIN(clipView.bounds.size.width, clipView.bounds.size.height) / 2.0;
+    clipView.layer.masksToBounds = YES;
+    clipView.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
+
     LAAuthenticationView *view =
-        [[LAAuthenticationView alloc] initWithContext:context controlSize:NSControlSizeLarge];
-    view.frame = container.bounds;
+        [[LAAuthenticationView alloc] initWithContext:context controlSize:NSControlSizeRegular];
+    view.frame = clipView.bounds;
     view.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
-    [container addSubview:view];
+    [clipView addSubview:view];
+    [container addSubview:clipView];
     [hostView addSubview:container positioned:NSWindowAbove relativeTo:nil];
     session.container = container;
+    session.clipView = clipView;
     session.view = view;
     Sessions()[session.key] = session;
 
@@ -580,7 +598,11 @@ napi_value Update(napi_env env, napi_callback_info info) {
       NSView *electronView = ViewFromNativeHandle(input.nativeWindowHandle);
       NSWindow *window = electronView.window;
       session.container.frame = RectInAppKitPoints(input.rect, window);
-      session.view.frame = session.container.bounds;
+      session.clipView.frame = session.container.bounds;
+      session.clipView.layer.cornerRadius =
+          MIN(session.clipView.bounds.size.width, session.clipView.bounds.size.height) /
+          2.0;
+      session.view.frame = session.clipView.bounds;
 #endif
       updated = true;
     }

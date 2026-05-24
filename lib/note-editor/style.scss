@@ -65,37 +65,16 @@
   }
 }
 
-.note-editor-locked-touch-id {
-  align-items: center;
-  background: #222;
-  border-radius: 999px;
-  box-shadow:
-    0 8px 20px rgba(0, 0, 0, 0.28),
-    0 0 0 1px rgba(255, 255, 255, 0.08);
-  color: #ff4964;
-  display: flex;
-  height: 58px;
-  justify-content: center;
-  width: 58px;
-
-  svg {
-    height: 42px;
-    stroke-width: 1.8;
-    width: 42px;
-  }
-}
-
 .note-editor-locked-anchor {
   bottom: 6px;
+  border-radius: 999px;
   height: 58px;
+  overflow: hidden;
+  pointer-events: none;
   position: absolute;
   right: 4px;
   width: 58px;
-}
-
-.note-editor-locked-touch-id--hidden {
-  opacity: 0;
-  pointer-events: none;
+  z-index: 1;
 }
 
 .note-editor-locked-button {

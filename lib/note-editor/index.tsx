@@ -2,7 +2,6 @@ import React, { Component } from 'react';
 import { connect } from 'react-redux';
 import SearchResultsBar from '../search-results-bar';
 import NoteDetail from '../note-detail';
-import FingerprintIcon from '../icons/fingerprint';
 import LockIcon from '../icons/lock';
 import actions from '../state/actions';
 import * as selectors from '../state/selectors';
@@ -456,18 +455,7 @@ export class NoteEditor extends Component<Props, LocalState> {
             <div
               className="note-editor-locked-anchor"
               ref={this.nativeAuthAnchorRef}
-            >
-              {isMac && (
-                <div className="note-editor-locked-touch-id">
-                  <FingerprintIcon />
-                </div>
-              )}
-              {!isMac && (
-                <div className="note-editor-locked-touch-id note-editor-locked-touch-id--hidden">
-                  <FingerprintIcon />
-                </div>
-              )}
-            </div>
+            />
           </div>
           <h2>This note is locked.</h2>
           <p>
@@ -477,16 +465,16 @@ export class NoteEditor extends Component<Props, LocalState> {
                 ? 'Embedded authentication is unavailable. Use system authentication fallback or an app-specific note password when one is configured.'
                 : 'Use Touch ID or system authentication to view this note.'}
           </p>
-          <button
-            aria-busy={isUnlocking}
-            aria-label="Unlock locked note"
-            className="note-editor-locked-button"
-            disabled={isUnlocking}
-            onClick={this.handleLockedNoteButtonClick}
-            type="button"
-          >
-            {isUnlocking ? 'Authenticating...' : actionLabel}
-          </button>
+          {!isUnlocking && (
+            <button
+              aria-label="Unlock locked note"
+              className="note-editor-locked-button"
+              onClick={this.handleLockedNoteButtonClick}
+              type="button"
+            >
+              {actionLabel}
+            </button>
+          )}
           {unlockError && (
             <div className="note-editor-locked-error" role="alert">
               {unlockError}
