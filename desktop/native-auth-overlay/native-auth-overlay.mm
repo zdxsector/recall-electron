@@ -17,7 +17,7 @@
 
 namespace {
 
-constexpr CGFloat kEmbeddedAuthSymbolScale = 0.72;
+constexpr CGFloat kEmbeddedAuthSymbolScale = 0.92;
 
 struct AuthRect {
   double x = 0;
