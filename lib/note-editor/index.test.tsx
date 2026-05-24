@@ -207,6 +207,51 @@ describe('NoteEditor locked state', () => {
     );
   });
 
+  it('uses native password fallback while embedded auth is pending', async () => {
+    const electron = setupElectron(
+      {
+        ok: true,
+        content: '# Secret\nBody',
+      },
+      new Promise(() => {})
+    );
+    const storeUnlockedNoteContent = jest.fn();
+    let tree: ReactTestRenderer;
+
+    await act(async () => {
+      tree = renderer.create(
+        <NoteEditor
+          {...baseProps}
+          note={lockedNote}
+          noteId={'note-locked' as any}
+          storeUnlockedNoteContent={storeUnlockedNoteContent}
+        />,
+        { createNodeMock }
+      );
+      await Promise.resolve();
+    });
+
+    await act(async () => {
+      await tree!.root
+        .findByProps({ 'aria-label': 'Use native password authentication' })
+        .props.onClick();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(electron.hide).toHaveBeenCalledWith({ noteId: 'note-locked' });
+    expect(electron.unlock).toHaveBeenCalledWith({
+      allowModalFallback: true,
+      noteId: 'note-locked',
+      encryptedContent: 'YWJjMTIz',
+      reason: 'View "Secret" in Recall',
+    });
+    expect(storeUnlockedNoteContent).toHaveBeenCalledWith(
+      'note-locked',
+      '# Secret\nBody'
+    );
+  });
+
   it('cancelled auth does not unlock the note', async () => {
     const electron = setupElectron(
       { ok: true, content: '# Secret\nBody' },

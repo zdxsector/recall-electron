@@ -492,7 +492,7 @@ void StartEmbeddedAuth(AuthBaton *baton) {
     }
 
     LAContext *context = [[LAContext alloc] init];
-    context.localizedFallbackTitle = @"";
+    context.localizedFallbackTitle = @"Enter Password";
 
     NSError *canEvaluateError = nil;
     if (![context canEvaluatePolicy:LAPolicyDeviceOwnerAuthenticationWithBiometrics
@@ -557,7 +557,7 @@ void StartEmbeddedAuth(AuthBaton *baton) {
         return;
       }
 
-      [context evaluatePolicy:LAPolicyDeviceOwnerAuthenticationWithBiometrics
+      [context evaluatePolicy:LAPolicyDeviceOwnerAuthentication
               localizedReason:reason
                         reply:^(BOOL success, NSError *error) {
                           dispatch_async(dispatch_get_main_queue(), ^{

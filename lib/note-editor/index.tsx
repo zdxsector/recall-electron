@@ -33,6 +33,7 @@ type Props = DispatchProps & StateProps;
 
 type LocalState = {
   embeddedAuthUnavailable: boolean;
+  isPasswordFallbackActive: boolean;
   isUnlocking: boolean;
   systemAuthUnavailable: boolean;
   unlockError: string | null;
@@ -42,6 +43,7 @@ export class NoteEditor extends Component<Props, LocalState> {
   static displayName = 'NoteEditor';
   state: LocalState = {
     embeddedAuthUnavailable: false,
+    isPasswordFallbackActive: false,
     isUnlocking: false,
     systemAuthUnavailable: false,
     unlockError: null,
@@ -80,6 +82,7 @@ export class NoteEditor extends Component<Props, LocalState> {
       this.trustedUnlockSucceededNoteId = null;
       this.setState({
         embeddedAuthUnavailable: false,
+        isPasswordFallbackActive: false,
         isUnlocking: false,
         systemAuthUnavailable: false,
         unlockError: null,
@@ -258,6 +261,7 @@ export class NoteEditor extends Component<Props, LocalState> {
       if (
         !this.isComponentMounted ||
         this.props.noteId !== noteId ||
+        this.nativeAuthNoteId !== noteId ||
         !this.isShowingLockedNote()
       ) {
         return;
@@ -271,6 +275,7 @@ export class NoteEditor extends Component<Props, LocalState> {
       const code = result?.code || result?.error;
       this.setState({
         embeddedAuthUnavailable: this.isEmbeddedAuthUnavailableCode(code),
+        isPasswordFallbackActive: false,
         isUnlocking: false,
         systemAuthUnavailable: this.isSystemAuthUnavailableCode(code),
         unlockError: this.getUnlockErrorMessage(code),
@@ -281,6 +286,7 @@ export class NoteEditor extends Component<Props, LocalState> {
       }
       this.setState({
         embeddedAuthUnavailable: true,
+        isPasswordFallbackActive: false,
         isUnlocking: false,
         systemAuthUnavailable: false,
         unlockError: 'This note could not be unlocked.',
@@ -338,7 +344,7 @@ export class NoteEditor extends Component<Props, LocalState> {
     if (
       !noteId ||
       !note?.locked?.encryptedContent ||
-      (this.state.isUnlocking && !fromNativeAuth)
+      (this.state.isUnlocking && !fromNativeAuth && !allowModalFallback)
     ) {
       return;
     }
@@ -360,13 +366,18 @@ export class NoteEditor extends Component<Props, LocalState> {
         this.trustedUnlockSucceededNoteId = noteId;
         storeUnlockedNoteContent(noteId, result.content);
         this.hideNativeAuthOverlay();
-        this.setState({ isUnlocking: false, unlockError: null });
+        this.setState({
+          isPasswordFallbackActive: false,
+          isUnlocking: false,
+          unlockError: null,
+        });
         return;
       }
 
       const code = result?.code || result?.error;
       this.setState({
         embeddedAuthUnavailable: false,
+        isPasswordFallbackActive: false,
         isUnlocking: false,
         systemAuthUnavailable: this.isSystemAuthUnavailableCode(code),
         unlockError: this.getUnlockErrorMessage(code),
@@ -376,10 +387,25 @@ export class NoteEditor extends Component<Props, LocalState> {
         return;
       }
       this.setState({
+        isPasswordFallbackActive: false,
         isUnlocking: false,
         unlockError: 'This note could not be unlocked.',
       });
     }
+  };
+
+  handlePasswordFallbackClick = async () => {
+    if (
+      this.state.isPasswordFallbackActive ||
+      this.state.systemAuthUnavailable ||
+      !window.electron?.isMac
+    ) {
+      return;
+    }
+
+    this.setState({ isPasswordFallbackActive: true, unlockError: null });
+    await this.hideNativeAuthOverlay();
+    await this.handleUnlockNote({ allowModalFallback: true });
   };
 
   handleLockedNoteButtonClick = async () => {
@@ -436,10 +462,12 @@ export class NoteEditor extends Component<Props, LocalState> {
     const isMac = window.electron?.isMac;
     const {
       embeddedAuthUnavailable,
+      isPasswordFallbackActive,
       isUnlocking,
       systemAuthUnavailable,
       unlockError,
     } = this.state;
+    const canUsePasswordFallback = isMac && !systemAuthUnavailable;
     const canUseSystemFallback =
       embeddedAuthUnavailable && isMac && !systemAuthUnavailable;
     const actionLabel = canUseSystemFallback
@@ -465,6 +493,19 @@ export class NoteEditor extends Component<Props, LocalState> {
                 ? 'Embedded authentication is unavailable. Use system authentication fallback or an app-specific note password when one is configured.'
                 : 'Use Touch ID or system authentication to view this note.'}
           </p>
+          {isUnlocking && canUsePasswordFallback && (
+            <button
+              aria-label="Use native password authentication"
+              className="note-editor-locked-button"
+              disabled={isPasswordFallbackActive}
+              onClick={this.handlePasswordFallbackClick}
+              type="button"
+            >
+              {isPasswordFallbackActive
+                ? 'Opening Password Prompt...'
+                : 'Enter Password'}
+            </button>
+          )}
           {!isUnlocking && (
             <button
               aria-label="Unlock locked note"

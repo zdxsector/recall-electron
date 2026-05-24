@@ -157,9 +157,10 @@ Record before testing:
 - `LAAuthenticationView` is available on macOS 12 and newer. Older macOS versions
   or Macs without available biometric authentication use the unavailable path and
   must rely on the explicit modal fallback when appropriate.
-- The embedded view path uses biometric authentication. Password fallback is
-  handled by the explicit modal `LAPolicyDeviceOwnerAuthentication` path, not by
-  an HTML password field.
+- The embedded view path uses Apple's compact `LAAuthenticationView` for Touch
+  ID/watch authentication. Mac password fallback is handled only by native
+  `LAPolicyDeviceOwnerAuthentication` UI, not by an HTML password field or a
+  renderer-collected password.
 - Locked notes are authentication-gated with Electron `safeStorage` encrypted
   ciphertext. This is not a separate per-note Keychain item or user-managed
   encryption key store.
