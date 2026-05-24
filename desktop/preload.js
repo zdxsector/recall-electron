@@ -270,6 +270,13 @@ const noteTitleFromContent = (content) => {
   return title || 'New Note';
 };
 
+const lockedNoteTitle = (note) =>
+  String(note?.locked?.previewTitle || noteTitleFromContent(note?.content))
+    .replace(/\s+/g, ' ')
+    .trim() || 'New Note';
+
+const lockedNotePlaceholder = (note) => `# ${lockedNoteTitle(note)}\n\nLocked`;
+
 const pathPartsFromRel = (relPath) =>
   String(relPath || '')
     .split(/[\\/]+/)
@@ -330,7 +337,9 @@ const recoverStateFromNotePaths = (root, rawMeta) => {
 
   for (const [noteId, notePath] of notePathEntries) {
     try {
-      const relCandidates = [notePath?.mdRel, notePath?.htmlRel].filter(Boolean);
+      const relCandidates = [notePath?.mdRel, notePath?.htmlRel].filter(
+        Boolean
+      );
       const fileRel = relCandidates.find((rel) =>
         fs.existsSync(path.join(root, rel))
       );
@@ -429,7 +438,9 @@ const computeNoteDir = (root, foldersArray, notebooksArray, noteId, note) => {
     note.folderId || null
   );
   const folderDir = path.join(root, ...folderParts);
-  const title = noteTitleFromContent(note.content);
+  const title = note?.locked?.encryptedContent
+    ? lockedNoteTitle(note)
+    : noteTitleFromContent(note.content);
   const noteDirName = safeName(title, 'New Note');
   const noteDir = path.join(folderDir, noteDirName);
   const htmlFile = path.join(noteDir, `${noteDirName}.html`);
@@ -444,7 +455,13 @@ const getOrCreateNoteDir = (
   noteId,
   note
 ) => {
-  const result = computeNoteDir(root, foldersArray, notebooksArray, noteId, note);
+  const result = computeNoteDir(
+    root,
+    foldersArray,
+    notebooksArray,
+    noteId,
+    note
+  );
   ensureDir(result.noteDir);
   ensureDir(path.join(result.noteDir, 'assets'));
   return result;
@@ -468,6 +485,13 @@ const validChannels = [
 ];
 
 const electronAPI = {
+  encryptNoteContent: ({ content } = {}) =>
+    ipcRenderer.invoke('recall:encryptNoteContent', { content }),
+  decryptNoteContent: ({ encryptedContent, reason } = {}) =>
+    ipcRenderer.invoke('recall:decryptNoteContent', {
+      encryptedContent,
+      reason,
+    }),
   confirmLogout: (changes) => {
     const response = ipcRenderer.sendSync('recall:showMessageBoxSync', {
       type: 'warning',
@@ -535,6 +559,16 @@ const electronAPI = {
       let didUpdateNotePaths = false;
       const hydratedNotes = notesArray.map(([noteId, note]) => {
         try {
+          if (note?.locked?.encryptedContent) {
+            return [
+              noteId,
+              {
+                ...note,
+                content: note.content || lockedNotePlaceholder(note),
+              },
+            ];
+          }
+
           // Prefer markdown, but support legacy htmlRel for backward compatibility.
           const htmlRel = notePaths?.[noteId]?.htmlRel;
           const mdRel = notePaths?.[noteId]?.mdRel;
@@ -711,8 +745,8 @@ const electronAPI = {
                 entries.length === 0 ||
                 (entries.length === 1 &&
                   entries[0] === 'assets' &&
-                  fs.readdirSync(path.join(desiredNoteDir, 'assets'))
-                    .length === 0);
+                  fs.readdirSync(path.join(desiredNoteDir, 'assets')).length ===
+                    0);
               if (isOrphan) {
                 fs.rmSync(desiredNoteDir, { recursive: true, force: true });
               }
@@ -756,7 +790,9 @@ const electronAPI = {
         ensureDir(finalNoteDir);
         ensureDir(path.join(finalNoteDir, 'assets'));
         ensureDir(path.dirname(finalHtmlFile));
-        const markdown = String(note.content || '');
+        const markdown = note?.locked?.encryptedContent
+          ? lockedNotePlaceholder(note)
+          : String(note.content || '');
         const html = markdownConverter
           ? markdownConverter.makeHtml(markdown)
           : markdown;
@@ -936,14 +972,21 @@ const electronAPI = {
         // Resize large images to improve performance and reduce storage
         const size = img.getSize();
         let finalImg = img;
-        if (size.width > MAX_IMAGE_DIMENSION || size.height > MAX_IMAGE_DIMENSION) {
+        if (
+          size.width > MAX_IMAGE_DIMENSION ||
+          size.height > MAX_IMAGE_DIMENSION
+        ) {
           const scale = Math.min(
             MAX_IMAGE_DIMENSION / size.width,
             MAX_IMAGE_DIMENSION / size.height
           );
           const newWidth = Math.round(size.width * scale);
           const newHeight = Math.round(size.height * scale);
-          finalImg = img.resize({ width: newWidth, height: newHeight, quality: 'good' });
+          finalImg = img.resize({
+            width: newWidth,
+            height: newHeight,
+            quality: 'good',
+          });
         }
 
         // Yield again before encoding
@@ -1080,14 +1123,21 @@ const electronAPI = {
       // Resize if too large
       const size = img.getSize();
       let finalBuffer = nodeBuffer;
-      if (size.width > MAX_IMAGE_DIMENSION || size.height > MAX_IMAGE_DIMENSION) {
+      if (
+        size.width > MAX_IMAGE_DIMENSION ||
+        size.height > MAX_IMAGE_DIMENSION
+      ) {
         const scale = Math.min(
           MAX_IMAGE_DIMENSION / size.width,
           MAX_IMAGE_DIMENSION / size.height
         );
         const newWidth = Math.round(size.width * scale);
         const newHeight = Math.round(size.height * scale);
-        const resized = img.resize({ width: newWidth, height: newHeight, quality: 'good' });
+        const resized = img.resize({
+          width: newWidth,
+          height: newHeight,
+          quality: 'good',
+        });
 
         // Yield before encoding
         await new Promise((resolve) => setImmediate(resolve));
@@ -1284,6 +1334,23 @@ const electronAPI = {
   windowIsMaximized: () => ipcRenderer.invoke('window:isMaximized'),
   setTitleBarOverlay: (overlay) =>
     ipcRenderer.send('window:setTitleBarOverlay', overlay),
+  secureNotes: {
+    nativeAuth: {
+      show: (payload) =>
+        ipcRenderer.invoke('secure-notes:native-auth:show', payload),
+      update: (payload) =>
+        ipcRenderer.invoke('secure-notes:native-auth:update', payload),
+      hide: (payload) =>
+        ipcRenderer.invoke('secure-notes:native-auth:hide', payload),
+    },
+    systemAuth: {
+      unlock: (payload) =>
+        ipcRenderer.invoke('secure-notes:system-auth:unlock', payload),
+    },
+    test: {
+      getEvents: () => ipcRenderer.invoke('secure-notes:test-events:get'),
+    },
+  },
   onWindowMaximized: (callback) => {
     const handler = (_, isMaximized) => callback(isMaximized);
     ipcRenderer.on('window:maximized', handler);

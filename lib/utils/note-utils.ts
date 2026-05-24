@@ -309,6 +309,15 @@ export const noteTitleAndPreview = (
   note: T.Note,
   searchQuery?: string
 ): TitleAndPreview => {
+  if (note.locked?.encryptedContent) {
+    return {
+      title: normalizeNoteTitleForDisplay(
+        note.locked.previewTitle || getTitle(note.content || '')
+      ),
+      preview: 'Locked',
+    };
+  }
+
   const stripMarkdown = isMarkdown(note);
   const cached = previewCache.get(note);
   if (cached) {

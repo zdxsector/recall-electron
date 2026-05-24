@@ -38,6 +38,18 @@ describe('noteTitleAndPreview', () => {
     expect(normalizeNoteTitleForDisplay('#')).toBe('No Title');
   });
 
+  it('should return only the saved title and locked preview for locked notes', () => {
+    note.content = '# Placeholder\nLocked';
+    note.locked = {
+      encryptedContent: 'YWJjMTIz',
+      previewTitle: 'Private Title',
+      lockedAt: 1,
+      encryptionVersion: 1,
+    };
+    const result = noteTitleAndPreview(note);
+    expect(result).toEqual({ preview: 'Locked', title: 'Private Title' });
+  });
+
   it('should remove the heading marker from newly typed h1 titles', () => {
     note.content = '#My title';
     note.systemTags = ['markdown'];

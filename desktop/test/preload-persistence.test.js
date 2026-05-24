@@ -129,6 +129,32 @@ describe('savePersistentState — note folder lifecycle', () => {
     expect(fs.readFileSync(mdPath, 'utf8')).toBe('# My First Note\nSome content');
   });
 
+  test('locked notes persist ciphertext metadata and placeholder markdown', () => {
+    const data = makeNotePayload('note-locked', '# Secret Plan\nplain body');
+    data.notes[0][1].locked = {
+      encryptedContent: 'YWJjMTIz',
+      previewTitle: 'Secret Plan',
+      lockedAt: 1,
+      encryptionVersion: 1,
+    };
+
+    electronAPI.savePersistentState(data);
+
+    const meta = readStoreMeta(root);
+    const savedNote = meta.notes[0][1];
+    expect(savedNote.content).toBeUndefined();
+    expect(savedNote.locked.encryptedContent).toBe('YWJjMTIz');
+
+    const mdPath = path.join(root, meta.notePaths['note-locked'].mdRel);
+    expect(fs.readFileSync(mdPath, 'utf8')).toBe('# Secret Plan\n\nLocked');
+    expect(fs.readFileSync(mdPath, 'utf8')).not.toContain('plain body');
+
+    fs.writeFileSync(mdPath, '# Tampered\nplain body', 'utf8');
+    const loaded = electronAPI.loadPersistentState();
+    const loadedNote = new Map(loaded.notes).get('note-locked');
+    expect(loadedNote.content).toBe('# Secret Plan\n\nLocked');
+  });
+
   test('re-saving with same title reuses the same directory (no duplicates)', () => {
     const data = makeNotePayload('note-1', '# Stable Title\nBody');
     electronAPI.savePersistentState(data);

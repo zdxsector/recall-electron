@@ -3,6 +3,7 @@ node_modules/**/*
 
 config-local.json
 desktop-build/
+desktop/native-auth-overlay/build/
 dist/
 logs/
 release/

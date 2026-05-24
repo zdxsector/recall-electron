@@ -227,6 +227,44 @@ const openedRevision: A.Reducer<[T.EntityId, number] | null> = (
   }
 };
 
+const unlockedNoteContent: A.Reducer<Map<T.EntityId, string>> = (
+  state = new Map(),
+  action
+) => {
+  switch (action.type) {
+    case 'STORE_UNLOCKED_NOTE_CONTENT':
+      return new Map(state).set(action.noteId, action.content);
+
+    case 'CLEAR_UNLOCKED_NOTE_CONTENT': {
+      if (!state.has(action.noteId)) {
+        return state;
+      }
+      const next = new Map(state);
+      next.delete(action.noteId);
+      return next;
+    }
+
+    case 'CLOSE_NOTE':
+    case 'LOGOUT':
+    case 'REALLY_LOG_OUT':
+      return new Map();
+
+    case 'DELETE_NOTE_FOREVER':
+    case 'NOTE_BUCKET_REMOVE':
+    case 'REMOTE_NOTE_DELETE_FOREVER': {
+      if (!state.has(action.noteId)) {
+        return state;
+      }
+      const next = new Map(state);
+      next.delete(action.noteId);
+      return next;
+    }
+
+    default:
+      return state;
+  }
+};
+
 const showAlternateLoginPrompt: A.Reducer<boolean> = (
   state = false,
   action
@@ -397,5 +435,6 @@ export default combineReducers({
   showNoteList,
   showRevisions,
   simperiumConnected,
+  unlockedNoteContent,
   unsyncedNoteIds,
 });

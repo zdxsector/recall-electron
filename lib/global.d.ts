@@ -20,6 +20,51 @@ type ElectronBridge = {
   isMac: boolean;
   isLinux: boolean;
   isWindows: boolean;
+  encryptNoteContent: (args: { content: string }) => Promise<{
+    ok: boolean;
+    encryptedContent?: string;
+    lockedAt?: number;
+    error?: string;
+  }>;
+  decryptNoteContent: (args: {
+    noteId?: string;
+    encryptedContent: string;
+    reason?: string;
+  }) => Promise<{
+    ok: boolean;
+    content?: string;
+    error?: string;
+    cancelled?: boolean;
+  }>;
+  secureNotes: {
+    nativeAuth: {
+      show: (args: NativeAuthOverlayPayload) => Promise<NativeAuthResult>;
+      update: (args: NativeAuthOverlayPayload) => Promise<NativeAuthResult>;
+      hide: (args: { noteId?: string }) => Promise<NativeAuthResult>;
+    };
+    systemAuth: {
+      unlock: (args: {
+        allowModalFallback?: boolean;
+        noteId: string;
+        encryptedContent: string;
+        reason?: string;
+      }) => Promise<{
+        ok: boolean;
+        code?: string;
+        content?: string;
+        error?: string;
+      }>;
+    };
+    test: {
+      getEvents: () => Promise<
+        Array<{
+          event: string;
+          payload: { noteId?: string; code?: string; kind?: string };
+          timestamp: number;
+        }>
+      >;
+    };
+  };
   loadPersistentState: () => any;
   savePersistentState: (data: any) => void;
   loadAllRevisions: () => any;
@@ -46,6 +91,31 @@ type ElectronBridge = {
     height?: number;
   }) => void;
   onWindowMaximized: (callback: (isMaximized: boolean) => void) => () => void;
+};
+
+type NativeAuthOverlayPayload = {
+  noteId: string;
+  reason?: string;
+  rect: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  };
+  passwordRect?: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  };
+  viewportHeight: number;
+  devicePixelRatio: number;
+};
+
+type NativeAuthResult = {
+  ok: boolean;
+  code?: string;
+  error?: string;
 };
 
 declare global {

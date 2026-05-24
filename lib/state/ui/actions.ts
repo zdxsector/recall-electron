@@ -17,6 +17,13 @@ export const closeWindow: A.ActionCreator<A.CloseWindow> = () => ({
   type: 'CLOSE_WINDOW',
 });
 
+export const clearUnlockedNoteContent: A.ActionCreator<
+  A.ClearUnlockedNoteContent
+> = (noteId: T.EntityId) => ({
+  type: 'CLEAR_UNLOCKED_NOTE_CONTENT',
+  noteId,
+});
+
 export const createNote: A.ActionCreator<A.CreateNote> = (
   note?: Partial<T.Note>
 ) => ({
@@ -113,6 +120,14 @@ export const showAlternateLoginPrompt: A.ActionCreator<
 > = (email: string) => ({
   type: 'SHOW_ALTERNATE_LOGIN_PROMPT',
   email,
+});
+
+export const storeUnlockedNoteContent: A.ActionCreator<
+  A.StoreUnlockedNoteContent
+> = (noteId: T.EntityId, content: string) => ({
+  type: 'STORE_UNLOCKED_NOTE_CONTENT',
+  noteId,
+  content,
 });
 
 export const hideAlternateLoginPrompt: A.ActionCreator<

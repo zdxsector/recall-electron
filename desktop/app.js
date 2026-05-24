@@ -9,7 +9,9 @@ const {
   Menu,
   session,
   nativeTheme,
+  safeStorage,
   screen,
+  systemPreferences,
   protocol,
 } = require('electron');
 
@@ -35,11 +37,23 @@ const platform = require('./detect/platform');
 const updater = require('./updater');
 const { isDev } = require('./env');
 const contextMenu = require('./context-menu');
+const { createNativeAuthService } = require('./native-auth-service');
+const {
+  isValidEncryptedContent,
+  isValidNoteContent,
+  registerSecureNotesIpc,
+  unlockEncryptedNote,
+} = require('./secure-notes-ipc');
 
 require('module').globalPaths.push(path.resolve(path.join(__dirname)));
 
 const DEFAULT_WINDOW_WIDTH = 1024;
 const DEFAULT_WINDOW_HEIGHT = 768;
+
+const isTrustedSender = (sender) => {
+  const win = BrowserWindow.fromWebContents(sender);
+  return !!win && !win.isDestroyed();
+};
 
 const getDefaultWindowBounds = (win) => {
   const currentBounds = win.getBounds();
@@ -64,8 +78,14 @@ const restoreWindowToDefaultSize = (win) => {
 };
 
 module.exports = function main() {
-  if (process.env.NODE_ENV === 'test' && process.env.RECALL_E2E_USER_DATA_PATH) {
-    app.setPath('userData', path.resolve(process.env.RECALL_E2E_USER_DATA_PATH));
+  if (
+    process.env.NODE_ENV === 'test' &&
+    process.env.RECALL_E2E_USER_DATA_PATH
+  ) {
+    app.setPath(
+      'userData',
+      path.resolve(process.env.RECALL_E2E_USER_DATA_PATH)
+    );
   }
 
   // Keep a global reference of the window object, if you don't, the window will
@@ -73,6 +93,22 @@ module.exports = function main() {
   let mainWindow = null;
   let isAuthenticated;
   let shouldQuit = false;
+  const nativeAuthPlatform =
+    process.env.NODE_ENV === 'test' &&
+    typeof process.env.SECURE_NOTES_AUTH_PLATFORM_OVERRIDE === 'string'
+      ? process.env.SECURE_NOTES_AUTH_PLATFORM_OVERRIDE
+      : process.platform;
+  const nativeAuthService = createNativeAuthService({
+    app,
+    platform: nativeAuthPlatform,
+    systemPreferences,
+  });
+  const secureNotesIpc = registerSecureNotesIpc({
+    BrowserWindow,
+    ipcMain,
+    nativeAuthService,
+    safeStorage,
+  });
 
   // Checks to see if the application was asked to quit instead of just close the window
   // we then use this variable to check if we should quit the app.
@@ -112,6 +148,46 @@ module.exports = function main() {
     } catch {
       event.returnValue = 0;
     }
+  });
+
+  ipcMain.handle('recall:encryptNoteContent', async (event, payload = {}) => {
+    try {
+      if (!isTrustedSender(event.sender)) {
+        return { ok: false, error: 'untrusted-sender' };
+      }
+
+      const content = payload?.content;
+      if (!isValidNoteContent(content)) {
+        return { ok: false, error: 'invalid-content' };
+      }
+
+      if (!safeStorage?.isEncryptionAvailable()) {
+        return { ok: false, error: 'encryption-unavailable' };
+      }
+
+      const encrypted = safeStorage.encryptString(content);
+      return {
+        ok: true,
+        encryptedContent: encrypted.toString('base64'),
+        lockedAt: Date.now() / 1000,
+      };
+    } catch {
+      return { ok: false, error: 'encrypt-failed' };
+    }
+  });
+
+  ipcMain.handle('recall:decryptNoteContent', async (event, payload = {}) => {
+    return unlockEncryptedNote({
+      BrowserWindow,
+      event,
+      nativeAuthService,
+      payload: {
+        ...payload,
+        noteId: payload?.noteId || '__legacy_locked_note__',
+      },
+      safeStorage,
+      allowLegacyNoteId: true,
+    });
   });
 
   app.on('will-finish-launching', function () {
@@ -255,7 +331,10 @@ module.exports = function main() {
                   ? `www${cookie.domain}`
                   : cookie.domain;
               const cookieUrl = `${protocol}${host}${cookie.path || '/'}`;
-              return session.defaultSession.cookies.remove(cookieUrl, cookie.name);
+              return session.defaultSession.cookies.remove(
+                cookieUrl,
+                cookie.name
+              );
             })
           );
         } catch {
@@ -300,7 +379,10 @@ module.exports = function main() {
           }
           if (Number.isFinite(overlay.height)) {
             // Clamp to a sensible range.
-            next.height = Math.max(24, Math.min(80, Math.round(overlay.height)));
+            next.height = Math.max(
+              24,
+              Math.min(80, Math.round(overlay.height))
+            );
           }
         }
 
@@ -417,6 +499,7 @@ module.exports = function main() {
     // Fullscreen should be disabled on launch
     if (platform.isOSX()) {
       mainWindow.on('close', () => {
+        secureNotesIpc.cleanupWindow(mainWindow);
         mainWindow.setFullScreen(false);
       });
     } else {
@@ -426,6 +509,7 @@ module.exports = function main() {
     let closeTimeout = null;
 
     mainWindow.on('close', (event) => {
+      secureNotesIpc.cleanupWindow(mainWindow);
       if (shouldQuit) {
         if (closeTimeout) {
           clearTimeout(closeTimeout);
@@ -459,6 +543,7 @@ module.exports = function main() {
 
     // Emitted when the window is closed.
     mainWindow.on('closed', function () {
+      secureNotesIpc.cleanupWindow(mainWindow);
       // Dereference the window object, usually you would store windows
       // in an array if your app supports multi windows, this is the time
       // when you should delete the corresponding element.
@@ -523,6 +608,12 @@ module.exports = function main() {
         "document.addEventListener('drop', event => event.preventDefault());"
       );
     });
+    window.webContents.on('did-start-navigation', () => {
+      secureNotesIpc.cleanupWindow(window);
+    });
+    window.webContents.on('render-process-gone', () => {
+      secureNotesIpc.cleanupWindow(window);
+    });
   });
 
   // This method will be called when Electron has finished
@@ -550,7 +641,9 @@ module.exports = function main() {
         const data = await fs.promises.readFile(filePath);
         const ext = path.extname(filePath).toLowerCase();
         return new Response(data, {
-          headers: { 'Content-Type': mimeTypes[ext] || 'application/octet-stream' },
+          headers: {
+            'Content-Type': mimeTypes[ext] || 'application/octet-stream',
+          },
         });
       } catch {
         return new Response('Not found', { status: 404 });
