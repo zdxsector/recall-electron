@@ -68,6 +68,7 @@ export class NoteActions extends Component<Props, LocalState> {
     const { hasRevisions, isPinned, note, unlockedContent } = this.props;
     const noteIsLocked = !!note && isNoteLocked(note);
     const shouldUnlock = noteIsLocked && unlockedContent === null;
+    const shouldShowLockAction = !noteIsLocked || shouldUnlock;
     const pinLabel = isPinned ? 'Unpin Note' : 'Pin Note';
     const lockLabel = shouldUnlock ? 'Unlock Note' : 'Lock Note';
 
@@ -91,19 +92,37 @@ export class NoteActions extends Component<Props, LocalState> {
               <span className="note-actions-name">{pinLabel}</span>
             </button>
 
-            <button
-              className="note-actions-item note-actions-item-button"
-              disabled={this.state.isLocking}
-              onClick={this.handleLockNote}
-              type="button"
-            >
-              <span className="note-actions-item-icon" aria-hidden="true">
-                <LockIcon />
-              </span>
-              <span className="note-actions-name">
-                {this.state.isLocking ? 'Working...' : lockLabel}
-              </span>
-            </button>
+            {shouldShowLockAction && (
+              <button
+                className="note-actions-item note-actions-item-button"
+                disabled={this.state.isLocking}
+                onClick={this.handleLockNote}
+                type="button"
+              >
+                <span className="note-actions-item-icon" aria-hidden="true">
+                  <LockIcon />
+                </span>
+                <span className="note-actions-name">
+                  {this.state.isLocking ? 'Working...' : lockLabel}
+                </span>
+              </button>
+            )}
+
+            {noteIsLocked && (
+              <button
+                className="note-actions-item note-actions-item-button"
+                disabled={this.state.isLocking}
+                onClick={this.handleRemoveLock}
+                type="button"
+              >
+                <span className="note-actions-item-icon" aria-hidden="true">
+                  <LockIcon />
+                </span>
+                <span className="note-actions-name">
+                  {this.state.isLocking ? 'Working...' : 'Remove Lock'}
+                </span>
+              </button>
+            )}
 
             {this.state.lockError && (
               <div className="note-actions-error" role="alert">
@@ -164,7 +183,9 @@ export class NoteActions extends Component<Props, LocalState> {
       return;
     }
 
-    await this.lockNote(noteId, note, unlockedContent ?? note.content ?? '');
+    if (!isNoteLocked(note)) {
+      await this.lockNote(noteId, note, unlockedContent ?? note.content ?? '');
+    }
   };
 
   lockNote = async (noteId: T.EntityId, note: T.Note, content: string) => {
@@ -234,6 +255,56 @@ export class NoteActions extends Component<Props, LocalState> {
       this.setState({
         isLocking: false,
         lockError: 'This note could not be unlocked.',
+      });
+    }
+  };
+
+  handleRemoveLock = async () => {
+    const { note, noteId } = this.props;
+    if (!noteId || !note || this.state.isLocking) {
+      return;
+    }
+
+    await this.removeLock(noteId, note);
+  };
+
+  removeLock = async (noteId: T.EntityId, note: T.Note) => {
+    if (!note.locked?.encryptedContent) {
+      return;
+    }
+
+    this.setState({ isLocking: true, lockError: null });
+    try {
+      const result = await window.electron.secureNotes.systemAuth.unlock({
+        allowModalFallback: true,
+        noteId,
+        encryptedContent: note.locked.encryptedContent,
+        reason: `Remove lock from "${getLockedNoteTitle(note)}" in Recall`,
+      });
+
+      if (result?.ok && typeof result.content === 'string') {
+        this.props.editNote(noteId, {
+          content: result.content,
+          locked: null,
+        });
+        this.props.clearUnlockedNoteContent(noteId);
+        this.setState({ isLocking: false, lockError: null });
+        this.props.onFocusTrapDeactivate();
+        return;
+      }
+
+      const code = result?.code || result?.error;
+      this.setState({
+        isLocking: false,
+        lockError:
+          code === 'cancelled' || code === 'authentication_failed'
+            ? 'Authentication was cancelled or failed.'
+            : 'This note lock could not be removed.',
+      });
+    } catch {
+      this.setState({
+        isLocking: false,
+        lockError: 'This note lock could not be removed.',
       });
     }
   };
