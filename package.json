@@ -34,7 +34,7 @@
     "build:app": "pnpm run build:native-auth && webpack --config ./webpack.config.js",
     "build:prod": "pnpm run build:native-auth && cross-env NODE_ENV=production webpack --mode production --config ./webpack.config.js",
     "package:win": "pnpm run build:prod && electron-builder --win",
-    "package:mac": "pnpm run build:prod && electron-builder --mac",
+    "package:mac": "cross-env RECALL_NATIVE_AUTH_UNIVERSAL=1 pnpm run build:prod && electron-builder --mac",
     "package:linux": "pnpm run build:prod && electron-builder --linux",
     "deploy": "./bin/deploy.sh",
     "prepare": "git config --local core.hooksPath .githooks"
