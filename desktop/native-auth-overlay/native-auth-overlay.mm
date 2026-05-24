@@ -17,6 +17,8 @@
 
 namespace {
 
+constexpr CGFloat kEmbeddedAuthBadgePadding = 6.0;
+
 struct AuthRect {
   double x = 0;
   double y = 0;
@@ -318,6 +320,12 @@ NSRect RectInAppKitPoints(const AuthRect &rect, NSWindow *window) {
       rect.height / scaleFactor);
 }
 
+NSRect EmbeddedAuthViewFrame(NSRect bounds) {
+  const CGFloat maxInset = MIN(bounds.size.width, bounds.size.height) / 4.0;
+  const CGFloat inset = MIN(kEmbeddedAuthBadgePadding, maxInset);
+  return NSInsetRect(bounds, inset, inset);
+}
+
 }  // namespace
 
 @interface RecallNativeAuthSession : NSObject
@@ -460,8 +468,8 @@ void StartEmbeddedAuth(AuthBaton *baton) {
 
     LAAuthenticationView *view =
         [[LAAuthenticationView alloc] initWithContext:context controlSize:NSControlSizeRegular];
-    view.frame = clipView.bounds;
-    view.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
+    view.frame = EmbeddedAuthViewFrame(clipView.bounds);
+    view.autoresizingMask = NSViewNotSizable;
     [clipView addSubview:view];
     [container addSubview:clipView];
     [hostView addSubview:container positioned:NSWindowAbove relativeTo:nil];
@@ -602,7 +610,7 @@ napi_value Update(napi_env env, napi_callback_info info) {
       session.clipView.layer.cornerRadius =
           MIN(session.clipView.bounds.size.width, session.clipView.bounds.size.height) /
           2.0;
-      session.view.frame = session.clipView.bounds;
+      session.view.frame = EmbeddedAuthViewFrame(session.clipView.bounds);
 #endif
       updated = true;
     }
