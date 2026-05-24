@@ -1347,6 +1347,17 @@ const electronAPI = {
       unlock: (payload) =>
         ipcRenderer.invoke('secure-notes:system-auth:unlock', payload),
     },
+    lockedNotes: {
+      getLoginUsername: () =>
+        ipcRenderer.invoke('secure-notes:locked-notes:get-login-username'),
+      hasCustomPassword: () =>
+        ipcRenderer.invoke('secure-notes:locked-notes:has-custom-password'),
+      changePassword: (payload) =>
+        ipcRenderer.invoke(
+          'secure-notes:locked-notes:change-password',
+          payload
+        ),
+    },
     test: {
       getEvents: () => ipcRenderer.invoke('secure-notes:test-events:get'),
     },

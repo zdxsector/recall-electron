@@ -14,6 +14,8 @@ const baseProps = {
   isSearchActive: false,
   isSmallScreen: false,
   keyboardShortcuts: false,
+  lockedNotesPasswordMode: 'login' as const,
+  lockedNotesUseTouchId: true,
   note: null,
   noteId: null,
   searchQuery: '',
@@ -110,8 +112,8 @@ describe('NoteEditor locked state', () => {
         getBoundingClientRect: () => ({
           left: 30,
           top: 90,
-          width: 320,
-          height: 96,
+          width: 184,
+          height: 25,
         }),
       };
     }
@@ -134,6 +136,7 @@ describe('NoteEditor locked state', () => {
         secureNotes: {
           nativeAuth: { show, update, hide },
           systemAuth: { unlock },
+          lockedNotes: {},
           test: { getEvents: jest.fn() },
         },
       },
@@ -182,11 +185,14 @@ describe('NoteEditor locked state', () => {
     ).toHaveLength(1);
     expect(electron.show).toHaveBeenCalledWith({
       noteId: 'note-locked',
+      authMethod: 'login',
+      passwordPlaceholder: 'Enter login password',
       reason: 'View "Secret" in Recall',
       rect: { x: 10, y: 20, width: 58, height: 58 },
-      passwordRect: { x: 30, y: 90, width: 320, height: 96 },
+      passwordRect: { x: 30, y: 90, width: 184, height: 25 },
       viewportHeight: 800,
       devicePixelRatio: 2,
+      useTouchId: true,
     });
   });
 
@@ -255,6 +261,55 @@ describe('NoteEditor locked state', () => {
     expect(electron.hide).not.toHaveBeenCalled();
     expect(electron.unlock).not.toHaveBeenCalled();
     expect(storeUnlockedNoteContent).not.toHaveBeenCalled();
+  });
+
+  it('uses note password copy and native auth payload for custom password mode', async () => {
+    const electron = setupElectron({ ok: false, code: 'cancelled' });
+    let tree: ReactTestRenderer;
+
+    await act(async () => {
+      tree = renderer.create(
+        <NoteEditor
+          {...baseProps}
+          lockedNotesPasswordMode="custom"
+          note={lockedNote}
+          noteId={'note-locked' as any}
+        />,
+        { createNodeMock }
+      );
+      await Promise.resolve();
+    });
+
+    expect(JSON.stringify(tree!.toJSON())).toMatch(/enter note password/i);
+    expect(electron.show).toHaveBeenCalledWith(
+      expect.objectContaining({
+        authMethod: 'custom',
+        passwordPlaceholder: 'Enter note password',
+      })
+    );
+  });
+
+  it('can request password-only native auth when Touch ID is disabled', async () => {
+    const electron = setupElectron({ ok: false, code: 'cancelled' });
+
+    await act(async () => {
+      renderer.create(
+        <NoteEditor
+          {...baseProps}
+          lockedNotesUseTouchId={false}
+          note={lockedNote}
+          noteId={'note-locked' as any}
+        />,
+        { createNodeMock }
+      );
+      await Promise.resolve();
+    });
+
+    expect(electron.show).toHaveBeenCalledWith(
+      expect.objectContaining({
+        useTouchId: false,
+      })
+    );
   });
 
   it('cancelled auth does not unlock the note', async () => {
@@ -450,8 +505,8 @@ describe('NoteEditor locked state', () => {
     });
 
     const json = JSON.stringify(tree!.toJSON());
-    expect(json).not.toMatch(/mac login password/i);
+    expect(json).not.toMatch(/macOS password/i);
     expect(json).not.toMatch(/type":"password"/i);
-    expect(json).toMatch(/app-specific note password/i);
+    expect(json).toMatch(/system authentication fallback/i);
   });
 });

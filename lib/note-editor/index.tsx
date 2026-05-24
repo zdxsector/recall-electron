@@ -17,6 +17,8 @@ type StateProps = {
   hasSearchMatchesInNote: boolean;
   hasSearchQuery: boolean;
   keyboardShortcuts: boolean;
+  lockedNotesPasswordMode: T.LockedNotesPasswordMode;
+  lockedNotesUseTouchId: boolean;
   noteId: T.EntityId | null;
   note: T.Note | null;
   searchQuery: string;
@@ -34,6 +36,7 @@ type Props = DispatchProps & StateProps;
 type LocalState = {
   embeddedAuthUnavailable: boolean;
   isUnlocking: boolean;
+  lockedNotesLoginUsername: string | null;
   systemAuthUnavailable: boolean;
   unlockError: string | null;
 };
@@ -43,6 +46,7 @@ export class NoteEditor extends Component<Props, LocalState> {
   state: LocalState = {
     embeddedAuthUnavailable: false,
     isUnlocking: false,
+    lockedNotesLoginUsername: null,
     systemAuthUnavailable: false,
     unlockError: null,
   };
@@ -63,6 +67,7 @@ export class NoteEditor extends Component<Props, LocalState> {
   componentDidMount() {
     this.isComponentMounted = true;
     this.toggleShortcuts(true);
+    this.loadLockedNotesLoginUsername();
     this.syncNativeAuthOverlay();
   }
 
@@ -88,6 +93,30 @@ export class NoteEditor extends Component<Props, LocalState> {
     }
     this.syncNativeAuthOverlay(prevProps);
   }
+
+  loadLockedNotesLoginUsername = async () => {
+    if (
+      !window.electron?.isMac ||
+      typeof window.electron?.secureNotes?.lockedNotes?.getLoginUsername !==
+        'function'
+    ) {
+      return;
+    }
+
+    try {
+      const result =
+        await window.electron.secureNotes.lockedNotes.getLoginUsername();
+      if (
+        this.isComponentMounted &&
+        result?.ok &&
+        typeof result.username === 'string'
+      ) {
+        this.setState({ lockedNotesLoginUsername: result.username });
+      }
+    } catch {
+      // Display copy falls back to "your" when the safe username lookup fails.
+    }
+  };
 
   handleShortcut = (event: KeyboardEvent) => {
     if (!this.props.keyboardShortcuts) {
@@ -176,13 +205,45 @@ export class NoteEditor extends Component<Props, LocalState> {
       return null;
     }
 
-    return domRectToNativeAuthPayload(
+    const payload = domRectToNativeAuthPayload(
       noteId,
       anchor.getBoundingClientRect(),
       window.innerHeight,
       window.devicePixelRatio || 1,
       passwordAnchor?.getBoundingClientRect()
     );
+
+    if (!payload) {
+      return null;
+    }
+
+    payload.authMethod = this.props.lockedNotesPasswordMode;
+    payload.passwordPlaceholder = this.getPasswordPlaceholder();
+    payload.useTouchId = this.props.lockedNotesUseTouchId;
+    return payload;
+  };
+
+  getPasswordPlaceholder = () => {
+    if (this.props.lockedNotesPasswordMode === 'custom') {
+      return 'Enter note password';
+    }
+
+    const username = this.state.lockedNotesLoginUsername;
+    return username
+      ? `Enter ${username} login password`
+      : 'Enter login password';
+  };
+
+  getLockedNotePrompt = () => {
+    const { lockedNotesPasswordMode, lockedNotesUseTouchId } = this.props;
+    const prefix = lockedNotesUseTouchId ? 'Use Touch ID or enter' : 'Enter';
+
+    if (lockedNotesPasswordMode === 'custom') {
+      return `${prefix} note password to view this note.`;
+    }
+
+    const username = this.state.lockedNotesLoginUsername || 'your';
+    return `${prefix} ${username} login password to view this note.`;
   };
 
   startResizeObserver = () => {
@@ -316,6 +377,11 @@ export class NoteEditor extends Component<Props, LocalState> {
   syncNativeAuthOverlay = (prevProps?: Props) => {
     const isLocked = this.isShowingLockedNote();
     const noteChanged = prevProps && prevProps.noteId !== this.props.noteId;
+    const settingsChanged =
+      prevProps &&
+      (prevProps.lockedNotesPasswordMode !==
+        this.props.lockedNotesPasswordMode ||
+        prevProps.lockedNotesUseTouchId !== this.props.lockedNotesUseTouchId);
 
     if (!isLocked) {
       if (this.nativeAuthNoteId !== null) {
@@ -324,8 +390,11 @@ export class NoteEditor extends Component<Props, LocalState> {
       return;
     }
 
-    if (noteChanged && this.nativeAuthNoteId !== null) {
+    if ((noteChanged || settingsChanged) && this.nativeAuthNoteId !== null) {
       this.hideNativeAuthOverlay();
+      if (settingsChanged) {
+        this.attemptedNativeAuthNoteId = null;
+      }
     }
 
     if (
@@ -477,10 +546,10 @@ export class NoteEditor extends Component<Props, LocalState> {
           <h2>This note is locked.</h2>
           <p>
             {systemAuthUnavailable && !isUnlocking
-              ? 'System authentication is unavailable. Use an app-specific note password when one is configured.'
+              ? 'System authentication is unavailable on this device.'
               : canUseSystemFallback && !isUnlocking
-                ? 'Embedded authentication is unavailable. Use system authentication fallback or an app-specific note password when one is configured.'
-                : 'Use Touch ID or enter your macOS password to view this note.'}
+                ? 'Embedded authentication is unavailable. Use system authentication fallback to view this note.'
+                : this.getLockedNotePrompt()}
           </p>
           {isMac && !systemAuthUnavailable && (
             <div
@@ -549,6 +618,8 @@ const mapStateToProps: S.MapState<StateProps> = (state) => {
   const openedNote = state.ui.openedNote;
   return {
     keyboardShortcuts: state.settings.keyboardShortcuts,
+    lockedNotesPasswordMode: state.settings.lockedNotesPasswordMode,
+    lockedNotesUseTouchId: state.settings.lockedNotesUseTouchId,
     isEditorActive: !state.ui.showNavigation,
     noteId: openedNote,
     note:

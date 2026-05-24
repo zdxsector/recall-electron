@@ -6,11 +6,14 @@ export type NativeAuthOverlayRect = {
 };
 
 export type NativeAuthOverlayPayload = {
+  authMethod?: 'login' | 'custom';
   noteId: string;
+  passwordPlaceholder?: string;
   rect: NativeAuthOverlayRect;
   passwordRect?: NativeAuthOverlayRect;
   viewportHeight: number;
   devicePixelRatio: number;
+  useTouchId?: boolean;
 };
 
 const isFiniteNumber = (value: number) => Number.isFinite(value);

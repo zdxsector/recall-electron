@@ -94,6 +94,7 @@ export type DialogType =
   | { type: 'SHARE' };
 export type FontSize = 'small' | 'normal' | 'large' | 'extra-large';
 export type LineLength = 'full' | 'narrow';
+export type LockedNotesPasswordMode = 'login' | 'custom';
 export type ListDisplayMode = 'expanded' | 'comfy' | 'condensed';
 export type SortType = 'alphabetical' | 'creationDate' | 'modificationDate';
 export type Theme = 'system' | 'light' | 'dark';

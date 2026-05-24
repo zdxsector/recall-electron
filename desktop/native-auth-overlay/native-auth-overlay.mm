@@ -3,6 +3,7 @@
 #import <AppKit/AppKit.h>
 #import <LocalAuthentication/LocalAuthentication.h>
 #import <OpenDirectory/OpenDirectory.h>
+#import <Security/Security.h>
 #import <SystemConfiguration/SystemConfiguration.h>
 
 #if __has_include(<LocalAuthenticationEmbeddedUI/LAAuthenticationView.h>)
@@ -22,11 +23,12 @@ namespace {
 
 constexpr CGFloat kEmbeddedAuthSymbolScale = 0.92;
 constexpr CGFloat kPasswordFallbackGap = 14.0;
-constexpr CGFloat kPasswordFallbackWidth = 320.0;
-constexpr CGFloat kPasswordFallbackHeight = 96.0;
+constexpr CGFloat kPasswordFallbackWidth = 184.0;
+constexpr CGFloat kPasswordFallbackHeight = 25.0;
 constexpr CGFloat kPasswordFallbackMargin = 12.0;
 constexpr NSTimeInterval kPasswordFailureBaseDelay = 1.0;
 constexpr NSTimeInterval kPasswordFailureMaxDelay = 8.0;
+NSString *const kCustomPasswordService = @"com.recall.locked-notes.custom-password";
 
 struct AuthRect {
   double x = 0;
@@ -38,12 +40,15 @@ struct AuthRect {
 
 struct AuthInput {
   uintptr_t nativeWindowHandle = 0;
+  std::string authMethod = "login";
   std::string noteId;
+  std::string passwordPlaceholder = "Password";
   std::string reason = "View this locked note in Recall";
   AuthRect rect;
   AuthRect passwordRect;
   bool hasPasswordRect = false;
   bool debug = false;
+  bool useTouchId = true;
 };
 
 struct NativePasswordResult {
@@ -54,6 +59,7 @@ struct NativePasswordResult {
 enum class AuthMode {
   Embedded,
   Modal,
+  CustomPasswordChange,
 };
 
 struct AuthBaton {
@@ -270,6 +276,26 @@ bool ReadInput(napi_env env, napi_callback_info info, AuthInput *input, bool nee
     return false;
   }
 
+  std::string authMethod = input->authMethod;
+  if (!ReadOptionalString(env, args[0], "authMethod", &authMethod)) {
+    return false;
+  }
+  if (authMethod == "login" || authMethod == "custom") {
+    input->authMethod = authMethod;
+  } else {
+    return false;
+  }
+
+  if (!ReadOptionalString(
+          env, args[0], "passwordPlaceholder", &input->passwordPlaceholder) ||
+      !ReadOptionalBool(env, args[0], "useTouchId", &input->useTouchId)) {
+    return false;
+  }
+  if (input->passwordPlaceholder.empty() ||
+      input->passwordPlaceholder.size() > 80) {
+    input->passwordPlaceholder = "Password";
+  }
+
   if (needsRect &&
       (!ReadNativeWindowHandle(env, args[0], &input->nativeWindowHandle) ||
        !ReadRect(env, args[0], &input->rect))) {
@@ -468,10 +494,165 @@ NativePasswordResult VerifyCurrentConsoleUserPassword(NSString *password) {
   return {false, "user_not_found"};
 }
 
+NSString *CustomPasswordAccount(NativePasswordResult *outError) {
+  uid_t uid = 0;
+  NSString *username = CurrentConsoleUsername(&uid);
+  if (!username) {
+    if (outError) {
+      *outError = {false, "user_not_found"};
+    }
+    return nil;
+  }
+
+  return [NSString stringWithFormat:@"%@:%u", username, uid];
+}
+
+NSMutableDictionary *CustomPasswordQuery(NSString *account) {
+  return [@{
+    (__bridge id)kSecClass : (__bridge id)kSecClassGenericPassword,
+    (__bridge id)kSecAttrService : kCustomPasswordService,
+    (__bridge id)kSecAttrAccount : account,
+  } mutableCopy];
+}
+
+NativePasswordResult CopyCustomPasswordData(NSData **outData) {
+  NativePasswordResult accountError;
+  NSString *account = CustomPasswordAccount(&accountError);
+  if (!account) {
+    return accountError;
+  }
+
+  NSMutableDictionary *query = CustomPasswordQuery(account);
+  query[(__bridge id)kSecReturnData] = @YES;
+  query[(__bridge id)kSecMatchLimit] = (__bridge id)kSecMatchLimitOne;
+
+  CFTypeRef result = nullptr;
+  OSStatus status = SecItemCopyMatching((__bridge CFDictionaryRef)query, &result);
+  if (status == errSecItemNotFound) {
+    return {false, "invalid_password"};
+  }
+  if (status != errSecSuccess) {
+    return {false, "verification_error"};
+  }
+
+  NSData *data = CFBridgingRelease(result);
+  if (![data isKindOfClass:[NSData class]]) {
+    return {false, "verification_error"};
+  }
+
+  if (outData) {
+    *outData = data;
+  }
+  return {true, "success"};
+}
+
+bool ConstantTimeEqual(NSData *left, NSData *right) {
+  const NSUInteger leftLength = left.length;
+  const NSUInteger rightLength = right.length;
+  const NSUInteger maxLength = MAX(leftLength, rightLength);
+  const unsigned char *leftBytes =
+      static_cast<const unsigned char *>(left.bytes);
+  const unsigned char *rightBytes =
+      static_cast<const unsigned char *>(right.bytes);
+  unsigned char diff =
+      static_cast<unsigned char>((leftLength ^ rightLength) & 0xff);
+
+  for (NSUInteger index = 0; index < maxLength; index += 1) {
+    const unsigned char leftByte = index < leftLength ? leftBytes[index] : 0;
+    const unsigned char rightByte = index < rightLength ? rightBytes[index] : 0;
+    diff |= leftByte ^ rightByte;
+  }
+
+  return diff == 0;
+}
+
+NativePasswordResult StoreCustomPassword(NSString *password) {
+  if (!password || password.length == 0) {
+    return {false, "invalid_password"};
+  }
+
+  NativePasswordResult accountError;
+  NSString *account = CustomPasswordAccount(&accountError);
+  if (!account) {
+    return accountError;
+  }
+
+  NSData *passwordData = [password dataUsingEncoding:NSUTF8StringEncoding];
+  if (passwordData.length == 0) {
+    return {false, "invalid_password"};
+  }
+
+  NSMutableDictionary *query = CustomPasswordQuery(account);
+  OSStatus existsStatus =
+      SecItemCopyMatching((__bridge CFDictionaryRef)query, nullptr);
+  if (existsStatus == errSecSuccess) {
+    NSDictionary *attributes = @{(__bridge id)kSecValueData : passwordData};
+    OSStatus updateStatus =
+        SecItemUpdate((__bridge CFDictionaryRef)query,
+                      (__bridge CFDictionaryRef)attributes);
+    return updateStatus == errSecSuccess
+        ? NativePasswordResult{true, "success"}
+        : NativePasswordResult{false, "verification_error"};
+  }
+
+  if (existsStatus != errSecItemNotFound) {
+    return {false, "verification_error"};
+  }
+
+  NSMutableDictionary *addQuery = CustomPasswordQuery(account);
+  addQuery[(__bridge id)kSecValueData] = passwordData;
+  addQuery[(__bridge id)kSecAttrAccessible] =
+      (__bridge id)kSecAttrAccessibleWhenUnlockedThisDeviceOnly;
+
+  OSStatus addStatus = SecItemAdd((__bridge CFDictionaryRef)addQuery, nullptr);
+  return addStatus == errSecSuccess
+      ? NativePasswordResult{true, "success"}
+      : NativePasswordResult{false, "verification_error"};
+}
+
+NativePasswordResult VerifyCustomPassword(NSString *password) {
+  if (!password || password.length == 0) {
+    return {false, "invalid_password"};
+  }
+
+  NSData *storedPassword = nil;
+  NativePasswordResult copyResult = CopyCustomPasswordData(&storedPassword);
+  if (!copyResult.ok) {
+    return copyResult;
+  }
+
+  NSData *candidate = [password dataUsingEncoding:NSUTF8StringEncoding];
+  if (candidate.length == 0 || !ConstantTimeEqual(storedPassword, candidate)) {
+    return {false, "invalid_password"};
+  }
+
+  return {true, "success"};
+}
+
+bool HasCustomPassword() {
+  NSData *storedPassword = nil;
+  NativePasswordResult result = CopyCustomPasswordData(&storedPassword);
+  return result.ok && storedPassword.length > 0;
+}
+
+NSAttributedString *PasswordPlaceholderString(NSString *message, NSFont *font) {
+  NSMutableParagraphStyle *paragraphStyle =
+      [[NSMutableParagraphStyle alloc] init];
+  paragraphStyle.alignment = NSTextAlignmentCenter;
+
+  return [[NSAttributedString alloc]
+      initWithString:message ?: @"Password"
+          attributes:@{
+            NSForegroundColorAttributeName : [NSColor placeholderTextColor],
+            NSFontAttributeName : font ?: [NSFont systemFontOfSize:13],
+            NSParagraphStyleAttributeName : paragraphStyle,
+          }];
+}
+
 NSRect PasswordPanelFrameForAuthRect(NSRect authRect, NSView *hostView) {
   NSRect hostBounds = hostView ? hostView.bounds : NSZeroRect;
   CGFloat width = MIN(kPasswordFallbackWidth,
-                      MAX(220.0, hostBounds.size.width - (kPasswordFallbackMargin * 2.0)));
+                      MAX(160.0, hostBounds.size.width - (kPasswordFallbackMargin * 2.0)));
   CGFloat height = kPasswordFallbackHeight;
   CGFloat x = NSMidX(authRect) - (width / 2.0);
   CGFloat y = NSMinY(authRect) - kPasswordFallbackGap - height;
@@ -573,11 +754,9 @@ NSRect PasswordPanelFrameForAuthRect(NSRect authRect, NSView *hostView) {
 @property(nonatomic, strong) RecallTouchIdBadgeView *badgeView;
 @property(nonatomic, strong) LAAuthenticationView *view;
 #endif
-@property(nonatomic, strong) NSView *passwordContainer;
+@property(nonatomic, copy) NSString *authMethod;
 @property(nonatomic, strong) NSSecureTextField *passwordField;
-@property(nonatomic, strong) NSButton *passwordUnlockButton;
-@property(nonatomic, strong) NSButton *passwordCancelButton;
-@property(nonatomic, strong) NSTextField *passwordStatusLabel;
+@property(nonatomic, copy) NSString *passwordPlaceholder;
 @property(nonatomic) void *baton;
 @property(nonatomic) BOOL completed;
 @property(nonatomic) BOOL debug;
@@ -585,7 +764,6 @@ NSRect PasswordPanelFrameForAuthRect(NSRect authRect, NSView *hostView) {
 @property(nonatomic) NSTimeInterval nextPasswordAttemptTime;
 @property(nonatomic) BOOL verifyingPassword;
 - (void)submitPassword:(id)sender;
-- (void)cancelPassword:(id)sender;
 @end
 
 namespace {
@@ -605,13 +783,10 @@ void FinishSession(RecallNativeAuthSession *session, bool ok, NSString *code) {
     session.view = nil;
   }
 #endif
-  if (session.passwordContainer) {
-    [session.passwordContainer removeFromSuperview];
-    session.passwordContainer = nil;
+  if (session.passwordField) {
+    session.passwordField.stringValue = @"";
+    [session.passwordField removeFromSuperview];
     session.passwordField = nil;
-    session.passwordUnlockButton = nil;
-    session.passwordCancelButton = nil;
-    session.passwordStatusLabel = nil;
   }
   [session.context invalidate];
 
@@ -659,18 +834,19 @@ void HideSessions(uintptr_t nativeWindowHandle, const std::string &noteId) {
   }
 }
 
-void SetPasswordStatus(RecallNativeAuthSession *session, NSString *message) {
-  if (!session.passwordStatusLabel) {
+void SetPasswordPlaceholder(RecallNativeAuthSession *session, NSString *message) {
+  if (!session.passwordField) {
     return;
   }
 
-  session.passwordStatusLabel.stringValue = message ?: @"";
+  session.passwordField.placeholderAttributedString =
+      PasswordPlaceholderString(
+          message ?: session.passwordPlaceholder ?: @"Password",
+          session.passwordField.font);
 }
 
 void SetPasswordControlsEnabled(RecallNativeAuthSession *session, BOOL enabled) {
   session.passwordField.enabled = enabled;
-  session.passwordUnlockButton.enabled = enabled;
-  session.passwordCancelButton.enabled = enabled;
 }
 
 void ApplyPasswordVerificationResult(
@@ -697,21 +873,21 @@ void ApplyPasswordVerificationResult(
         kPasswordFailureBaseDelay * static_cast<NSTimeInterval>(1 << exponent));
     session.nextPasswordAttemptTime =
         [NSDate timeIntervalSinceReferenceDate] + delay;
-    SetPasswordStatus(session, @"Invalid password.");
+    SetPasswordPlaceholder(session, @"Invalid password");
     return;
   }
 
   if ([code isEqualToString:@"user_not_found"]) {
-    SetPasswordStatus(session, @"Current macOS user was not found.");
+    SetPasswordPlaceholder(session, @"User not found");
     return;
   }
 
   if ([code isEqualToString:@"unsupported_platform"]) {
-    SetPasswordStatus(session, @"Password unlock is unavailable.");
+    SetPasswordPlaceholder(session, @"Password unavailable");
     return;
   }
 
-  SetPasswordStatus(session, @"Password verification failed.");
+  SetPasswordPlaceholder(session, @"Verification failed");
 }
 
 }  // namespace
@@ -725,25 +901,29 @@ void ApplyPasswordVerificationResult(
 
   NSTimeInterval now = [NSDate timeIntervalSinceReferenceDate];
   if (self.nextPasswordAttemptTime > now) {
-    SetPasswordStatus(self, @"Wait before trying again.");
+    SetPasswordPlaceholder(self, @"Wait before trying again");
     return;
   }
 
   __block NSString *password = [self.passwordField.stringValue copy] ?: @"";
   self.passwordField.stringValue = @"";
   if (password.length == 0) {
-    SetPasswordStatus(self, @"Enter your macOS password.");
+    SetPasswordPlaceholder(self, self.passwordPlaceholder);
     return;
   }
 
   self.verifyingPassword = YES;
   SetPasswordControlsEnabled(self, NO);
-  SetPasswordStatus(self, @"Verifying...");
+  SetPasswordPlaceholder(self, @"Verifying...");
 
   __weak RecallNativeAuthSession *weakSelf = self;
+  NSString *authMethod = [self.authMethod copy] ?: @"login";
   dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
     @autoreleasepool {
-      NativePasswordResult result = VerifyCurrentConsoleUserPassword(password);
+      NativePasswordResult result =
+          [authMethod isEqualToString:@"custom"]
+              ? VerifyCustomPassword(password)
+              : VerifyCurrentConsoleUserPassword(password);
       password = nil;
       dispatch_async(dispatch_get_main_queue(), ^{
         RecallNativeAuthSession *strongSelf = weakSelf;
@@ -754,10 +934,6 @@ void ApplyPasswordVerificationResult(
       });
     }
   });
-}
-
-- (void)cancelPassword:(id)sender {
-  FinishSession(self, false, @"cancelled");
 }
 
 @end
@@ -773,193 +949,153 @@ NSRect PasswordFrameForInput(const AuthInput &input, NSWindow *window, NSView *h
 }
 
 void CreatePasswordOverlay(RecallNativeAuthSession *session, NSView *hostView, NSRect frame) {
-  NSView *container = [[NSView alloc] initWithFrame:frame];
-  container.wantsLayer = YES;
-  container.layer.backgroundColor = [NSColor.windowBackgroundColor colorWithAlphaComponent:0.98].CGColor;
-  container.layer.cornerRadius = 12.0;
-  container.layer.masksToBounds = NO;
-  container.layer.shadowColor = [NSColor blackColor].CGColor;
-  container.layer.shadowOffset = CGSizeMake(0, -6);
-  container.layer.shadowOpacity = 0.18;
-  container.layer.shadowRadius = 16;
-  container.autoresizingMask = NSViewNotSizable;
-
-  CGFloat width = frame.size.width;
-  NSTextField *titleLabel = [NSTextField labelWithString:@"macOS Password"];
-  titleLabel.frame = NSMakeRect(14, frame.size.height - 24, width - 28, 18);
-  titleLabel.font = [NSFont systemFontOfSize:12 weight:NSFontWeightSemibold];
-  titleLabel.textColor = NSColor.secondaryLabelColor;
-
   NSSecureTextField *passwordField =
-      [[NSSecureTextField alloc] initWithFrame:NSMakeRect(12, 38, width - 24, 28)];
-  passwordField.placeholderString = @"Password";
+      [[NSSecureTextField alloc] initWithFrame:frame];
+  passwordField.placeholderString = session.passwordPlaceholder ?: @"Password";
   passwordField.target = session;
   passwordField.action = @selector(submitPassword:);
+  passwordField.alignment = NSTextAlignmentLeft;
   passwordField.bezelStyle = NSTextFieldRoundedBezel;
   passwordField.focusRingType = NSFocusRingTypeDefault;
+  passwordField.font = [NSFont systemFontOfSize:13];
+  passwordField.controlSize = NSControlSizeRegular;
+  passwordField.placeholderAttributedString =
+      PasswordPlaceholderString(session.passwordPlaceholder ?: @"Password",
+                                passwordField.font);
+  passwordField.autoresizingMask = NSViewNotSizable;
 
-  NSTextField *statusLabel = [NSTextField labelWithString:@""];
-  statusLabel.frame = NSMakeRect(14, 10, MAX(40.0, width - 174), 18);
-  statusLabel.font = [NSFont systemFontOfSize:11];
-  statusLabel.textColor = NSColor.systemRedColor;
-  statusLabel.lineBreakMode = NSLineBreakByTruncatingTail;
+  [hostView addSubview:passwordField positioned:NSWindowAbove relativeTo:nil];
 
-  NSButton *cancelButton = [NSButton buttonWithTitle:@"Cancel"
-                                              target:session
-                                              action:@selector(cancelPassword:)];
-  cancelButton.frame = NSMakeRect(width - 150, 7, 64, 24);
-  cancelButton.bezelStyle = NSBezelStyleRounded;
-
-  NSButton *unlockButton = [NSButton buttonWithTitle:@"Unlock"
-                                              target:session
-                                              action:@selector(submitPassword:)];
-  unlockButton.frame = NSMakeRect(width - 80, 7, 68, 24);
-  unlockButton.bezelStyle = NSBezelStyleRounded;
-
-  [container addSubview:titleLabel];
-  [container addSubview:passwordField];
-  [container addSubview:statusLabel];
-  [container addSubview:cancelButton];
-  [container addSubview:unlockButton];
-  [hostView addSubview:container positioned:NSWindowAbove relativeTo:nil];
-
-  session.passwordContainer = container;
   session.passwordField = passwordField;
-  session.passwordStatusLabel = statusLabel;
-  session.passwordCancelButton = cancelButton;
-  session.passwordUnlockButton = unlockButton;
 
   [hostView.window makeFirstResponder:passwordField];
 }
 
 void UpdatePasswordOverlay(RecallNativeAuthSession *session, NSRect frame) {
-  if (!session.passwordContainer) {
+  if (!session.passwordField) {
     return;
   }
 
-  CGFloat width = frame.size.width;
-  session.passwordContainer.frame = frame;
-  for (NSView *subview in session.passwordContainer.subviews) {
-    if (subview == session.passwordField) {
-      subview.frame = NSMakeRect(12, 38, width - 24, 28);
-    } else if (subview == session.passwordStatusLabel) {
-      subview.frame = NSMakeRect(14, 10, MAX(40.0, width - 174), 18);
-    } else if (subview == session.passwordCancelButton) {
-      subview.frame = NSMakeRect(width - 150, 7, 64, 24);
-    } else if (subview == session.passwordUnlockButton) {
-      subview.frame = NSMakeRect(width - 80, 7, 68, 24);
-    } else if ([subview isKindOfClass:[NSTextField class]]) {
-      subview.frame = NSMakeRect(14, frame.size.height - 24, width - 28, 18);
-    }
-  }
+  session.passwordField.frame = frame;
 }
 
 void StartEmbeddedAuth(AuthBaton *baton) {
-#if RECALL_HAS_EMBEDDED_AUTH_UI
-  if (@available(macOS 12.0, *)) {
-    Class authViewClass = NSClassFromString(@"LAAuthenticationView");
-    if (!authViewClass) {
-      DebugLog(baton->input, "native-auth: embedded view unavailable");
-      ResolveBaton(baton, false, "embedded_ui_unavailable");
-      return;
-    }
-
-    NSView *electronView = ViewFromNativeHandle(baton->input.nativeWindowHandle);
-    NSWindow *window = electronView.window;
-    NSView *hostView = window.contentView ?: electronView;
-    if (!hostView || !window) {
-      DebugLog(baton->input, "native-auth: embedded view unavailable");
-      ResolveBaton(baton, false, "embedded_ui_unavailable");
-      return;
-    }
-
-    LAContext *context = [[LAContext alloc] init];
-    context.localizedFallbackTitle = @"Enter Password";
-
-    NSError *canEvaluateError = nil;
-    if (![context canEvaluatePolicy:LAPolicyDeviceOwnerAuthenticationWithBiometrics
-                               error:&canEvaluateError]) {
-      DebugLog(baton->input, "native-auth: embedded view unavailable");
-      ResolveBaton(baton, false, MapLAErrorCode(canEvaluateError).UTF8String);
-      return;
-    }
-
-    FinishExistingSession(baton->input.nativeWindowHandle, baton->input.noteId);
-
-    RecallNativeAuthSession *session = [[RecallNativeAuthSession alloc] init];
-    session.nativeWindowHandle = baton->input.nativeWindowHandle;
-    session.noteId = [NSString stringWithUTF8String:baton->input.noteId.c_str()];
-    session.key = SessionKey(baton->input.nativeWindowHandle, baton->input.noteId);
-    session.context = context;
-    session.baton = baton;
-    session.debug = baton->input.debug;
-
-    NSView *container =
-        [[NSView alloc] initWithFrame:RectInAppKitPoints(baton->input.rect, window)];
-    container.wantsLayer = YES;
-    container.layer.masksToBounds = NO;
-    container.layer.shadowColor = [NSColor blackColor].CGColor;
-    container.layer.shadowOffset = CGSizeMake(0, -8);
-    container.layer.shadowOpacity = 0.28;
-    container.layer.shadowRadius = 18;
-    container.autoresizingMask = NSViewNotSizable;
-
-    NSView *clipView = [[NSView alloc] initWithFrame:container.bounds];
-    clipView.wantsLayer = YES;
-    clipView.layer.backgroundColor = [NSColor colorWithCalibratedWhite:0.12 alpha:1.0].CGColor;
-    clipView.layer.cornerRadius =
-        MIN(clipView.bounds.size.width, clipView.bounds.size.height) / 2.0;
-    clipView.layer.masksToBounds = YES;
-    clipView.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
-
-    LAAuthenticationView *view =
-        [[LAAuthenticationView alloc] initWithContext:context controlSize:NSControlSizeRegular];
-    view.frame = clipView.bounds;
-    view.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
-
-    RecallTouchIdBadgeView *badgeView =
-        [[RecallTouchIdBadgeView alloc] initWithFrame:clipView.bounds];
-    badgeView.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
-
-    [clipView addSubview:view];
-    [clipView addSubview:badgeView];
-    [container addSubview:clipView];
-    [hostView addSubview:container positioned:NSWindowAbove relativeTo:nil];
-    session.container = container;
-    session.clipView = clipView;
-    session.badgeView = badgeView;
-    session.view = view;
-    CreatePasswordOverlay(
-        session,
-        hostView,
-        PasswordFrameForInput(baton->input, window, hostView));
-    Sessions()[session.key] = session;
-
-    DebugLog(baton->input, "native-auth: embedded view attached");
-
-    NSString *reason = [NSString stringWithUTF8String:baton->input.reason.c_str()];
-    dispatch_async(dispatch_get_main_queue(), ^{
-      if (session.completed) {
-        return;
-      }
-
-      [context evaluatePolicy:LAPolicyDeviceOwnerAuthentication
-              localizedReason:reason
-                        reply:^(BOOL success, NSError *error) {
-                          dispatch_async(dispatch_get_main_queue(), ^{
-                            FinishSession(
-                                session,
-                                success,
-                                success ? @"success" : MapLAErrorCode(error));
-                          });
-                        }];
-    });
+  NSView *electronView = ViewFromNativeHandle(baton->input.nativeWindowHandle);
+  NSWindow *window = electronView.window;
+  NSView *hostView = window.contentView ?: electronView;
+  if (!hostView || !window) {
+    DebugLog(baton->input, "native-auth: embedded view unavailable");
+    ResolveBaton(baton, false, "embedded_ui_unavailable");
     return;
+  }
+
+  FinishExistingSession(baton->input.nativeWindowHandle, baton->input.noteId);
+
+  RecallNativeAuthSession *session = [[RecallNativeAuthSession alloc] init];
+  session.nativeWindowHandle = baton->input.nativeWindowHandle;
+  session.noteId = [NSString stringWithUTF8String:baton->input.noteId.c_str()];
+  session.key = SessionKey(baton->input.nativeWindowHandle, baton->input.noteId);
+  session.authMethod =
+      [NSString stringWithUTF8String:baton->input.authMethod.c_str()];
+  session.passwordPlaceholder =
+      [NSString stringWithUTF8String:baton->input.passwordPlaceholder.c_str()];
+  session.baton = baton;
+  session.debug = baton->input.debug;
+
+  BOOL didAttachTouchId = NO;
+
+#if RECALL_HAS_EMBEDDED_AUTH_UI
+  if (baton->input.useTouchId) {
+    if (@available(macOS 12.0, *)) {
+      Class authViewClass = NSClassFromString(@"LAAuthenticationView");
+      if (authViewClass) {
+        LAContext *context = [[LAContext alloc] init];
+        context.localizedFallbackTitle = @"Enter Password";
+
+        NSError *canEvaluateError = nil;
+        if ([context canEvaluatePolicy:LAPolicyDeviceOwnerAuthenticationWithBiometrics
+                                 error:&canEvaluateError]) {
+          session.context = context;
+
+          NSView *container =
+              [[NSView alloc] initWithFrame:RectInAppKitPoints(baton->input.rect, window)];
+          container.wantsLayer = YES;
+          container.layer.masksToBounds = NO;
+          container.layer.shadowColor = [NSColor blackColor].CGColor;
+          container.layer.shadowOffset = CGSizeMake(0, -8);
+          container.layer.shadowOpacity = 0.28;
+          container.layer.shadowRadius = 18;
+          container.autoresizingMask = NSViewNotSizable;
+
+          NSView *clipView = [[NSView alloc] initWithFrame:container.bounds];
+          clipView.wantsLayer = YES;
+          clipView.layer.backgroundColor =
+              [NSColor colorWithCalibratedWhite:0.12 alpha:1.0].CGColor;
+          clipView.layer.cornerRadius =
+              MIN(clipView.bounds.size.width, clipView.bounds.size.height) / 2.0;
+          clipView.layer.masksToBounds = YES;
+          clipView.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
+
+          LAAuthenticationView *view =
+              [[LAAuthenticationView alloc] initWithContext:context
+                                                controlSize:NSControlSizeRegular];
+          view.frame = clipView.bounds;
+          view.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
+
+          RecallTouchIdBadgeView *badgeView =
+              [[RecallTouchIdBadgeView alloc] initWithFrame:clipView.bounds];
+          badgeView.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
+
+          [clipView addSubview:view];
+          [clipView addSubview:badgeView];
+          [container addSubview:clipView];
+          [hostView addSubview:container positioned:NSWindowAbove relativeTo:nil];
+          session.container = container;
+          session.clipView = clipView;
+          session.badgeView = badgeView;
+          session.view = view;
+          didAttachTouchId = YES;
+        } else {
+          DebugLog(baton->input, "native-auth: Touch ID unavailable; password only");
+        }
+      } else {
+        DebugLog(baton->input, "native-auth: embedded view unavailable; password only");
+      }
+    }
   }
 #endif
 
-  DebugLog(baton->input, "native-auth: embedded view unavailable");
-  ResolveBaton(baton, false, "embedded_ui_unavailable");
+  CreatePasswordOverlay(
+      session,
+      hostView,
+      PasswordFrameForInput(baton->input, window, hostView));
+  Sessions()[session.key] = session;
+
+  if (!didAttachTouchId) {
+    DebugLog(baton->input, "native-auth: password overlay attached");
+    return;
+  }
+
+  DebugLog(baton->input, "native-auth: embedded view attached");
+
+  NSString *reason = [NSString stringWithUTF8String:baton->input.reason.c_str()];
+  LAContext *context = session.context;
+  dispatch_async(dispatch_get_main_queue(), ^{
+    if (session.completed) {
+      return;
+    }
+
+    [context evaluatePolicy:LAPolicyDeviceOwnerAuthentication
+            localizedReason:reason
+                      reply:^(BOOL success, NSError *error) {
+                        dispatch_async(dispatch_get_main_queue(), ^{
+                          FinishSession(
+                              session,
+                              success,
+                              success ? @"success" : MapLAErrorCode(error));
+                        });
+                      }];
+  });
 }
 
 void StartModalAuth(AuthBaton *baton) {
@@ -984,13 +1120,98 @@ void StartModalAuth(AuthBaton *baton) {
                     }];
 }
 
+NativePasswordResult PromptForNewCustomPassword(NSWindow *window) {
+  NSAlert *alert = [[NSAlert alloc] init];
+  alert.messageText = @"Change Locked Notes Password";
+  alert.informativeText = @"Enter a new note password.";
+  [alert addButtonWithTitle:@"Save"];
+  [alert addButtonWithTitle:@"Cancel"];
+
+  NSStackView *stackView = [[NSStackView alloc] initWithFrame:NSMakeRect(0, 0, 320, 64)];
+  stackView.orientation = NSUserInterfaceLayoutOrientationVertical;
+  stackView.spacing = 8;
+  stackView.translatesAutoresizingMaskIntoConstraints = NO;
+
+  NSSecureTextField *passwordField =
+      [[NSSecureTextField alloc] initWithFrame:NSMakeRect(0, 36, 320, 28)];
+  passwordField.placeholderString = @"New note password";
+  NSSecureTextField *confirmField =
+      [[NSSecureTextField alloc] initWithFrame:NSMakeRect(0, 0, 320, 28)];
+  confirmField.placeholderString = @"Verify note password";
+
+  [stackView addArrangedSubview:passwordField];
+  [stackView addArrangedSubview:confirmField];
+  [stackView.widthAnchor constraintEqualToConstant:320].active = YES;
+  alert.accessoryView = stackView;
+
+  NSModalResponse response = window
+      ? [alert runModal]
+      : [alert runModal];
+  if (response != NSAlertFirstButtonReturn) {
+    passwordField.stringValue = @"";
+    confirmField.stringValue = @"";
+    return {false, "cancelled"};
+  }
+
+  NSString *password = [passwordField.stringValue copy] ?: @"";
+  NSString *confirmation = [confirmField.stringValue copy] ?: @"";
+  passwordField.stringValue = @"";
+  confirmField.stringValue = @"";
+
+  if (password.length == 0 || ![password isEqualToString:confirmation]) {
+    password = nil;
+    confirmation = nil;
+    return {false, "invalid_password"};
+  }
+
+  NativePasswordResult result = StoreCustomPassword(password);
+  password = nil;
+  confirmation = nil;
+  return result;
+}
+
+void StartCustomPasswordChange(AuthBaton *baton) {
+  LAContext *context = [[LAContext alloc] init];
+  NSError *canEvaluateError = nil;
+  if (![context canEvaluatePolicy:LAPolicyDeviceOwnerAuthentication
+                             error:&canEvaluateError]) {
+    ResolveBaton(baton, false, MapLAErrorCode(canEvaluateError).UTF8String);
+    return;
+  }
+
+  NSString *reason = [NSString stringWithUTF8String:baton->input.reason.c_str()];
+  [context evaluatePolicy:LAPolicyDeviceOwnerAuthentication
+          localizedReason:reason
+                    reply:^(BOOL success, NSError *error) {
+                      dispatch_async(dispatch_get_main_queue(), ^{
+                        [context invalidate];
+                        if (!success) {
+                          ResolveBaton(
+                              baton,
+                              false,
+                              MapLAErrorCode(error).UTF8String);
+                          return;
+                        }
+
+                        NSView *electronView =
+                            ViewFromNativeHandle(baton->input.nativeWindowHandle);
+                        NSWindow *window = electronView.window;
+                        NativePasswordResult result =
+                            PromptForNewCustomPassword(window);
+                        ResolveBaton(baton, result.ok, result.code);
+                      });
+                    }];
+}
+
 void ExecuteAuth(napi_env /* env */, void *data) {
   AuthBaton *baton = reinterpret_cast<AuthBaton *>(data);
   RunOnMainSync(^{
     if (baton->mode == AuthMode::Embedded) {
       StartEmbeddedAuth(baton);
-    } else {
+    } else if (baton->mode == AuthMode::Modal) {
       StartModalAuth(baton);
+    } else {
+      StartCustomPasswordChange(baton);
     }
   });
 
@@ -1048,6 +1269,37 @@ napi_value Authenticate(napi_env env, napi_callback_info info) {
   return CreateAuthPromise(env, input, AuthMode::Modal);
 }
 
+napi_value ChangeCustomPassword(napi_env env, napi_callback_info info) {
+  AuthInput input;
+  if (!ReadInput(env, info, &input, false)) {
+    return MakeResult(env, false, "invalid_payload");
+  }
+
+  return CreateAuthPromise(env, input, AuthMode::CustomPasswordChange);
+}
+
+napi_value GetConsoleUsername(napi_env env, napi_callback_info /* info */) {
+  uid_t uid = 0;
+  NSString *username = CurrentConsoleUsername(&uid);
+  if (!username) {
+    return MakeResult(env, false, "user_not_found");
+  }
+
+  napi_value result = MakeResult(env, true, "success");
+  napi_value usernameValue;
+  napi_create_string_utf8(env, username.UTF8String, NAPI_AUTO_LENGTH, &usernameValue);
+  napi_set_named_property(env, result, "username", usernameValue);
+  return result;
+}
+
+napi_value HasCustomPasswordConfigured(napi_env env, napi_callback_info /* info */) {
+  napi_value result = MakeResult(env, true, "success");
+  napi_value configuredValue;
+  napi_get_boolean(env, HasCustomPassword(), &configuredValue);
+  napi_set_named_property(env, result, "configured", configuredValue);
+  return result;
+}
+
 napi_value Update(napi_env env, napi_callback_info info) {
   AuthInput input;
   if (!ReadInput(env, info, &input, true)) {
@@ -1059,20 +1311,28 @@ napi_value Update(napi_env env, napi_callback_info info) {
     NSString *key = SessionKey(input.nativeWindowHandle, input.noteId);
     RecallNativeAuthSession *session = Sessions()[key];
     if (session) {
-#if RECALL_HAS_EMBEDDED_AUTH_UI
       NSView *electronView = ViewFromNativeHandle(input.nativeWindowHandle);
       NSWindow *window = electronView.window;
       NSView *hostView = window.contentView ?: electronView;
-      session.container.frame = RectInAppKitPoints(input.rect, window);
-      session.clipView.frame = session.container.bounds;
-      session.clipView.layer.cornerRadius =
-          MIN(session.clipView.bounds.size.width, session.clipView.bounds.size.height) /
-          2.0;
-      session.view.frame = session.clipView.bounds;
-      session.badgeView.frame = session.clipView.bounds;
-      [session.badgeView setNeedsDisplay:YES];
-      UpdatePasswordOverlay(session, PasswordFrameForInput(input, window, hostView));
+      session.authMethod = [NSString stringWithUTF8String:input.authMethod.c_str()];
+      session.passwordPlaceholder =
+          [NSString stringWithUTF8String:input.passwordPlaceholder.c_str()];
+#if RECALL_HAS_EMBEDDED_AUTH_UI
+      if (session.container) {
+        session.container.frame = RectInAppKitPoints(input.rect, window);
+        session.clipView.frame = session.container.bounds;
+        session.clipView.layer.cornerRadius =
+            MIN(session.clipView.bounds.size.width, session.clipView.bounds.size.height) /
+            2.0;
+        session.view.frame = session.clipView.bounds;
+        session.badgeView.frame = session.clipView.bounds;
+        [session.badgeView setNeedsDisplay:YES];
+      }
 #endif
+      UpdatePasswordOverlay(session, PasswordFrameForInput(input, window, hostView));
+      if (session.passwordField.stringValue.length == 0) {
+        SetPasswordPlaceholder(session, session.passwordPlaceholder);
+      }
       updated = true;
     }
   });
@@ -1105,6 +1365,9 @@ napi_value Init(napi_env env, napi_value exports) {
       {"update", nullptr, Update, nullptr, nullptr, nullptr, napi_default, nullptr},
       {"hide", nullptr, Hide, nullptr, nullptr, nullptr, napi_default, nullptr},
       {"authenticate", nullptr, Authenticate, nullptr, nullptr, nullptr, napi_default, nullptr},
+      {"changeCustomPassword", nullptr, ChangeCustomPassword, nullptr, nullptr, nullptr, napi_default, nullptr},
+      {"getConsoleUsername", nullptr, GetConsoleUsername, nullptr, nullptr, nullptr, napi_default, nullptr},
+      {"hasCustomPasswordConfigured", nullptr, HasCustomPasswordConfigured, nullptr, nullptr, nullptr, napi_default, nullptr},
   };
 
   napi_define_properties(

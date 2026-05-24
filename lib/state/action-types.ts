@@ -31,6 +31,14 @@ export type SetLineLength = Action<
   'setLineLength',
   { lineLength: T.LineLength }
 >;
+export type SetLockedNotesPasswordMode = Action<
+  'setLockedNotesPasswordMode',
+  { lockedNotesPasswordMode: T.LockedNotesPasswordMode }
+>;
+export type SetLockedNotesUseTouchId = Action<
+  'setLockedNotesUseTouchId',
+  { lockedNotesUseTouchId: boolean }
+>;
 export type SetNoteDisplay = Action<
   'setNoteDisplay',
   { noteDisplay: T.ListDisplayMode }
@@ -380,6 +388,8 @@ export type ActionType =
   | SetFocusMode
   | SetFontSize
   | SetLineLength
+  | SetLockedNotesPasswordMode
+  | SetLockedNotesUseTouchId
   | SetNoteDisplay
   | SetSortReversed
   | SetSortType

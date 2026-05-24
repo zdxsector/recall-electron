@@ -173,6 +173,25 @@ const registerSecureNotesIpc = ({
     })
   );
 
+  ipcMain.handle('secure-notes:locked-notes:get-login-username', (event) =>
+    withSenderWindow(event, () => nativeAuthService.getLoginUsername())
+  );
+
+  ipcMain.handle('secure-notes:locked-notes:has-custom-password', (event) =>
+    withSenderWindow(event, () => nativeAuthService.hasCustomPassword())
+  );
+
+  ipcMain.handle(
+    'secure-notes:locked-notes:change-password',
+    (event, payload = {}) =>
+      withSenderWindow(event, (win) =>
+        nativeAuthService.changeCustomPassword(win, {
+          reason:
+            typeof payload?.reason === 'string' ? payload.reason : undefined,
+        })
+      )
+  );
+
   ipcMain.handle('secure-notes:test-events:get', () => {
     if (typeof nativeAuthService.getTestEvents !== 'function') {
       return [];

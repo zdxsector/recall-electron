@@ -5,7 +5,7 @@ const { createNativeAuthService } = require('../native-auth-service');
 const validOverlayPayload = {
   noteId: 'note-1',
   rect: { x: 10, y: 20, width: 58, height: 58 },
-  passwordRect: { x: 30, y: 90, width: 320, height: 96 },
+  passwordRect: { x: 30, y: 90, width: 184, height: 25 },
   viewportHeight: 800,
   devicePixelRatio: 1,
 };
@@ -241,11 +241,14 @@ describe('NativeAuthService', () => {
         rect: { x: 10, y: 722, width: 58, height: 58, scaleFactor: 1 },
         passwordRect: {
           x: 30,
-          y: 614,
-          width: 320,
-          height: 96,
+          y: 685,
+          width: 184,
+          height: 25,
           scaleFactor: 1,
         },
+        authMethod: 'login',
+        passwordPlaceholder: 'Password',
+        useTouchId: true,
       })
     );
     expect(addon.update).toHaveBeenCalledWith(
@@ -254,13 +257,65 @@ describe('NativeAuthService', () => {
         rect: { x: 10, y: 722, width: 58, height: 58, scaleFactor: 1 },
         passwordRect: {
           x: 30,
-          y: 614,
-          width: 320,
-          height: 96,
+          y: 685,
+          width: 184,
+          height: 25,
           scaleFactor: 1,
         },
+        authMethod: 'login',
+        passwordPlaceholder: 'Password',
+        useTouchId: true,
       })
     );
+  });
+
+  test('native addon receives validated auth mode and Touch ID preference', async () => {
+    const addon = {
+      show: jest.fn().mockResolvedValue({ ok: false, code: 'cancelled' }),
+    };
+    const win = {
+      getNativeWindowHandle: jest.fn(() => Buffer.from('window')),
+    };
+    const service = createNativeAuthService({
+      app: mockApp(),
+      env: { NODE_ENV: 'test' },
+      nativeAddon: addon,
+      platform: 'darwin',
+    });
+
+    await service.show(win, {
+      ...validOverlayPayload,
+      authMethod: 'custom',
+      passwordPlaceholder: 'Note password',
+      useTouchId: false,
+    });
+
+    expect(addon.show).toHaveBeenCalledWith(
+      expect.objectContaining({
+        authMethod: 'custom',
+        passwordPlaceholder: 'Note password',
+        useTouchId: false,
+      })
+    );
+  });
+
+  test('invalid auth method is rejected before native addon call', async () => {
+    const addon = { show: jest.fn() };
+    const service = createNativeAuthService({
+      app: mockApp(),
+      env: { NODE_ENV: 'test' },
+      nativeAddon: addon,
+      platform: 'darwin',
+    });
+
+    await expect(
+      service.show({}, { ...validOverlayPayload, authMethod: 'password' })
+    ).resolves.toEqual({
+      ok: false,
+      code: 'invalid_auth_method',
+      error: 'invalid_auth_method',
+    });
+    expect(addon.show).not.toHaveBeenCalled();
   });
 
   test('invalid password overlay rect is rejected', async () => {
@@ -279,7 +334,7 @@ describe('NativeAuthService', () => {
         {},
         {
           ...validOverlayPayload,
-          passwordRect: { x: 30, y: 90, width: 0, height: 96 },
+          passwordRect: { x: 30, y: 90, width: 0, height: 25 },
         }
       )
     ).resolves.toEqual({
@@ -287,5 +342,26 @@ describe('NativeAuthService', () => {
       code: 'invalid_rect',
       error: 'invalid_rect',
     });
+  });
+
+  test('mock custom password change does not call native APIs', async () => {
+    const addon = { changeCustomPassword: jest.fn() };
+    const service = createNativeAuthService({
+      app: mockApp(),
+      env: {
+        NODE_ENV: 'test',
+        SECURE_NOTES_AUTH_MOCK: '1',
+        SECURE_NOTES_AUTH_MOCK_RESULT: 'success',
+      },
+      nativeAddon: addon,
+      platform: 'darwin',
+    });
+
+    await expect(service.changeCustomPassword({}, {})).resolves.toEqual({
+      ok: true,
+      code: 'success',
+    });
+    expect(addon.changeCustomPassword).not.toHaveBeenCalled();
+    expect(service.consumeTrustedAuth('locked-notes-settings')).toBe(false);
   });
 });

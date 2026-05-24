@@ -124,7 +124,9 @@ test.describe('locked note native auth mock mode', () => {
 
     await selectNote(window, 'Locked QA Secret');
     await expect(window.locator('.note-editor--locked')).toBeVisible();
-    await expect(window.getByText(/app-specific note password/i)).toBeVisible();
+    await expect(
+      window.getByText(/system authentication fallback/i)
+    ).toBeVisible();
     await expect(window.locator('input[type="password"]')).toHaveCount(0);
   });
 
@@ -240,9 +242,9 @@ test.describe('locked note native auth mock mode', () => {
 
     await selectNote(window, 'Locked QA Secret');
     await expect(window.locator('.note-editor--locked')).toBeVisible();
-    await expect(
-      window.getByText('System authentication is unavailable on this device.')
-    ).toBeVisible();
+    await expect(window.locator('.note-editor-locked-error')).toHaveText(
+      'System authentication is unavailable on this device.'
+    );
     await expect(window.getByText(/Mock unlocked secret body/)).toHaveCount(0);
   });
 
@@ -255,5 +257,31 @@ test.describe('locked note native auth mock mode', () => {
     await setMockResult(appContext, 'success');
     await window.getByRole('button', { name: 'Unlock locked note' }).click();
     await expect(window.getByText(/Mock unlocked secret body/)).toBeVisible();
+  });
+
+  test('renderer cannot reveal note without trusted main/native success', async () => {
+    appContext = await launchAuthApp('invalid_password');
+    window = appContext.window;
+
+    await selectNote(window, 'Locked QA Secret');
+    await expect(window.locator('.note-editor--locked')).toBeVisible();
+
+    const encryptedContent = `mock:${Buffer.from(
+      '# Locked QA Secret\n\nMock unlocked secret body',
+      'utf8'
+    ).toString('base64')}`;
+    const result = await window.evaluate((encrypted) => {
+      return window.electron.secureNotes.systemAuth.unlock({
+        noteId: 'e2e-locked-note',
+        encryptedContent: encrypted,
+      });
+    }, encryptedContent);
+
+    expect(result).toEqual({
+      ok: false,
+      code: 'native_auth_required',
+      error: 'native_auth_required',
+    });
+    await expect(window.getByText(/Mock unlocked secret body/)).toHaveCount(0);
   });
 });

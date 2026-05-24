@@ -1,5 +1,6 @@
 'use strict';
 
+const os = require('os');
 const { domRectToAppKitRect } = require('./native-auth-geometry');
 
 const AUTH_RESULT_CODES = new Set([
@@ -13,6 +14,7 @@ const AUTH_RESULT_CODES = new Set([
   'timeout',
 ]);
 
+const AUTH_METHODS = new Set(['login', 'custom']);
 const TRUSTED_AUTH_TTL_MS = 30 * 1000;
 
 const safeReason = (reason) =>
@@ -29,6 +31,16 @@ const isValidNoteId = (noteId) =>
 const errorResult = (code) => ({ ok: false, code, error: code });
 
 const successResult = (code = 'success') => ({ ok: true, code });
+
+const safeAuthMethod = (authMethod) =>
+  AUTH_METHODS.has(authMethod) ? authMethod : null;
+
+const safePasswordPlaceholder = (placeholder) =>
+  typeof placeholder === 'string' &&
+  placeholder.trim().length > 0 &&
+  placeholder.trim().length <= 80
+    ? placeholder.trim()
+    : 'Password';
 
 const normalizeMockResult = (value) => {
   const result = String(value || 'success').toLowerCase();
@@ -257,6 +269,17 @@ const createNativeAuthService = ({
       normalized.passwordRect = passwordRect;
     }
 
+    const authMethod = safeAuthMethod(payload?.authMethod || 'login');
+    if (!authMethod) {
+      return errorResult('invalid_auth_method');
+    }
+
+    normalized.authMethod = authMethod;
+    normalized.passwordPlaceholder = safePasswordPlaceholder(
+      payload?.passwordPlaceholder
+    );
+    normalized.useTouchId = payload?.useTouchId !== false;
+
     return normalized;
   };
 
@@ -299,11 +322,14 @@ const createNativeAuthService = ({
           : null;
       devLog('native-auth: attempting embedded LAAuthenticationView');
       const addonPayload = {
+        authMethod: normalized.authMethod,
         debug: canLogNativeAuth(),
         nativeWindowHandle,
         noteId: normalized.noteId,
+        passwordPlaceholder: normalized.passwordPlaceholder,
         reason: safeReason(payload?.reason),
         rect: normalized.rect,
+        useTouchId: normalized.useTouchId,
       };
       if (normalized.passwordRect) {
         addonPayload.passwordRect = normalized.passwordRect;
@@ -372,9 +398,12 @@ const createNativeAuthService = ({
           ? win.getNativeWindowHandle()
           : null;
       const addonPayload = {
+        authMethod: normalized.authMethod,
         nativeWindowHandle,
         noteId: normalized.noteId,
+        passwordPlaceholder: normalized.passwordPlaceholder,
         rect: normalized.rect,
+        useTouchId: normalized.useTouchId,
       };
       if (normalized.passwordRect) {
         addonPayload.passwordRect = normalized.passwordRect;
@@ -506,11 +535,141 @@ const createNativeAuthService = ({
     }
   };
 
+  const getLoginUsername = async () => {
+    const unsupported = requireSupportedPlatform();
+    if (unsupported) {
+      return unsupported;
+    }
+
+    if (isMockMode) {
+      return {
+        ok: true,
+        code: 'success',
+        username: env.SECURE_NOTES_AUTH_MOCK_USERNAME || 'test-user',
+      };
+    }
+
+    if (addon && typeof addon.getConsoleUsername === 'function') {
+      try {
+        const result = await addon.getConsoleUsername();
+        if (result?.ok && typeof result.username === 'string') {
+          return {
+            ok: true,
+            code: 'success',
+            username: result.username.slice(0, 128),
+          };
+        }
+        return errorResult(normalizeNativeAuthCode(result, 'user_not_found'));
+      } catch {
+        return errorResult('native_addon_failed');
+      }
+    }
+
+    try {
+      const username = os.userInfo().username;
+      if (typeof username === 'string' && username) {
+        return { ok: true, code: 'success', username: username.slice(0, 128) };
+      }
+    } catch {
+      // Fall through to the safe typed error.
+    }
+
+    return errorResult('user_not_found');
+  };
+
+  const hasCustomPassword = async () => {
+    const unsupported = requireSupportedPlatform();
+    if (unsupported) {
+      return { ...unsupported, configured: false };
+    }
+
+    if (isMockMode) {
+      return {
+        ok: true,
+        code: 'success',
+        configured:
+          env.SECURE_NOTES_AUTH_MOCK_CUSTOM_PASSWORD_CONFIGURED === '1',
+      };
+    }
+
+    if (!addon || typeof addon.hasCustomPasswordConfigured !== 'function') {
+      return {
+        ...errorResult(
+          addonLoadFailed
+            ? 'native_addon_load_failed'
+            : 'native_addon_unavailable'
+        ),
+        configured: false,
+      };
+    }
+
+    try {
+      const result = await addon.hasCustomPasswordConfigured();
+      return {
+        ok: result?.ok !== false,
+        code: normalizeNativeAuthCode(result, 'success'),
+        configured: result?.configured === true,
+      };
+    } catch {
+      return { ...errorResult('native_addon_failed'), configured: false };
+    }
+  };
+
+  const changeCustomPassword = async (win, payload = {}) => {
+    const unsupported = requireSupportedPlatform();
+    if (unsupported) {
+      return unsupported;
+    }
+
+    const noteId = isValidNoteId(payload?.noteId)
+      ? payload.noteId
+      : 'locked-notes-settings';
+
+    if (isMockMode) {
+      return mockAuthResult(noteId, { grantTrusted: false });
+    }
+
+    if (!addon || typeof addon.changeCustomPassword !== 'function') {
+      return errorResult(
+        addonLoadFailed
+          ? 'native_addon_load_failed'
+          : 'native_addon_unavailable'
+      );
+    }
+
+    try {
+      const nativeWindowHandle =
+        typeof win?.getNativeWindowHandle === 'function'
+          ? win.getNativeWindowHandle()
+          : null;
+      const result = await addon.changeCustomPassword({
+        nativeWindowHandle,
+        noteId,
+        reason: safeReason(
+          payload?.reason || 'Change the password used for locked notes'
+        ),
+      });
+      if (result?.ok) {
+        record('custom-password-change-success', { noteId });
+        return successResult(normalizeNativeAuthCode(result, 'success'));
+      }
+      const code = normalizeNativeAuthCode(result);
+      recordAuthFailure(noteId, code);
+      return errorResult(code);
+    } catch {
+      record('auth-result-failure', { noteId, code: 'native_addon_failed' });
+      return errorResult('native_addon_failed');
+    }
+  };
+
   return {
     authenticate,
+    changeCustomPassword,
     consumeTrustedAuth,
+    getLoginUsername,
     getTestEvents: () => testEvents.slice(),
     grantTrustedAuth,
+    hasCustomPassword,
     hide,
     isAddonLoaded: () => !!addon,
     isMockMode: () => isMockMode,

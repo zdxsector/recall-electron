@@ -61,6 +61,27 @@ const lineLength: A.Reducer<T.LineLength> = (state = 'narrow', action) => {
   }
 };
 
+const lockedNotesPasswordMode: A.Reducer<T.LockedNotesPasswordMode> = (
+  state = 'login',
+  action
+) => {
+  switch (action.type) {
+    case 'setLockedNotesPasswordMode':
+      return action.lockedNotesPasswordMode;
+    default:
+      return state;
+  }
+};
+
+const lockedNotesUseTouchId: A.Reducer<boolean> = (state = true, action) => {
+  switch (action.type) {
+    case 'setLockedNotesUseTouchId':
+      return action.lockedNotesUseTouchId;
+    default:
+      return state;
+  }
+};
+
 const markdownEnabled: A.Reducer<boolean> = (state = false, action) => {
   switch (action.type) {
     case 'SET_SYSTEM_TAG':
@@ -150,6 +171,8 @@ export default combineReducers({
   fontSize,
   keyboardShortcuts,
   lineLength,
+  lockedNotesPasswordMode,
+  lockedNotesUseTouchId,
   markdownEnabled,
   noteDisplay,
   sendNotifications,

@@ -27,6 +27,20 @@ export const setLineLength: A.ActionCreator<A.SetLineLength> = (
   lineLength,
 });
 
+export const setLockedNotesPasswordMode: A.ActionCreator<
+  A.SetLockedNotesPasswordMode
+> = (lockedNotesPasswordMode: T.LockedNotesPasswordMode) => ({
+  type: 'setLockedNotesPasswordMode',
+  lockedNotesPasswordMode,
+});
+
+export const setLockedNotesUseTouchId: A.ActionCreator<
+  A.SetLockedNotesUseTouchId
+> = (lockedNotesUseTouchId: boolean) => ({
+  type: 'setLockedNotesUseTouchId',
+  lockedNotesUseTouchId,
+});
+
 export const toggleKeyboardShortcuts: A.ActionCreator<
   A.ToggleKeyboardShortcuts
 > = () => ({

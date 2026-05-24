@@ -31,9 +31,14 @@ Steps added after the original implementation step 10:
 - The native addon attaches an embedded `LAAuthenticationView` over the
   renderer-provided anchor. It does not show the standard modal prompt in the
   default locked-note path.
-- If embedded UI is unavailable, the renderer keeps the note locked and may
-  offer an explicit system-auth fallback. Only that explicit fallback may invoke
-  modal `evaluatePolicy` authentication.
+- The native addon also attaches a standalone AppKit `NSSecureTextField` over
+  the renderer-provided password anchor. It has no native buttons and submits on
+  Enter.
+- If Touch ID or embedded UI is unavailable, the native password overlay remains
+  available when the native addon is loaded. If the addon itself is unavailable,
+  the renderer keeps the note locked and may offer an explicit system-auth
+  fallback. Only that explicit fallback may invoke modal `evaluatePolicy`
+  authentication.
 - Successful explicit modal fallback returns
   `embedded_ui_unavailable_using_modal_fallback`; if fallback auth itself is not
   available, the main process returns `system_auth_unavailable`.
@@ -53,6 +58,8 @@ Mock result values:
 - `SECURE_NOTES_AUTH_MOCK_RESULT=unavailable`
 - `SECURE_NOTES_AUTH_MOCK_RESULT=error`
 - `SECURE_NOTES_AUTH_MOCK_RESULT=timeout`
+- `SECURE_NOTES_AUTH_MOCK_CUSTOM_PASSWORD_CONFIGURED=1` simulates an existing
+  custom note password for settings tests.
 
 Safe test observability is exposed only through the mock/test path. Events may
 include `auth-overlay-show`, `auth-overlay-update`, `auth-overlay-hide`,
@@ -106,6 +113,13 @@ Record before testing:
 - Touch ID success unlocks the note.
 - Touch ID cancel keeps note locked.
 - Password fallback through the native NSSecureTextField and ODRecord path works.
+- The password fallback is a single standalone input, not a native container with
+  buttons.
+- Locked notes set to "Use Login Password" show copy for the current login
+  password.
+- Locked notes set to "Use Custom Password" show copy for the note password.
+- The Change Password settings button prompts local authentication before
+  showing the native new-password fields.
 - Repeated cancel does not break future attempts.
 - Locked note remains hidden while auth is pending.
 - Note content is never visible before successful auth.
@@ -119,8 +133,8 @@ Record before testing:
 - Overlay is removed when switching notes.
 - Overlay is removed when closing the window.
 - Overlay is removed when quitting the app.
-- App-specific note password fallback works when configured.
-- Wrong app-specific note password does not unlock when configured.
+- Custom note password fallback works when configured.
+- Wrong custom note password does not unlock when configured.
 - No HTML input asks for the actual macOS login password.
 - App works when Touch ID is unavailable.
 - App works when LocalAuthenticationEmbeddedUI is unavailable and fallback is used.
@@ -136,6 +150,7 @@ Record before testing:
 - IPC does not trust renderer-supplied window IDs.
 - Mock auth is unavailable by default in production.
 - No secrets are logged.
+- Raw login and custom note passwords are never sent to renderer code.
 - No decrypted note content is logged.
 - No encryption keys are logged.
 - No encryption keys are sent to renderer outside the existing app architecture.
@@ -162,9 +177,10 @@ Record before testing:
   or Macs without available biometric authentication use the unavailable path and
   must rely on the explicit modal fallback when appropriate.
 - The embedded view path uses Apple's compact `LAAuthenticationView` for Touch
-  ID/watch authentication. Mac password fallback is handled only by the native
+  ID/watch authentication. Login password fallback is handled only by the native
   AppKit `NSSecureTextField` plus OpenDirectory `ODRecord.verifyPassword` path,
-  not by an HTML password field or a renderer-collected password.
+  not by an HTML password field or a renderer-collected password. Custom note
+  passwords are captured natively and stored in the macOS Keychain.
 - Locked notes are authentication-gated with Electron `safeStorage` encrypted
   ciphertext. This is not a separate per-note Keychain item or user-managed
   encryption key store.
