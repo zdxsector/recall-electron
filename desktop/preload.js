@@ -475,6 +475,7 @@ const validChannels = [
   'editorCommand',
   'importNotes',
   'noteImportChannel',
+  'openSettingsWindow',
   'reallyCloseWindow',
   'reload',
   'setAutoHideMenuBar',

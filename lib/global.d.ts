@@ -20,6 +20,9 @@ type ElectronBridge = {
   isMac: boolean;
   isLinux: boolean;
   isWindows: boolean;
+  send: (channel: string, data?: unknown) => void;
+  receive: (channel: string, callback: (...args: any[]) => void) => void;
+  removeListener: (channel: string) => void;
   encryptNoteContent: (args: { content: string }) => Promise<{
     ok: boolean;
     encryptedContent?: string;

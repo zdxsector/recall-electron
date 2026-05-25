@@ -6,6 +6,11 @@ import * as S from '../';
 
 const debug = debugFactory('electron-middleware');
 
+const getAppStatePayload = (state: S.State) => ({
+  settings: state.settings,
+  editMode: state.ui.editMode,
+});
+
 export const middleware: S.Middleware = ({ dispatch, getState }) => {
   if (!window.electron?.receive) {
     return (next) => (action) => next(action);
@@ -61,16 +66,53 @@ export const middleware: S.Middleware = ({ dispatch, getState }) => {
         dispatch(actions.ui.createNote());
         return;
 
+      case 'setFontSize':
+        dispatch(actions.settings.setFontSize(command.fontSize));
+        return;
+
+      case 'setKeyboardShortcuts':
+        if (
+          getState().settings.keyboardShortcuts !== command.keyboardShortcuts
+        ) {
+          dispatch(actions.settings.toggleKeyboardShortcuts());
+        }
+        return;
+
       case 'setLineLength':
         dispatch(actions.settings.setLineLength(command.lineLength));
+        return;
+
+      case 'setLockedNotesPasswordMode':
+        dispatch(
+          actions.settings.setLockedNotesPasswordMode(
+            command.lockedNotesPasswordMode
+          )
+        );
+        return;
+
+      case 'setLockedNotesUseTouchId':
+        dispatch(
+          actions.settings.setLockedNotesUseTouchId(
+            command.lockedNotesUseTouchId
+          )
+        );
         return;
 
       case 'setNoteDisplay':
         dispatch(actions.settings.setNoteDisplay(command.noteDisplay));
         return;
 
+      case 'requestNotifications':
+        dispatch({
+          type: 'REQUEST_NOTIFICATIONS',
+          sendNotifications: command.sendNotifications,
+        });
+        return;
+
       case 'setSortType':
-        dispatch(actions.settings.setSortType(command.sortType));
+        dispatch(
+          actions.settings.setSortType(command.sortType, command.sortReversed)
+        );
         return;
 
       case 'toggleFocusMode':
@@ -94,10 +136,7 @@ export const middleware: S.Middleware = ({ dispatch, getState }) => {
     }
   });
 
-  window.electron.send('appStateUpdate', {
-    settings: getState().settings,
-    editMode: getState().ui.editMode,
-  });
+  window.electron.send('appStateUpdate', getAppStatePayload(getState()));
 
   return (next) => (action) => {
     const prevState = getState();
@@ -114,10 +153,7 @@ export const middleware: S.Middleware = ({ dispatch, getState }) => {
       prevState.settings !== nextState.settings ||
       prevState.ui.editMode !== nextState.ui.editMode
     ) {
-      window.electron.send('appStateUpdate', {
-        settings: nextState.settings,
-        editMode: nextState.ui.editMode,
-      });
+      window.electron.send('appStateUpdate', getAppStatePayload(nextState));
     }
 
     return result;

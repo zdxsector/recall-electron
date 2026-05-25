@@ -33,6 +33,10 @@ Build a production webpack bundle:
 pnpm build:prod
 ```
 
+On macOS, `build:prod` also compiles the native auth overlay and AppKit
+settings window addons before the renderer bundle. `pnpm package:mac` builds
+those addons as universal binaries for the packaged app.
+
 Package for a specific platform:
 
 ```bash

@@ -1,4 +1,9 @@
-import { test, expect, type ElectronApplication, type Page } from '@playwright/test';
+import {
+  test,
+  expect,
+  type ElectronApplication,
+  type Page,
+} from '@playwright/test';
 import {
   closeIsolatedElectronApp,
   type IsolatedElectronApp,
@@ -29,15 +34,31 @@ test('main process is running', async () => {
   expect(isPackaged).toBe(false);
 });
 
-test('sidebar renders with navigation items', async () => {
-  const allNotes = window.locator('text=All Notes');
+test('sidebar renders without settings and only shows trash when needed', async () => {
+  const nav = window.locator('.navigation-bar');
+  const allNotes = nav.getByText('All Notes', { exact: true });
   await expect(allNotes).toBeVisible({ timeout: 15_000 });
 
-  const trash = window.locator('text=Trash');
+  await expect(nav.getByText('Settings', { exact: true })).toHaveCount(0);
+
+  const trash = nav.getByText('Trash', { exact: true });
+  await expect(trash).toHaveCount(0);
+
+  await window.evaluate(() => {
+    (window as any).dispatch({
+      type: 'TRASH_NOTE',
+      noteId: 'e2e-seed-note',
+    });
+  });
   await expect(trash).toBeVisible();
 
-  const settings = window.locator('text=Settings');
-  await expect(settings).toBeVisible();
+  await window.evaluate(() => {
+    (window as any).dispatch({
+      type: 'RESTORE_NOTE',
+      noteId: 'e2e-seed-note',
+    });
+  });
+  await expect(trash).toHaveCount(0);
 });
 
 test('search field is present', async () => {
@@ -49,14 +70,18 @@ test('sidebar toggle collapses and expands', async () => {
   const navColumn = window.locator('.app-layout__nav-column');
 
   // When sidebar is open the toggle lives in the nav-bar header
-  const navToggle = window.locator('.navigation-bar__header button[aria-label*="Toggle Sidebar"]');
+  const navToggle = window.locator(
+    '.navigation-bar__header button[aria-label*="Toggle Sidebar"]'
+  );
   await expect(navToggle).toBeVisible({ timeout: 10_000 });
 
   await navToggle.click();
   await expect(navColumn).toHaveAttribute('data-collapsed', 'true');
 
   // When sidebar is collapsed the toggle lives in the menu-bar
-  const menuToggle = window.locator('.menu-bar__sidebar-toggle button[aria-label*="Toggle Sidebar"]');
+  const menuToggle = window.locator(
+    '.menu-bar__sidebar-toggle button[aria-label*="Toggle Sidebar"]'
+  );
   await menuToggle.click();
   await expect(navColumn).toHaveAttribute('data-collapsed', 'false');
 });
@@ -69,8 +94,8 @@ test('macOS window has frameless titlebar with traffic lights', async () => {
 
   const bw = await electronApp.browserWindow(window);
 
-  const trafficLightPos = await bw.evaluate((w) =>
-    (w as any).getTrafficLightPosition?.() ?? null
+  const trafficLightPos = await bw.evaluate(
+    (w) => (w as any).getTrafficLightPosition?.() ?? null
   );
 
   if (trafficLightPos) {
@@ -88,10 +113,35 @@ test('macOS: .is-macos class is applied to the DOM', async () => {
     return;
   }
 
-  const hasMacosClass = await window.evaluate(() =>
-    !!document.querySelector('.is-macos')
+  const hasMacosClass = await window.evaluate(
+    () => !!document.querySelector('.is-macos')
   );
   expect(hasMacosClass).toBe(true);
+});
+
+test('macOS: Recall > Settings opens native settings outside the renderer', async () => {
+  if (process.platform !== 'darwin') {
+    test.skip();
+    return;
+  }
+
+  const settingsMenuLabel = await electronApp.evaluate(
+    ({ Menu }) => Menu.getApplicationMenu()?.getMenuItemById('settings')?.label
+  );
+  expect(settingsMenuLabel).toBe('Settings…');
+
+  const windowCountBefore = electronApp.windows().length;
+  await electronApp.evaluate(({ BrowserWindow, Menu }) => {
+    const settingsItem = Menu.getApplicationMenu()?.getMenuItemById('settings');
+    if (!settingsItem) {
+      throw new Error('Settings menu item was not registered');
+    }
+    settingsItem.click(settingsItem, BrowserWindow.getFocusedWindow(), {});
+  });
+
+  await window.waitForTimeout(500);
+  expect(electronApp.windows().length).toBe(windowCountBefore);
+  await expect(window.locator('.settings.dialog')).toHaveCount(0);
 });
 
 test('macOS: nav-bar header has computed padding-left >= 93px when sidebar open', async () => {
@@ -107,9 +157,9 @@ test('macOS: nav-bar header has computed padding-left >= 93px when sidebar open'
     return;
   }
 
-  const paddingLeft = await header.first().evaluate((el) =>
-    parseInt(getComputedStyle(el).paddingLeft, 10)
-  );
+  const paddingLeft = await header
+    .first()
+    .evaluate((el) => parseInt(getComputedStyle(el).paddingLeft, 10));
   expect(paddingLeft).toBeGreaterThanOrEqual(93);
 });
 
@@ -120,8 +170,12 @@ test('macOS: sidebar toggle clears traffic lights when sidebar collapsed', async
   }
 
   const navColumn = window.locator('.app-layout__nav-column');
-  const navToggle = window.locator('.navigation-bar__header button[aria-label*="Toggle Sidebar"]');
-  const menuToggle = window.locator('.menu-bar__sidebar-toggle button[aria-label*="Toggle Sidebar"]');
+  const navToggle = window.locator(
+    '.navigation-bar__header button[aria-label*="Toggle Sidebar"]'
+  );
+  const menuToggle = window.locator(
+    '.menu-bar__sidebar-toggle button[aria-label*="Toggle Sidebar"]'
+  );
   if ((await navColumn.count()) === 0 || (await navToggle.count()) === 0) {
     test.skip();
     return;
@@ -181,13 +235,13 @@ test('note list resize handle is present and draggable', async () => {
 });
 
 test('app body uses SF Pro font family', async () => {
-  const fontFamily = await window.evaluate(() =>
-    getComputedStyle(document.body).fontFamily
+  const fontFamily = await window.evaluate(
+    () => getComputedStyle(document.body).fontFamily
   );
   const lower = fontFamily.toLowerCase();
-  expect(
-    lower.includes('sf pro') || lower.includes('-apple-system')
-  ).toBe(true);
+  expect(lower.includes('sf pro') || lower.includes('-apple-system')).toBe(
+    true
+  );
 });
 
 test('code blocks use SF Mono font family', async () => {
@@ -217,9 +271,9 @@ test('icon buttons have hover-friendly border-radius', async () => {
     return;
   }
 
-  const borderRadius = await iconButtons.first().evaluate((el) =>
-    getComputedStyle(el).borderRadius
-  );
+  const borderRadius = await iconButtons
+    .first()
+    .evaluate((el) => getComputedStyle(el).borderRadius);
   expect(parseInt(borderRadius, 10)).toBeGreaterThanOrEqual(8);
 });
 
@@ -230,7 +284,9 @@ test('note-actions dropdown has modern border-radius', async () => {
     return;
   }
 
-  const actionsBtn = window.locator('.note-toolbar__column-right .icon-button').last();
+  const actionsBtn = window
+    .locator('.note-toolbar__column-right .icon-button')
+    .last();
   if ((await actionsBtn.count()) === 0) {
     test.skip();
     return;

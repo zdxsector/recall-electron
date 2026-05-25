@@ -2,7 +2,7 @@ const menuItems = require('./menu-items');
 const platform = require('../detect/platform');
 const { appCommandSender } = require('./utils');
 
-const buildFileMenu = (isAuthenticated) => {
+const buildFileMenu = (isAuthenticated, handlers = {}) => {
   isAuthenticated = isAuthenticated || false;
 
   let submenu = [];
@@ -40,7 +40,7 @@ const buildFileMenu = (isAuthenticated) => {
 
   const defaultSubmenuAdditions = [
     { type: 'separator' },
-    menuItems.preferences(isAuthenticated),
+    menuItems.settings(isAuthenticated, handlers.openSettingsWindow),
     ...(isAuthenticated ? [{ type: 'separator' }] : []),
     { role: 'quit' },
   ];

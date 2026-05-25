@@ -3,7 +3,7 @@ const { app } = require('electron');
 const menuItems = require('./menu-items');
 const build = require('../detect/build');
 
-const buildMacAppMenu = (isAuthenticated) => {
+const buildMacAppMenu = (isAuthenticated, handlers = {}) => {
   var submenu = [];
   isAuthenticated = isAuthenticated || false;
 
@@ -11,7 +11,7 @@ const buildMacAppMenu = (isAuthenticated) => {
     menuItems.about,
     ...(build.isMAS() ? [] : [menuItems.checkForUpdates]),
     { type: 'separator' },
-    menuItems.preferences(isAuthenticated),
+    menuItems.settings(isAuthenticated, handlers.openSettingsWindow),
     ...(isAuthenticated ? [{ type: 'separator' }] : []),
     {
       role: 'services',
