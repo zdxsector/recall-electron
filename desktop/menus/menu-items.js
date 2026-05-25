@@ -22,15 +22,19 @@ const emptyTrash = (isAuthenticated) => {
   };
 };
 
-const preferences = (isAuthenticated) => {
+const settings = (isAuthenticated, openSettingsWindow) => {
   return {
-    label: 'P&references…',
+    id: 'settings',
+    label: 'Settings…',
     visible: isAuthenticated,
     accelerator: 'CommandOrControl+,',
-    click: appCommandSender({
-      action: 'showDialog',
-      dialog: 'SETTINGS',
-    }),
+    click:
+      typeof openSettingsWindow === 'function'
+        ? openSettingsWindow
+        : appCommandSender({
+            action: 'showDialog',
+            dialog: 'SETTINGS',
+          }),
   };
 };
 
@@ -48,6 +52,7 @@ module.exports = {
   about,
   checkForUpdates,
   emptyTrash,
-  preferences,
+  preferences: settings,
+  settings,
   signout,
 };

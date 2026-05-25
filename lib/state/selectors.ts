@@ -71,6 +71,19 @@ export const collectionTitle: S.Selector<string> = (state) => {
 
 export const showTrash: S.Selector<boolean> = ({ ui: { collection } }) =>
   collection.type === 'trash';
+
+export const hasTrashedNotes: S.Selector<boolean> = ({ data: { notes } }) => {
+  let hasTrash = false;
+
+  notes.forEach((note) => {
+    if (note.deleted) {
+      hasTrash = true;
+    }
+  });
+
+  return hasTrash;
+};
+
 export const isDialogOpen = (state: S.State, name: T.DialogType['type']) =>
   state.ui.dialogs.find(({ type }) => type === name) !== undefined;
 

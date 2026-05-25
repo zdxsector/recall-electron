@@ -38,6 +38,7 @@ const updater = require('./updater');
 const { isDev } = require('./env');
 const contextMenu = require('./context-menu');
 const { createNativeAuthService } = require('./native-auth-service');
+const { createNativeSettingsService } = require('./native-settings-service');
 const {
   isValidEncryptedContent,
   isValidNoteContent,
@@ -49,6 +50,20 @@ require('module').globalPaths.push(path.resolve(path.join(__dirname)));
 
 const DEFAULT_WINDOW_WIDTH = 1024;
 const DEFAULT_WINDOW_HEIGHT = 768;
+
+const isAlive = (win) => !!win && !win.isDestroyed();
+
+const openExternalURL = (externalUrl) => {
+  try {
+    const parsed = new URL(externalUrl);
+    if (!['http:', 'https:', 'mailto:'].includes(parsed.protocol)) {
+      return;
+    }
+    shell.openExternal(externalUrl);
+  } catch {
+    // ignore invalid external URLs
+  }
+};
 
 const isTrustedSender = (sender) => {
   const win = BrowserWindow.fromWebContents(sender);
@@ -91,6 +106,7 @@ module.exports = function main() {
   // Keep a global reference of the window object, if you don't, the window will
   // be closed automatically when the JavaScript object is GCed.
   let mainWindow = null;
+  let latestSettings = {};
   let isAuthenticated;
   let shouldQuit = false;
   const nativeAuthPlatform =
@@ -207,6 +223,156 @@ module.exports = function main() {
       ? 'http://localhost:4000' // TODO: find a solution to use host and port based on make config.
       : 'file://' + path.join(__dirname, '..', 'dist', 'index.html');
 
+  const focusMainWindow = () => {
+    if (isAlive(mainWindow)) {
+      mainWindow.show();
+      mainWindow.focus();
+    }
+  };
+
+  const sendAppCommand = (command) => {
+    if (isAlive(mainWindow)) {
+      mainWindow.webContents.send('appCommand', command);
+    }
+  };
+
+  const handleNativeSettingsChange = async (event) => {
+    switch (event.action) {
+      case 'setNoteDisplay':
+        sendAppCommand({
+          action: 'setNoteDisplay',
+          noteDisplay: event.value,
+        });
+        return;
+
+      case 'setLineLength':
+        sendAppCommand({
+          action: 'setLineLength',
+          lineLength: event.value,
+        });
+        return;
+
+      case 'setFontSize':
+        sendAppCommand({
+          action: 'setFontSize',
+          fontSize: event.value,
+        });
+        return;
+
+      case 'setTheme':
+        sendAppCommand({
+          action: 'activateTheme',
+          theme: event.value,
+        });
+        return;
+
+      case 'setLockedNotesPasswordMode':
+        sendAppCommand({
+          action: 'setLockedNotesPasswordMode',
+          lockedNotesPasswordMode: event.value,
+        });
+        return;
+
+      case 'setKeyboardShortcuts':
+        sendAppCommand({
+          action: 'setKeyboardShortcuts',
+          keyboardShortcuts: event.checked,
+        });
+        return;
+
+      case 'requestNotifications':
+        sendAppCommand({
+          action: 'requestNotifications',
+          sendNotifications: event.checked,
+        });
+        return;
+
+      case 'setLockedNotesUseTouchId':
+        sendAppCommand({
+          action: 'setLockedNotesUseTouchId',
+          lockedNotesUseTouchId: event.checked,
+        });
+        return;
+
+      case 'setSortType':
+        sendAppCommand({
+          action: 'setSortType',
+          sortType: event.sortType,
+          sortReversed: event.sortReversed,
+        });
+        return;
+
+      case 'changeLockedNotesPassword': {
+        const result = await nativeAuthService.changeCustomPassword(
+          mainWindow,
+          {
+            reason: 'Change the password used for locked notes',
+          }
+        );
+        if (result?.ok) {
+          sendAppCommand({
+            action: 'setLockedNotesPasswordMode',
+            lockedNotesPasswordMode: 'custom',
+          });
+        }
+        return;
+      }
+
+      case 'exportNotes':
+        focusMainWindow();
+        sendAppCommand({ action: 'exportNotes' });
+        return;
+
+      case 'importNotes':
+        focusMainWindow();
+        sendAppCommand({ action: 'showDialog', dialog: 'IMPORT' });
+        return;
+
+      case 'showAbout':
+        focusMainWindow();
+        sendAppCommand({ action: 'showDialog', dialog: 'ABOUT' });
+        return;
+
+      case 'showKeyboardShortcuts':
+        focusMainWindow();
+        sendAppCommand({ action: 'showDialog', dialog: 'KEYBINDINGS' });
+        return;
+
+      default:
+        return;
+    }
+  };
+
+  const nativeSettingsService = createNativeSettingsService({
+    onChange: (event) => {
+      void handleNativeSettingsChange(event);
+    },
+  });
+
+  const openSettingsWindow = () => {
+    if (!isAuthenticated) {
+      focusMainWindow();
+      return;
+    }
+
+    if (nativeSettingsService.show(latestSettings)) {
+      return;
+    }
+
+    focusMainWindow();
+    sendAppCommand({
+      action: 'showDialog',
+      dialog: 'SETTINGS',
+    });
+  };
+
+  const createApplicationMenu = (args) =>
+    Menu.buildFromTemplate(
+      createMenuTemplate(args, mainWindow, {
+        openSettingsWindow,
+      })
+    );
+
   const activateWindow = function () {
     // Only allow a single window
     // to be open at any given time
@@ -275,16 +441,22 @@ module.exports = function main() {
     }
 
     // Configure and set the application menu
-    const menuTemplate = createMenuTemplate();
-    const appMenu = Menu.buildFromTemplate(menuTemplate, mainWindow);
+    const appMenu = createApplicationMenu();
     Menu.setApplicationMenu(appMenu);
 
-    ipcMain.on('appStateUpdate', function (event, args) {
+    ipcMain.on('openSettingsWindow', function (event) {
+      if (isTrustedSender(event.sender)) {
+        openSettingsWindow();
+      }
+    });
+
+    ipcMain.on('appStateUpdate', function (_event, args = {}) {
       const settings = args['settings'] || {};
+
+      latestSettings = settings;
       isAuthenticated = settings && 'accountName' in settings;
-      Menu.setApplicationMenu(
-        Menu.buildFromTemplate(createMenuTemplate(args), mainWindow)
-      );
+      Menu.setApplicationMenu(createApplicationMenu(args));
+      nativeSettingsService.updateSettings(latestSettings);
       if ('theme' in settings) {
         nativeTheme.themeSource = settings.theme;
         // Update titleBarOverlay symbol color when theme changes (Windows only)
@@ -325,12 +497,12 @@ module.exports = function main() {
           await Promise.all(
             cookies.map((cookie) => {
               // Reconstruct the url to pass to cookies.remove
-              const protocol = cookie.secure ? 'https://' : 'http://';
+              const cookieProtocol = cookie.secure ? 'https://' : 'http://';
               const host =
                 cookie.domain && cookie.domain.charAt(0) === '.'
                   ? `www${cookie.domain}`
                   : cookie.domain;
-              const cookieUrl = `${protocol}${host}${cookie.path || '/'}`;
+              const cookieUrl = `${cookieProtocol}${host}${cookie.path || '/'}`;
               return session.defaultSession.cookies.remove(
                 cookieUrl,
                 cookie.name
@@ -487,7 +659,7 @@ module.exports = function main() {
     mainWindowState.manage(mainWindow);
 
     mainWindow.webContents.setWindowOpenHandler((details) => {
-      shell.openExternal(details.url);
+      openExternalURL(details.url);
       return { action: 'deny' };
     });
 

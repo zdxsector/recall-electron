@@ -7,7 +7,10 @@
     "buildResources": "./resources"
   },
   "files": ["desktop", "dist", "shared"],
-  "asarUnpack": ["desktop/native-auth-overlay/build/Release/*.node"],
+  "asarUnpack": [
+    "desktop/native-auth-overlay/build/Release/*.node",
+    "desktop/native-settings-window/build/Release/*.node"
+  ],
   "mac": {
     "icon": "./resources/images/app-icon.icns",
     "category": "public.app-category.social-networking",

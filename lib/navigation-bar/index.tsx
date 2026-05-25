@@ -7,23 +7,22 @@ import NotebookSidebar from '../notebook-sidebar';
 import NotesIcon from '../icons/notes';
 import SidebarIcon from '../icons/sidebar';
 import TrashIcon from '../icons/trash';
-import SettingsIcon from '../icons/settings';
 import { isMac } from '../utils/platform';
 import actions from '../state/actions';
+import * as selectors from '../state/selectors';
 
 import * as S from '../state';
 import * as T from '../types';
 
 type StateProps = {
-  autoHideMenuBar: boolean;
   collection: T.Collection;
+  hasTrash: boolean;
   isDialogOpen: boolean;
   showNavigation: boolean;
 };
 
 type DispatchProps = {
   onFocusTrapDeactivate: () => any;
-  onSettings: () => any;
   onShowAllNotes: () => any;
   selectTrash: () => any;
   toggleNavigation: () => any;
@@ -57,20 +56,12 @@ export class NavigationBar extends Component<Props> {
   };
 
   // Determine if the selected class should be applied for the 'all notes' or 'trash' rows
-  isSelected = ({
-    selectedRow,
-  }: {
-    selectedRow: 'all' | 'trash';
-  }) => {
+  isSelected = ({ selectedRow }: { selectedRow: 'all' | 'trash' }) => {
     return this.props.collection.type === selectedRow;
   };
 
   render() {
-    const {
-      isDialogOpen,
-      onSettings,
-      onShowAllNotes,
-    } = this.props;
+    const { hasTrash, isDialogOpen, onShowAllNotes } = this.props;
 
     const CmdOrCtrl = isMac ? 'Cmd' : 'Ctrl';
 
@@ -92,17 +83,14 @@ export class NavigationBar extends Component<Props> {
             label="All Notes"
             onClick={onShowAllNotes}
           />
-          <NavigationBarItem
-            icon={<TrashIcon />}
-            isSelected={this.isSelected({ selectedRow: 'trash' })}
-            label="Trash"
-            onClick={this.onSelectTrash}
-          />
-          <NavigationBarItem
-            icon={<SettingsIcon />}
-            label="Settings"
-            onClick={onSettings}
-          />
+          {hasTrash && (
+            <NavigationBarItem
+              icon={<TrashIcon />}
+              isSelected={this.isSelected({ selectedRow: 'trash' })}
+              label="Trash"
+              onClick={this.onSelectTrash}
+            />
+          )}
           <NotebookSidebar />
         </div>
       </div>
@@ -110,23 +98,20 @@ export class NavigationBar extends Component<Props> {
   }
 }
 
-const mapStateToProps: S.MapState<StateProps> = ({
-  data,
-  settings,
-  ui: { collection, dialogs, showNavigation },
-}) => ({
-  autoHideMenuBar: settings.autoHideMenuBar,
-  collection,
-  isDialogOpen: dialogs.length > 0,
-  showNavigation,
+const mapStateToProps: S.MapState<StateProps> = (state) => ({
+  collection: state.ui.collection,
+  hasTrash: selectors.hasTrashedNotes(state),
+  isDialogOpen: state.ui.dialogs.length > 0,
+  showNavigation: state.ui.showNavigation,
 });
 
-const mapDispatchToProps: S.MapDispatch<DispatchProps> = {
-  onFocusTrapDeactivate: actions.ui.toggleNavigation,
-  onShowAllNotes: actions.ui.showAllNotes,
-  onSettings: () => actions.ui.showDialog('SETTINGS'),
-  selectTrash: actions.ui.selectTrash,
-  toggleNavigation: actions.ui.toggleNavigation,
-};
+const mapDispatchToProps: S.MapDispatchFunction<DispatchProps> = (
+  dispatch
+) => ({
+  onFocusTrapDeactivate: () => dispatch(actions.ui.toggleNavigation()),
+  onShowAllNotes: () => dispatch(actions.ui.showAllNotes()),
+  selectTrash: () => dispatch(actions.ui.selectTrash()),
+  toggleNavigation: () => dispatch(actions.ui.toggleNavigation()),
+});
 
 export default connect(mapStateToProps, mapDispatchToProps)(NavigationBar);

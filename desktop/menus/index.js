@@ -7,7 +7,7 @@ const buildViewMenu = require('./view-menu');
 const buildFormatMenu = require('./format-menu');
 const buildHelpMenu = require('./help-menu');
 
-function createMenuTemplate(args, mainWindow) {
+function createMenuTemplate(args, mainWindow, handlers = {}) {
   args = args || {};
   const settings = args['settings'] || {};
   const isAuthenticated = settings && 'accountName' in settings;
@@ -23,8 +23,8 @@ function createMenuTemplate(args, mainWindow) {
   };
 
   return [
-    platform.isOSX() ? buildMacAppMenu(isAuthenticated) : null,
-    buildFileMenu(isAuthenticated),
+    platform.isOSX() ? buildMacAppMenu(isAuthenticated, handlers) : null,
+    buildFileMenu(isAuthenticated, handlers),
     buildEditMenu(settings, isAuthenticated, editMode),
     buildViewMenu(settings, isAuthenticated),
     buildFormatMenu(isAuthenticated, editMode),
