@@ -28,6 +28,7 @@ type StateProps = {
   noteId: T.EntityId;
   note: T.Note;
   notes: Map<T.EntityId, T.Note>;
+  numberOfMatchesInNote: number | null;
   searchQuery: string;
   selectedSearchMatchIndex: number | null;
   spellCheckEnabled: boolean;
@@ -345,7 +346,9 @@ class NoteContentEditor extends Component<Props, LocalState> {
   updateMatchesCount = () => {
     const q = (this.props.searchQuery ?? '').trim();
     if (!q) {
-      this.props.storeNumberOfMatchesInNote(0);
+      if (this.props.numberOfMatchesInNote !== 0) {
+        this.props.storeNumberOfMatchesInNote(0);
+      }
       return;
     }
     const content = this.getEditorContent();
@@ -479,6 +482,7 @@ const mapStateToProps: S.MapState<StateProps> = (state) => ({
   noteId: state.ui.openedNote as T.EntityId,
   note: state.data.notes.get(state.ui.openedNote as T.EntityId) as T.Note,
   notes: state.data.notes,
+  numberOfMatchesInNote: state.ui.numberOfMatchesInNote,
   searchQuery: state.ui.searchQuery,
   selectedSearchMatchIndex: state.ui.selectedSearchMatchIndex,
   spellCheckEnabled: state.settings.spellCheckEnabled,

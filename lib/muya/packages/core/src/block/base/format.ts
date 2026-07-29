@@ -56,6 +56,7 @@ const INLINE_UPDATE_FRAGMENTS = [
 ];
 
 const INLINE_UPDATE_REG = new RegExp(INLINE_UPDATE_FRAGMENTS.join('|'), 'i');
+const LARGE_CONTENT_THRESHOLD = 50_000;
 
 function getOffset(offset: number, token: Token) {
   const {
@@ -723,8 +724,10 @@ class Format extends Content {
       });
 
       // TODO: The codes bellow maybe is wrong? and remove use this.selection directly
-      const needRender =
-        this.selection.anchorBlock === this
+      const isLargeContent = this.text.length >= LARGE_CONTENT_THRESHOLD;
+      const needRender = isLargeContent
+        ? false
+        : this.selection.anchorBlock === this
           ? this.checkNeedRender(cursor) || this.checkNeedRender()
           : this.checkNeedRender(cursor);
 
@@ -762,7 +765,10 @@ class Format extends Content {
       anchor.offset !== oldAnchor?.offset ||
       focus.offset !== oldFocus?.offset
     ) {
-      const needUpdate = this.checkNeedRender({ anchor, focus });
+      const isLargeContent = this.text.length >= LARGE_CONTENT_THRESHOLD;
+      const needUpdate = isLargeContent
+        ? false
+        : this.checkNeedRender({ anchor, focus });
       const cursor = { anchor, focus, block: this, path: this.path };
 
       if (needUpdate) this.update(cursor);
@@ -770,12 +776,13 @@ class Format extends Content {
       this.selection.setSelection(cursor);
     }
 
-    // Check not edit emoji
-    const editEmoji = this._checkCursorInTokenType(
-      this.text,
-      anchor.offset,
-      'emoji'
-    );
+    // The emoji picker scan tokenizes the whole block. It is not worth doing
+    // on every caret move in a large note while the native DOM is already
+    // handling the edit.
+    const editEmoji =
+      this.text.length >= LARGE_CONTENT_THRESHOLD
+        ? null
+        : this._checkCursorInTokenType(this.text, anchor.offset, 'emoji');
 
     if (!editEmoji) {
       this.muya.eventCenter.emit('muya-emoji-picker', {
@@ -809,18 +816,28 @@ class Format extends Content {
       CLASS_NAMES.MU_MATH_RENDER,
       CLASS_NAMES.MU_RUBY_RENDER,
     ]);
-    const isInInlineMath = !!this._checkCursorInTokenType(
-      textContent,
-      start.offset,
-      'inline_math'
-    );
-    const isInInlineCode = !!this._checkCursorInTokenType(
-      textContent,
-      start.offset,
-      'inline_code'
-    );
+    const inputType = (event as InputEvent).inputType;
+    const deferLargeInlineWork =
+      textContent.length >= LARGE_CONTENT_THRESHOLD &&
+      event.type === 'input' &&
+      inputType !== 'insertFromPaste' &&
+      inputType !== 'deleteByCut';
+    const isInInlineMath = deferLargeInlineWork
+      ? false
+      : !!this._checkCursorInTokenType(
+          textContent,
+          start.offset,
+          'inline_math'
+        );
+    const isInInlineCode = deferLargeInlineWork
+      ? false
+      : !!this._checkCursorInTokenType(
+          textContent,
+          start.offset,
+          'inline_code'
+        );
 
-    let { needRender, text } = this.autoPair(
+    const autoPairResult = this.autoPair(
       event,
       textContent,
       start,
@@ -829,8 +846,12 @@ class Format extends Content {
       isInInlineCode,
       'format'
     );
+    let { needRender } = autoPairResult;
+    const { text } = autoPairResult;
 
-    if (this._checkNotSameToken(this.text, text)) needRender = true;
+    if (!deferLargeInlineWork && this._checkNotSameToken(this.text, text)) {
+      needRender = true;
+    }
 
     this.text = text;
 
@@ -845,7 +866,9 @@ class Format extends Content {
       },
     };
 
-    const checkMarkedUpdate = this.checkNeedRender(cursor);
+    const checkMarkedUpdate = deferLargeInlineWork
+      ? false
+      : this.checkNeedRender(cursor);
 
     if (checkMarkedUpdate || needRender) this.update(cursor);
 
@@ -855,11 +878,9 @@ class Format extends Content {
       (event as InputEvent).inputType !== 'insertFromPaste' &&
       (event as InputEvent).inputType !== 'deleteByCut'
     ) {
-      const emojiToken = this._checkCursorInTokenType(
-        this.text,
-        start.offset,
-        'emoji'
-      );
+      const emojiToken = deferLargeInlineWork
+        ? null
+        : this._checkCursorInTokenType(this.text, start.offset, 'emoji');
       if (emojiToken && isEmojiToken(emojiToken)) {
         const { content: emojiText } = emojiToken;
         const reference = getCursorReference();

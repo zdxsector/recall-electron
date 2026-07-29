@@ -660,7 +660,7 @@ const electronAPI = {
       return null;
     }
   },
-  savePersistentState: (data) => {
+  savePersistentState: (data, options = {}) => {
     try {
       const root = getNotesRoot();
       ensureDir(root);
@@ -670,6 +670,11 @@ const electronAPI = {
       const metaPath = path.join(metaDir, META_FILE_NAME);
       const previousMeta = readJsonFile(metaPath) ?? {};
       const prevNotePaths = previousMeta.notePaths ?? {};
+      const dirtyNoteIds = Array.isArray(options.dirtyNoteIds)
+        ? new Set(options.dirtyNoteIds)
+        : null;
+      const shouldPersistAllNoteFiles =
+        dirtyNoteIds === null || options.structureChanged === true;
 
       // Store metadata without duplicating full note contents; the markdown files are the source of truth.
       const notesArray = data.notes ?? [];
@@ -688,23 +693,25 @@ const electronAPI = {
       const nextNotePaths = { ...(previousMeta.notePaths ?? {}) };
       const activeNoteIds = new Set();
 
-      // Convert markdown -> HTML when persisting to disk.
-      // (We still keep markdown in-memory for the editor.)
-      const showdown = (() => {
-        try {
-          return require('showdown');
-        } catch {
-          return null;
+      // Loading Showdown and rendering HTML are expensive for long notes. Only
+      // initialize the converter when a note file actually needs a rewrite.
+      let markdownConverter;
+      const getMarkdownConverter = () => {
+        if (markdownConverter !== undefined) {
+          return markdownConverter;
         }
-      })();
-      const markdownConverter = showdown
-        ? new showdown.Converter({
-            // best-effort parity with renderer conversion
+        try {
+          const showdown = require('showdown');
+          markdownConverter = new showdown.Converter({
             tables: true,
             strikethrough: true,
             tasklists: true,
-          })
-        : null;
+          });
+        } catch {
+          markdownConverter = null;
+        }
+        return markdownConverter;
+      };
 
       notesArray.forEach(([noteId, note]) => {
         if (!note) {
@@ -712,11 +719,25 @@ const electronAPI = {
         }
         if (note.deleted) {
           // Remove deleted notes from disk if we have a previous path.
-          safeRmDir(root, prevNotePaths?.[noteId]?.dirRel);
-          delete nextNotePaths[noteId];
+          if (shouldPersistAllNoteFiles || dirtyNoteIds?.has(noteId)) {
+            safeRmDir(root, prevNotePaths?.[noteId]?.dirRel);
+            delete nextNotePaths[noteId];
+          }
           return;
         }
         activeNoteIds.add(noteId);
+        const previousPath = prevNotePaths[noteId];
+        const noteNeedsWrite =
+          shouldPersistAllNoteFiles ||
+          dirtyNoteIds?.has(noteId) ||
+          !previousPath ||
+          !fs.existsSync(path.join(root, previousPath.mdRel)) ||
+          !fs.existsSync(path.join(root, previousPath.htmlRel));
+
+        if (!noteNeedsWrite) {
+          return;
+        }
+
         const prevDirRel = prevNotePaths?.[noteId]?.dirRel;
         const prevDir = prevDirRel ? path.join(root, prevDirRel) : null;
 
@@ -794,9 +815,8 @@ const electronAPI = {
         const markdown = note?.locked?.encryptedContent
           ? lockedNotePlaceholder(note)
           : String(note.content || '');
-        const html = markdownConverter
-          ? markdownConverter.makeHtml(markdown)
-          : markdown;
+        const converter = getMarkdownConverter();
+        const html = converter ? converter.makeHtml(markdown) : markdown;
         if (DEBUG_PERSIST) {
           // eslint-disable-next-line no-console
           console.log('[persist:save]', {
@@ -815,6 +835,14 @@ const electronAPI = {
           htmlRel: path.relative(root, finalHtmlFile),
           mdRel: path.relative(root, finalMdFile),
         };
+      });
+
+      // A note removed from Redux has no current entry to visit above.
+      dirtyNoteIds?.forEach((noteId) => {
+        if (!activeNoteIds.has(noteId)) {
+          safeRmDir(root, prevNotePaths?.[noteId]?.dirRel);
+          delete nextNotePaths[noteId];
+        }
       });
 
       // Cleanup notes that disappeared entirely (e.g. deleted forever).

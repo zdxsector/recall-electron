@@ -201,7 +201,17 @@ export function getParagraphReference(ele: HTMLElement, id: string) {
 }
 
 function visibleLength(str: string) {
-  return [...new (Intl as any).Segmenter().segment(str)].length;
+  let isAscii = true;
+  for (let i = 0; i < str.length; i += 1) {
+    if (str.charCodeAt(i) > 0x7f) {
+      isAscii = false;
+      break;
+    }
+  }
+  if (isAscii) return str.length;
+
+  const Segmenter = (Intl as any).Segmenter;
+  return Segmenter ? [...new Segmenter().segment(str)].length : [...str].length;
 }
 
 export type TDiff = string | number | { d: string };
@@ -239,6 +249,46 @@ export function diffToTextOp(diffs: Diff[]) {
   }
 
   return op;
+}
+
+/**
+ * Build a valid text-unicode operation without diffing the whole document.
+ * Editing a large content block usually changes one small range, so the
+ * common prefix/suffix scan keeps typing linear in the changed location.
+ */
+export function textChangeToTextOp(oldText: string, newText: string): TDiff[] {
+  if (oldText === newText) return [];
+
+  let prefix = 0;
+  const prefixLimit = Math.min(oldText.length, newText.length);
+  while (
+    prefix < prefixLimit &&
+    oldText.charCodeAt(prefix) === newText.charCodeAt(prefix)
+  ) {
+    prefix++;
+  }
+
+  let suffix = 0;
+  while (
+    suffix < oldText.length - prefix &&
+    suffix < newText.length - prefix &&
+    oldText.charCodeAt(oldText.length - suffix - 1) ===
+      newText.charCodeAt(newText.length - suffix - 1)
+  ) {
+    suffix++;
+  }
+
+  const operation: TDiff[] = [];
+  const unchangedPrefix = oldText.slice(0, prefix);
+  if (unchangedPrefix) operation.push(visibleLength(unchangedPrefix));
+
+  const removed = oldText.slice(prefix, oldText.length - suffix);
+  if (removed) operation.push({ d: removed });
+
+  const inserted = newText.slice(prefix, newText.length - suffix);
+  if (inserted) operation.push(inserted);
+
+  return operation;
 }
 
 // If the next block is header, put cursor after the `#{1,6} *`

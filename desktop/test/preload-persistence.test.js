@@ -253,6 +253,52 @@ describe('savePersistentState — note folder lifecycle', () => {
     expect(noteDirs[0]).not.toContain('(2)');
   });
 
+  test('incremental saves rewrite only dirty note files', () => {
+    const first = makeNotePayload('note-1', '# First\nInitial body');
+    first.notes.push([
+      'note-2',
+      {
+        content: '# Second\nInitial body',
+        folderId: 'folder-1',
+        modificationDate: 1,
+        systemTags: ['markdown'],
+      },
+    ]);
+    first.notes[0][1].modificationDate = 1;
+    electronAPI.savePersistentState(first);
+
+    const meta = readStoreMeta(root);
+    const noteOneMd = path.join(root, meta.notePaths['note-1'].mdRel);
+    const noteOneHtml = path.join(root, meta.notePaths['note-1'].htmlRel);
+    const noteTwoMd = path.join(root, meta.notePaths['note-2'].mdRel);
+    const noteTwoHtml = path.join(root, meta.notePaths['note-2'].htmlRel);
+    const second = {
+      ...first,
+      notes: first.notes.map(([noteId, note]) =>
+        noteId === 'note-1'
+          ? [
+              noteId,
+              {
+                ...note,
+                content: '# First\nChanged body',
+                modificationDate: 2,
+              },
+            ]
+          : [noteId, note]
+      ),
+    };
+    const writeSpy = jest.spyOn(fs, 'writeFileSync');
+
+    electronAPI.savePersistentState(second, { dirtyNoteIds: ['note-1'] });
+
+    const writtenPaths = writeSpy.mock.calls.map(([filePath]) => String(filePath));
+    expect(writtenPaths).toContain(noteOneMd);
+    expect(writtenPaths).toContain(noteOneHtml);
+    expect(writtenPaths).not.toContain(noteTwoMd);
+    expect(writtenPaths).not.toContain(noteTwoHtml);
+    writeSpy.mockRestore();
+  });
+
   test('two different notes with the same title get separate directories', () => {
     const data = {
       accountName: 'test',

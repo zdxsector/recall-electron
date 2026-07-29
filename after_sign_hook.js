@@ -1,16 +1,83 @@
 const fs = require('fs');
 const path = require('path');
+const { spawnSync } = require('child_process');
 const dotenv = require('dotenv');
 
+const getAppPath = (params) => {
+  const appName = params?.packager?.appInfo?.productFilename;
+  if (!params?.appOutDir || !appName) {
+    throw new Error(
+      'afterSign did not provide the packaged macOS application.'
+    );
+  }
+
+  return path.join(params.appOutDir, `${appName}.app`);
+};
+
+const getCodeSigningInfo = (appPath, run = spawnSync) => {
+  const result = run('codesign', ['--display', '--verbose=4', appPath], {
+    encoding: 'utf8',
+  });
+  const output = `${result?.stdout || ''}\n${result?.stderr || ''}`;
+
+  if (result?.error || result?.status !== 0) {
+    throw new Error(
+      `Unable to inspect the macOS code signature for ${appPath}. ${output.trim()}`
+    );
+  }
+
+  return output;
+};
+
+const assertDeveloperIdSignature = (appPath, run) => {
+  const signingInfo = getCodeSigningInfo(appPath, run);
+  const hasDeveloperIdAuthority = /^Authority=Developer ID Application:/m.test(
+    signingInfo
+  );
+  const teamIdentifier = signingInfo
+    .match(/^TeamIdentifier=(.+)$/m)?.[1]
+    ?.trim();
+
+  if (
+    !hasDeveloperIdAuthority ||
+    !teamIdentifier ||
+    teamIdentifier === 'not set'
+  ) {
+    throw new Error(
+      'Refusing to package a macOS release without a Developer ID Application signature and TeamIdentifier. ' +
+        'Install or provide the production signing certificate via CSC_LINK/CSC_KEY_PASSWORD, then rebuild.'
+    );
+  }
+};
+
+const isAdhocLocalMacBuild = (env = process.env) =>
+  env.CSC_IDENTITY_AUTO_DISCOVERY === 'false' && env.SKIP_NOTARIZE === 'true';
+
 module.exports = async function (params) {
-  // Only notarize the app on Mac OS only.
   if (process.platform !== 'darwin') {
     return;
   }
 
-  // Skip notarization when SKIP_NOTARIZE is set (ad-hoc / local builds).
+  const appPath = getAppPath(params);
+  if (!fs.existsSync(appPath)) {
+    throw new Error(`Cannot find application at: ${appPath}`);
+  }
+
+  if (isAdhocLocalMacBuild()) {
+    // eslint-disable-next-line no-console
+    console.log(
+      'Building an ad-hoc local macOS artifact; it must not be used for a release or update.'
+    );
+    return;
+  }
+
+  // Normal packaging remains a release path and requires a stable Developer ID
+  // signature before it can be notarized or distributed.
+  assertDeveloperIdSignature(appPath);
+
+  // SKIP_NOTARIZE is valid for signed internal builds.
   if (process.env.SKIP_NOTARIZE === 'true') {
-    console.log('SKIP_NOTARIZE=true — skipping notarization.'); // eslint-disable-line no-console
+    console.log('SKIP_NOTARIZE=true - skipping notarization.'); // eslint-disable-line no-console
     return;
   }
 
@@ -52,17 +119,6 @@ module.exports = async function (params) {
   // Same appId in electron-builder.
   let appId = 'com.automattic.recall';
 
-  let appPath = params.appOutDir
-    ? path.join(
-        params.appOutDir,
-        `${params.packager.appInfo.productFilename}.app`
-      )
-    : params.artifactPaths[0].replace(new RegExp('.blockmap'), '');
-
-  if (!fs.existsSync(appPath)) {
-    throw new Error(`Cannot find application at: ${appPath}`);
-  }
-
   console.log(`Notarizing ${appId} found at ${appPath}`); // eslint-disable-line no-console
 
   try {
@@ -79,3 +135,8 @@ module.exports = async function (params) {
 
   console.log(`Done notarizing ${appId}`); // eslint-disable-line no-console
 };
+
+module.exports.assertDeveloperIdSignature = assertDeveloperIdSignature;
+module.exports.getAppPath = getAppPath;
+module.exports.getCodeSigningInfo = getCodeSigningInfo;
+module.exports.isAdhocLocalMacBuild = isAdhocLocalMacBuild;

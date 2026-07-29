@@ -61,6 +61,47 @@ test('sidebar renders without settings and only shows trash when needed', async 
   await expect(trash).toHaveCount(0);
 });
 
+test('notebook tree has a constrained auto-hiding scrollbar', async () => {
+  const scroller = window.locator(
+    '.navigation-bar__notebooks > .navigation-bar__folders'
+  );
+  await expect(scroller).toBeVisible({ timeout: 10_000 });
+
+  const styles = await scroller.evaluate((element) => {
+    const style = getComputedStyle(element);
+    const rows = Array.from({ length: 100 }, () => {
+      const row = document.createElement('div');
+      row.style.flex = 'none';
+      row.style.height = '32px';
+      return row;
+    });
+    rows.forEach((row) => element.appendChild(row));
+    const before = element.scrollTop;
+    const overflowingHeight = element.scrollHeight;
+    element.scrollTop = 96;
+    const after = element.scrollTop;
+    rows.forEach((row) => row.remove());
+
+    return {
+      flexGrow: style.flexGrow,
+      minHeight: style.minHeight,
+      overflowX: style.overflowX,
+      overflowY: style.overflowY,
+      scrollbarWidth: style.scrollbarWidth,
+      scrollHeight: overflowingHeight,
+      scrolled: after > before,
+    };
+  });
+
+  expect(styles.flexGrow).toBe('1');
+  expect(styles.minHeight).toBe('0px');
+  expect(styles.overflowX).toBe('hidden');
+  expect(styles.overflowY).toBe('auto');
+  expect(styles.scrollbarWidth).toBe('thin');
+  expect(styles.scrollHeight).toBeGreaterThan(96);
+  expect(styles.scrolled).toBe(true);
+});
+
 test('search field is present', async () => {
   const searchInput = window.locator('[placeholder="Search all notes"]');
   await expect(searchInput).toBeVisible({ timeout: 10_000 });

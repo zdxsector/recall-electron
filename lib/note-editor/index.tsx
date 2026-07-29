@@ -506,6 +506,15 @@ export class NoteEditor extends Component<Props, LocalState> {
     if (code === 'verification_error') {
       return 'Password verification failed.';
     }
+    if (code === 'decrypt_failed') {
+      return (
+        'Recall could not access the Keychain item needed to unlock this note. ' +
+        'Do not delete "Recall Safe Storage".'
+      );
+    }
+    if (code === 'encryption_unavailable') {
+      return 'Keychain encryption is unavailable on this device.';
+    }
     if (this.isEmbeddedAuthUnavailableCode(code)) {
       return 'Embedded authentication is unavailable.';
     }

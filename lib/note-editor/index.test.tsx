@@ -366,6 +366,31 @@ describe('NoteEditor locked state', () => {
     expect(electron.unlock).not.toHaveBeenCalled();
   });
 
+  it('identifies a Keychain decryption failure without exposing secrets', async () => {
+    const electron = setupElectron({ ok: false, code: 'decrypt_failed' });
+    const storeUnlockedNoteContent = jest.fn();
+    let tree: ReactTestRenderer;
+
+    await act(async () => {
+      tree = renderer.create(
+        <NoteEditor
+          {...baseProps}
+          note={lockedNote}
+          noteId={'note-locked' as any}
+          storeUnlockedNoteContent={storeUnlockedNoteContent}
+        />,
+        { createNodeMock }
+      );
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(storeUnlockedNoteContent).not.toHaveBeenCalled();
+    expect(tree!.root.findByProps({ role: 'alert' }).children.join('')).toBe(
+      'Recall could not access the Keychain item needed to unlock this note. Do not delete "Recall Safe Storage".'
+    );
+  });
+
   it('renderer cannot mark a note unlocked without main-process success', async () => {
     setupElectron({ ok: false, code: 'native_auth_required' });
     const storeUnlockedNoteContent = jest.fn();

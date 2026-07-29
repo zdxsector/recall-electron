@@ -25,7 +25,11 @@ function ensureFirstBlockIsH1(states: TState[]): TState[] {
     ) {
       if (states[1].name === 'paragraph') {
         const text = (states[1] as any).text || '';
-        states[1] = { name: 'atx-heading', meta: { level: 1 }, text: `# ${text}` };
+        states[1] = {
+          name: 'atx-heading',
+          meta: { level: 1 },
+          text: `# ${text}`,
+        };
       } else {
         states.splice(1, 0, {
           name: 'atx-heading',
@@ -80,6 +84,11 @@ class JSONState {
 
   private state: TState[] = [];
 
+  // History only needs the document that existed immediately before an op.
+  // Keep that snapshot current with immutable OT application instead of
+  // deep-cloning the entire document for every keystroke.
+  private historyState: TState[] = [];
+
   constructor(
     public muya: Muya,
     stateOrMarkdown: TState[] | string
@@ -101,6 +110,7 @@ class JSONState {
 
   setState(state: TState[]) {
     this.state = ensureFirstBlockIsH1(state);
+    this.historyState = deepClone(this.state);
   }
 
   setMarkdown(markdown: string) {
@@ -121,9 +131,11 @@ class JSONState {
         math,
       }).generate(markdown)
     );
+    this.historyState = deepClone(this.state);
   }
 
   insertOperation(path: Path, state: TState) {
+    this.muya.editor.inlineRenderer.invalidateReferenceDefinitions();
     const operation = json1.insertOp(path, state as unknown as Doc)!;
 
     this._operationCache.push(operation);
@@ -132,6 +144,7 @@ class JSONState {
   }
 
   removeOperation(path: Path) {
+    this.muya.editor.inlineRenderer.invalidateReferenceDefinitions();
     const operation = json1.removeOp(path)!;
 
     this._operationCache.push(operation);
@@ -148,6 +161,7 @@ class JSONState {
   }
 
   replaceOperation(path: Path, oldValue: Doc, newValue: Doc) {
+    this.muya.editor.inlineRenderer.invalidateReferenceDefinitions();
     const operation = json1.replaceOp(path, oldValue, newValue)!;
 
     this._operationCache.push(operation);
@@ -156,16 +170,18 @@ class JSONState {
   }
 
   dispatch(op: JSONOpList, source = 'user' /* user, api */) {
-    const prevDoc = this.getState();
+    const prevDoc = this.historyState;
     this.apply(op);
-    // TODO: remove doc in future
-    const doc = this.getState();
+    this.historyState = json1.type.apply(
+      this.historyState as unknown as Doc,
+      op
+    ) as unknown as TState[];
     debug.log(JSON.stringify(op));
     this.muya.eventCenter.emit('json-change', {
       op,
       source,
       prevDoc,
-      doc,
+      doc: this.state,
     });
   }
 
@@ -175,16 +191,19 @@ class JSONState {
 
   getMarkdown() {
     this._flushPendingOperations();
-    const state = this.getState();
     const mdGenerator = new StateToMarkdown();
 
-    return mdGenerator.generate(state);
+    return mdGenerator.generate(this.state);
   }
 
   private _flushPendingOperations() {
     if (this._operationCache.length === 0) return;
     const op = this._operationCache.reduce(json1.type.compose as any);
     this.apply(op);
+    this.historyState = json1.type.apply(
+      this.historyState as unknown as Doc,
+      op
+    ) as unknown as TState[];
     this._operationCache = [];
     this._isGoing = false;
   }
@@ -200,15 +219,17 @@ class JSONState {
         return;
       }
       const op = this._operationCache.reduce(json1.type.compose as any);
-      const prevDoc = this.getState();
+      const prevDoc = this.historyState;
       this.apply(op);
-      // TODO: remove doc in future
-      const doc = this.getState();
+      this.historyState = json1.type.apply(
+        this.historyState as unknown as Doc,
+        op
+      ) as unknown as TState[];
       this.muya.eventCenter.emit('json-change', {
         op,
         source: 'user',
         prevDoc,
-        doc,
+        doc: this.state,
       });
       this._operationCache = [];
       this._isGoing = false;

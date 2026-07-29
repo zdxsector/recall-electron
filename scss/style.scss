@@ -16,3 +16,14 @@
 // TODO: Figure out a better way to manage these
 @use 'theme';
 @use 'print';
+
+// Keep the Markdown title marker in the editable DOM without displaying it.
+.mu-container > h1.mu-atx-heading:first-child .mu-title-marker {
+  display: inline;
+  width: auto;
+  height: auto;
+  overflow: visible;
+  color: transparent !important;
+  font-size: 0;
+  line-height: 0;
+}

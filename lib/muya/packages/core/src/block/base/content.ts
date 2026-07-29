@@ -4,16 +4,15 @@ import type { ICursor, INodeOffset } from '../../selection/types';
 import type { Nullable } from '../../types';
 import type { TBlockPath } from '../types';
 import type Parent from './parent';
-import diff from 'fast-diff';
 import TreeNode from '../../block/base/treeNode';
 import { ScrollPage } from '../../block/scrollPage';
 import { BACK_HASH, BRACKET_HASH, EVENT_KEYS, isFirefox } from '../../config';
 import Selection from '../../selection';
 import {
   adjustOffset,
-  diffToTextOp,
   isInputEvent,
   isKeyboardEvent,
+  textChangeToTextOp,
 } from '../../utils';
 
 // import logger from './utils/logger'
@@ -61,9 +60,19 @@ class Content extends TreeNode {
 
     // dispatch change to modify json state
     if (oldText !== text) {
-      const diffs = diff(oldText, text);
+      // Reference definitions are the only inline-rendering data shared by
+      // blocks. Rebuild that cache only when a definition-shaped paragraph
+      // changes instead of scanning the whole document for every keystroke.
+      const inlineRenderer = this.muya.editor.inlineRenderer;
+      const isReferenceDefinition = (value: string) => {
+        if (!/^ {0,3}\[/.test(value)) return false;
+        return !!inlineRenderer.getLabelInfo({ text: value } as any).label;
+      };
+      if (isReferenceDefinition(oldText) || isReferenceDefinition(text)) {
+        inlineRenderer.invalidateReferenceDefinitions();
+      }
 
-      this.jsonState.editOperation(path, diffToTextOp(diffs));
+      this.jsonState.editOperation(path, textChangeToTextOp(oldText, text));
     }
   }
 

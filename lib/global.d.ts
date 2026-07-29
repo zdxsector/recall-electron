@@ -84,7 +84,10 @@ type ElectronBridge = {
     };
   };
   loadPersistentState: () => any;
-  savePersistentState: (data: any) => void;
+  savePersistentState: (
+    data: any,
+    options?: { dirtyNoteIds?: any[]; structureChanged?: boolean }
+  ) => void;
   loadAllRevisions: () => any;
   saveNoteRevisions: (noteId: any, revisions: any) => void;
   saveNoteAssetFromDataUrl: (

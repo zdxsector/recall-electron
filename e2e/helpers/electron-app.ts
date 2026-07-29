@@ -10,6 +10,7 @@ const META_FILE_NAME = 'store.json';
 
 type LaunchOptions = {
   env?: Record<string, string>;
+  seedNoteLines?: number;
   seedLockedNotes?: boolean;
   seedNotes?: boolean;
   settleMs?: number;
@@ -33,15 +34,20 @@ const mockEncryptedContent = (content: string) =>
 
 const seedPersistentNotes = (
   notesRoot: string,
-  { seedLockedNotes = false }: { seedLockedNotes?: boolean } = {}
+  {
+    seedLockedNotes = false,
+    seedNoteLines = 120,
+  }: { seedLockedNotes?: boolean; seedNoteLines?: number } = {}
 ) => {
   const noteDirRel = path.join('E2ENotebook', 'E2ESeed', 'Find Bar Seed');
   const mdRel = path.join(noteDirRel, 'Find Bar Seed.md');
   const htmlRel = path.join(noteDirRel, 'Find Bar Seed.html');
+  const lineContent =
+    seedNoteLines > 120 ? 'Long navigation performance test content.' : 'e';
   const content = [
     '# Alpha',
     '',
-    ...Array.from({ length: 120 }, () => 'e'),
+    ...Array.from({ length: seedNoteLines }, () => lineContent),
   ].join('\n\n');
 
   fs.mkdirSync(path.join(notesRoot, noteDirRel, 'assets'), {
@@ -50,7 +56,10 @@ const seedPersistentNotes = (
   fs.writeFileSync(path.join(notesRoot, mdRel), content, 'utf8');
   fs.writeFileSync(
     path.join(notesRoot, htmlRel),
-    `<h1>Alpha</h1>${Array.from({ length: 120 }, () => '<p>e</p>').join('')}`,
+    `<h1>Alpha</h1>${Array.from(
+      { length: seedNoteLines },
+      () => `<p>${lineContent}</p>`
+    ).join('')}`,
     'utf8'
   );
 
@@ -165,6 +174,7 @@ const seedPersistentNotes = (
 
 export const launchIsolatedElectronApp = async ({
   env = {},
+  seedNoteLines = 120,
   seedLockedNotes = false,
   seedNotes = true,
   settleMs = 0,
@@ -177,7 +187,7 @@ export const launchIsolatedElectronApp = async ({
   fs.mkdirSync(documentsPath, { recursive: true });
   fs.mkdirSync(userDataPath, { recursive: true });
   if (seedNotes) {
-    seedPersistentNotes(notesRoot, { seedLockedNotes });
+    seedPersistentNotes(notesRoot, { seedLockedNotes, seedNoteLines });
   }
 
   const electronApp = await electron.launch({

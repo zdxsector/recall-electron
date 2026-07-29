@@ -62,9 +62,19 @@ export class Editor {
     const state = this.jsonState.getState();
 
     this.scrollPage = ScrollPage.create(muya, state);
+    this.refreshReferenceDefinitions();
 
     this._dispatchEvents();
     this.focus();
+  }
+
+  private refreshReferenceDefinitions() {
+    if (!this.scrollPage) return;
+    if (this.inlineRenderer.collectReferenceDefinitions() === 0) return;
+
+    this.scrollPage.breadthFirstTraverse((node) => {
+      if (node.isContent()) node.update();
+    });
   }
 
   private _dispatchEvents() {
@@ -325,6 +335,7 @@ export class Editor {
     const state = this.jsonState.getState();
 
     this.scrollPage!.updateState(state);
+    this.refreshReferenceDefinitions();
     this.history.clear();
 
     if (autoFocus) this.focus();

@@ -8,6 +8,11 @@ let keepSyncing = true;
 const LARGE_NOTE_CONTENT_THRESHOLD = 200_000;
 const HUGE_NOTE_CONTENT_THRESHOLD = 1_000_000;
 
+export type PersistenceSaveOptions = {
+  dirtyNoteIds?: T.EntityId[];
+  structureChanged?: boolean;
+};
+
 const DEFAULT_NOTEBOOK_ID = 'default-notebook' as unknown as T.NotebookId;
 const DEFAULT_FOLDER_ID = 'default-folder' as unknown as T.FolderId;
 
@@ -326,7 +331,10 @@ const persistRevisionsElectronPersistence = (
   revisions: [number, T.Note][]
 ) => window.electron.saveNoteRevisions(noteId, revisions);
 
-const saveStateToElectronPersistence = (state: S.State) => {
+const saveStateToElectronPersistence = (
+  state: S.State,
+  options?: PersistenceSaveOptions
+) => {
   const notes = Array.from(state.data.notes);
   const preferences = Array.from(state.data.preferences);
   const notebooks = Array.from(state.data.notebooks);
@@ -349,7 +357,7 @@ const saveStateToElectronPersistence = (state: S.State) => {
     lastSync,
   };
 
-  window.electron.savePersistentState(data);
+  window.electron.savePersistentState(data, options);
   return Promise.resolve();
 };
 
@@ -372,26 +380,67 @@ const persistRevisions = async (
     ? persistRevisionsElectronPersistence(noteId, revisions)
     : persistRevisionsIndexedDB(noteId, revisions);
 
-export const saveState = (state: S.State) =>
+export const saveState = (state: S.State, options?: PersistenceSaveOptions) =>
   hasElectronPersistenceBackend()
-    ? saveStateToElectronPersistence(state)
+    ? saveStateToElectronPersistence(state, options)
     : saveStateToIndexedDB(state);
 
-export const middleware: S.Middleware =
+export const hasPersistedStateChange = (
+  previousState: S.State,
+  nextState: S.State
+) =>
+  previousState.data !== nextState.data ||
+  previousState.simperium !== nextState.simperium ||
+  previousState.settings.accountName !== nextState.settings.accountName;
+
+export const changedNoteIds = (
+  previousNotes: Map<T.EntityId, T.Note>,
+  nextNotes: Map<T.EntityId, T.Note>
+) => {
+  const changed = new Set<T.EntityId>();
+
+  nextNotes.forEach((note, noteId) => {
+    if (previousNotes.get(noteId) !== note) {
+      changed.add(noteId);
+    }
+  });
+  previousNotes.forEach((_, noteId) => {
+    if (!nextNotes.has(noteId)) {
+      changed.add(noteId);
+    }
+  });
+
+  return changed;
+};
+
+export const createPersistenceMiddleware =
+  (persist = saveState): S.Middleware =>
   ({ dispatch, getState }) =>
   (next) => {
     let worker: ReturnType<typeof setTimeout> | null = null;
     let maxWorker: ReturnType<typeof setTimeout> | null = null;
     let lastSavedAt = 0;
     let pendingSaveIsLarge = false;
+    let pendingSaveDelayMs = 0;
+    let pendingStructureChange = false;
+    let hasPendingSave = false;
+    const pendingNoteIds = new Set<T.EntityId>();
 
     const saveNow = () => {
-      if (!keepSyncing) return;
+      if (!keepSyncing || !hasPendingSave) return;
+      const options: PersistenceSaveOptions = {
+        dirtyNoteIds: Array.from(pendingNoteIds),
+        structureChanged: pendingStructureChange,
+      };
       try {
-        saveState(getState());
+        persist(getState(), options);
       } finally {
         lastSavedAt = Date.now();
         pendingSaveIsLarge = false;
+        pendingSaveDelayMs = 0;
+        pendingStructureChange = false;
+        hasPendingSave = false;
+        pendingNoteIds.clear();
         if (maxWorker) {
           clearTimeout(maxWorker);
           maxWorker = null;
@@ -434,25 +483,55 @@ export const middleware: S.Middleware =
     const shouldTreatAsLargeSave = (action: A.ActionType): boolean => {
       if (action.type !== 'EDIT_NOTE') return false;
       const content = (action as any)?.changes?.content;
-      return typeof content === 'string' && content.length >= LARGE_NOTE_CONTENT_THRESHOLD;
+      return (
+        typeof content === 'string' &&
+        content.length >= LARGE_NOTE_CONTENT_THRESHOLD
+      );
     };
 
     return (action) => {
+      const previousState = getState();
       const result = next(action);
+      const nextState = getState();
+
+      if (!hasPersistedStateChange(previousState, nextState)) {
+        return result;
+      }
+
+      hasPendingSave = true;
+      if (previousState.data.notes !== nextState.data.notes) {
+        changedNoteIds(previousState.data.notes, nextState.data.notes).forEach(
+          (noteId) => pendingNoteIds.add(noteId)
+        );
+      }
+      pendingStructureChange =
+        pendingStructureChange ||
+        previousState.data.folders !== nextState.data.folders ||
+        previousState.data.notebooks !== nextState.data.notebooks;
 
       if (worker) {
         clearTimeout(worker);
       }
       if (keepSyncing) {
-        pendingSaveIsLarge = shouldTreatAsLargeSave(action);
-        const delay = getSaveDelayMs(action as A.ActionType);
+        pendingSaveIsLarge =
+          pendingSaveIsLarge || shouldTreatAsLargeSave(action);
+        pendingSaveDelayMs = Math.max(
+          pendingSaveDelayMs,
+          getSaveDelayMs(action as A.ActionType)
+        );
+        const delay = pendingSaveIsLarge
+          ? pendingSaveDelayMs
+          : getSaveDelayMs(action as A.ActionType);
         worker = setTimeout(() => saveOnIdleIfPossible(), delay);
 
         // Safety: if user types continuously in a huge note, we still want
         // persistence to happen occasionally. Schedule a max-interval save that
         // does not get reset by more typing.
-        const maxIntervalMs =
-          pendingSaveIsLarge ? (Date.now() - lastSavedAt > 60_000 ? 2_000 : 60_000) : 0;
+        const maxIntervalMs = pendingSaveIsLarge
+          ? Date.now() - lastSavedAt > 60_000
+            ? 2_000
+            : 60_000
+          : 0;
         if (pendingSaveIsLarge && !maxWorker) {
           maxWorker = setTimeout(() => saveOnIdleIfPossible(), maxIntervalMs);
         }
@@ -467,3 +546,5 @@ export const middleware: S.Middleware =
       return result;
     };
   };
+
+export const middleware = createPersistenceMiddleware();

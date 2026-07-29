@@ -105,8 +105,8 @@ const CONTENT_CHANGE_DEBOUNCE_MS = 60;
 
 // Large-document performance controls. These only kick in for very large notes
 // to preserve the current "live update while typing" feel for normal notes.
-const LARGE_DOC_THRESHOLD_CHARS = 200_000;
-const HUGE_DOC_THRESHOLD_CHARS = 1_000_000;
+const LARGE_DOC_THRESHOLD_CHARS = 50_000;
+const HUGE_DOC_THRESHOLD_CHARS = 500_000;
 
 type FlushReason =
   | 'input'

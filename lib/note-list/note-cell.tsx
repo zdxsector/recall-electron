@@ -29,6 +29,22 @@ const THUMBNAIL_SEARCH_LIMIT = 2000;
 const CODE_FENCE_BLOCK_RE = /```[\s\S]*?```/g;
 const INLINE_CODE_RE = /`([^`]+)`/g;
 
+const folderEntriesCache = new WeakMap<Map<any, any>, any[]>();
+const notebookEntriesCache = new WeakMap<Map<any, any>, any[]>();
+
+const cachedEntries = (
+  map: Map<any, any>,
+  cache: WeakMap<Map<any, any>, any[]>
+) => {
+  const cached = cache.get(map);
+  if (cached) {
+    return cached;
+  }
+  const entries = Array.from(map);
+  cache.set(map, entries);
+  return entries;
+};
+
 const formatNoteDate = (epochSeconds: number): string => {
   if (!epochSeconds || epochSeconds <= 0) return '';
   const date = new Date(epochSeconds * 1000);
@@ -305,8 +321,8 @@ const mapStateToProps: S.MapState<StateProps, OwnProps> = (
   isOffline: false,
   isOpened: state.ui.openedNote === noteId,
   lastUpdated: -Infinity,
-  folders: Array.from(state.data.folders),
-  notebooks: Array.from(state.data.notebooks),
+  folders: cachedEntries(state.data.folders, folderEntriesCache),
+  notebooks: cachedEntries(state.data.notebooks, notebookEntriesCache),
   note: state.data.notes.get(noteId),
   searchQuery: state.ui.searchQuery,
 });

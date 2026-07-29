@@ -74,10 +74,10 @@ async function typeInEditor(text: string) {
 }
 
 // ---------------------------------------------------------------------------
-// First block h1 enforcement
+// New note title behavior
 // ---------------------------------------------------------------------------
 
-test.describe('First block is always h1', () => {
+test.describe('New note title is an h1', () => {
   test('new note starts with an h1 block', async () => {
     await createNewNote();
     const firstBlock = await getFirstBlock();
@@ -91,15 +91,15 @@ test.describe('First block is always h1', () => {
     expect(hasHeadingClass).toBe(true);
   });
 
-  test('typing on the first line produces h1 content', async () => {
+  test('typing on the first line keeps h1 styling without showing the marker', async () => {
     await createNewNote();
 
-    // Click directly into the h1 content element to ensure focus
+    // Click directly into the title content element to ensure focus
     const container = await getEditorContainer();
-    const h1Content = container.locator(
+    const titleContent = container.locator(
       '.mu-atx-heading .mu-atxheading-content'
     );
-    await h1Content.first().click();
+    await titleContent.first().click();
     await window.waitForTimeout(300);
 
     // Move to end of any existing text, then type
@@ -111,11 +111,28 @@ test.describe('First block is always h1', () => {
     const tagName = await firstBlock.evaluate((el) => el.tagName.toLowerCase());
     expect(tagName).toBe('h1');
 
-    const text = await firstBlock.textContent();
+    const text = await firstBlock.innerText();
     expect(text).toContain('My Test Title');
+
+    const renderedTitle = await firstBlock
+      .locator('.mu-plain-text')
+      .textContent();
+    expect(renderedTitle).toBe('My Test Title');
+
+    const markdown = await window.evaluate(() => {
+      const noteId = window.state.ui.openedNote;
+      return window.state.data.notes.get(noteId)?.content ?? '';
+    });
+    expect(markdown).toContain('# My Test Title');
+
+    const markerColor = await firstBlock
+      .locator('.mu-title-marker')
+      .first()
+      .evaluate((el) => getComputedStyle(el).color);
+    expect(markerColor).toBe('rgba(0, 0, 0, 0)');
   });
 
-  test('backspace at start of first h1 does not convert to paragraph', async () => {
+  test('backspace at the start of the title keeps the h1 block', async () => {
     await createNewNote();
     await focusEditor();
 
@@ -126,7 +143,7 @@ test.describe('First block is always h1', () => {
     await window.keyboard.press('Home');
     await window.waitForTimeout(100);
 
-    // Press backspace - should not convert first h1
+    // Press backspace at the start of the title.
     await window.keyboard.press('Backspace');
     await window.waitForTimeout(300);
 
@@ -149,7 +166,7 @@ test.describe('First block is always h1', () => {
     expect(tagName).toBe('h1');
   });
 
-  test('pressing Enter after h1 creates a new block below', async () => {
+  test('pressing Enter after the h1 creates a new block below', async () => {
     await createNewNote();
     await focusEditor();
 
@@ -161,7 +178,7 @@ test.describe('First block is always h1', () => {
     const blockCount = await getBlockCount();
     expect(blockCount).toBeGreaterThanOrEqual(2);
 
-    // First block should remain h1
+    // The title remains an h1.
     const firstBlock = await getFirstBlock();
     const tagName = await firstBlock.evaluate((el) => el.tagName.toLowerCase());
     expect(tagName).toBe('h1');
@@ -258,7 +275,7 @@ test.describe('Clipboard copy/paste', () => {
     }
   });
 
-  test('cut all content restores empty h1', async () => {
+  test('cut all content restores an empty title h1', async () => {
     await createNewNote();
     await focusEditor();
 
@@ -271,7 +288,7 @@ test.describe('Clipboard copy/paste', () => {
     await window.keyboard.press(isMac ? 'Meta+x' : 'Control+x');
     await window.waitForTimeout(500);
 
-    // First block should be h1 after cutting all
+    // First block should remain the title h1 after cutting all.
     const firstBlock = await getFirstBlock();
     const tagName = await firstBlock.evaluate((el) => el.tagName.toLowerCase());
     expect(tagName).toBe('h1');
@@ -325,7 +342,7 @@ test.describe('Element block operations', () => {
     await createNewNote();
     await focusEditor();
 
-    // Press Enter to get past h1
+    // Press Enter to create the first body paragraph.
     await window.keyboard.type('Test', { delay: 20 });
     await window.keyboard.press('Enter');
     await window.waitForTimeout(300);
@@ -477,7 +494,7 @@ test.describe('Heading level switching', () => {
     await createNewNote();
     await focusEditor();
 
-    // Type in h1 then press Enter to create a new empty paragraph
+    // Type in the title then press Enter to create a new empty paragraph.
     await window.keyboard.type('Title', { delay: 20 });
     await window.keyboard.press('Enter');
     await window.waitForTimeout(300);

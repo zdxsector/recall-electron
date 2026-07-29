@@ -69,17 +69,37 @@ pnpm test:e2e      # Playwright Electron E2E smoke tests
 
 #### macOS (code signing + notarization)
 
-1. Install Apple Developer signing certificates in your Keychain
-2. Place the App Store Connect API key at:
+1. Install a valid **Developer ID Application** certificate for the same Apple
+   Developer Team used by earlier Recall releases. Do not distribute ad-hoc
+   signed builds: they are a different Keychain identity and can break access
+   to locked notes.
+2. Verify that macOS can find the signing identity:
+   ```bash
+   security find-identity -v -p codesigning
+   ```
+   The output must include a valid `Developer ID Application` identity. In CI,
+   provide the same certificate using `CSC_LINK` and `CSC_KEY_PASSWORD`.
+3. Place the App Store Connect API key at:
    ```
    ~/.configure/recall-electron/secrets/app_store_connect_api_key.p8
    ```
-3. Set environment variables (or create `~/.a8c-apps/recall-electron.env`):
+4. Set environment variables (or create `~/.a8c-apps/recall-electron.env`):
    ```
    APP_STORE_CONNECT_API_KEY_KEY_ID=<your-key-id>
    APP_STORE_CONNECT_API_KEY_ISSUER_ID=<your-issuer-id>
    ```
-4. The `after_sign_hook.js` handles notarization automatically via `@electron/notarize`
+5. A normal `pnpm package:mac` build requires Developer ID signing. The
+   `after_sign_hook.js` then handles notarization via `@electron/notarize`.
+   `SKIP_NOTARIZE=true` skips only notarization for a signed internal build.
+
+For a local, ad-hoc artifact only, use:
+
+```bash
+CSC_IDENTITY_AUTO_DISCOVERY=false SKIP_NOTARIZE=true NODE_ENV=production pnpm package:mac
+```
+
+Ad-hoc artifacts must not be distributed as releases or used for auto-updates:
+they do not have the stable signing identity required for existing Keychain data.
 
 #### Windows
 
@@ -114,6 +134,18 @@ pnpm package:mac
 pnpm package:win
 pnpm package:linux
 ```
+
+For a macOS release, verify the packaged application before upload:
+
+```bash
+codesign -dvvv release/mac-universal/Recall.app 2>&1
+spctl -a -vvv -t execute release/mac-universal/Recall.app
+xcrun stapler validate release/mac-universal/Recall.app
+```
+
+The `codesign` output must show a `Developer ID Application` authority and a
+non-empty `TeamIdentifier`. Test unlocking an existing locked note before
+publishing the release.
 
 ### 4. Release artifacts
 

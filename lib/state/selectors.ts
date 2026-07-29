@@ -72,7 +72,14 @@ export const collectionTitle: S.Selector<string> = (state) => {
 export const showTrash: S.Selector<boolean> = ({ ui: { collection } }) =>
   collection.type === 'trash';
 
+const trashedNotesCache = new WeakMap<Map<T.EntityId, T.Note>, boolean>();
+
 export const hasTrashedNotes: S.Selector<boolean> = ({ data: { notes } }) => {
+  const cached = trashedNotesCache.get(notes);
+  if (typeof cached !== 'undefined') {
+    return cached;
+  }
+
   let hasTrash = false;
 
   notes.forEach((note) => {
@@ -81,6 +88,7 @@ export const hasTrashedNotes: S.Selector<boolean> = ({ data: { notes } }) => {
     }
   });
 
+  trashedNotesCache.set(notes, hasTrash);
   return hasTrash;
 };
 

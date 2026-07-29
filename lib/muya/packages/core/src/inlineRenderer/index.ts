@@ -14,6 +14,7 @@ const debug = logger('inlineRenderer:');
 class InlineRenderer {
   public labels: Labels = new Map();
   public renderer: Renderer;
+  private referenceDefinitionsDirty = true;
 
   constructor(public muya: Muya) {
     this.renderer = new Renderer(muya, this);
@@ -36,7 +37,9 @@ class InlineRenderer {
   }
 
   patch(block: Format, cursor?: ICursor, highlights: IHighlight[] = []) {
-    this.collectReferenceDefinitions();
+    if (this.referenceDefinitionsDirty) {
+      this.collectReferenceDefinitions();
+    }
     const { domNode } = block;
     if (block.isParent()) debug.error('Patch can only handle content block');
 
@@ -49,12 +52,26 @@ class InlineRenderer {
     domNode!.innerHTML = html;
   }
 
+  invalidateReferenceDefinitions() {
+    this.referenceDefinitionsDirty = true;
+  }
+
   collectReferenceDefinitions() {
-    const state = this.muya.editor.jsonState.getState();
     const labels = new Map();
 
-    const travel = (sts: TState[]) => {
-      if (Array.isArray(sts) && sts.length) {
+    const scrollPage = this.muya.editor.scrollPage;
+    if (scrollPage) {
+      scrollPage.breadthFirstTraverse((node) => {
+        if (node.blockName !== 'paragraph.content') return;
+        const { label, info } = this.getLabelInfo(node as any);
+        if (label && info) labels.set(label, info);
+      });
+    } else {
+      // The editor tree is not available during the first block's constructor.
+      // This fallback runs at most once during initialization.
+      const state = this.muya.editor.jsonState.getState();
+      const travel = (sts: TState[]) => {
+        if (!Array.isArray(sts)) return;
         for (const st of sts) {
           if (st.name === 'paragraph') {
             const { label, info } = this.getLabelInfo(st);
@@ -63,12 +80,14 @@ class InlineRenderer {
             travel((st as TContainerState).children);
           }
         }
-      }
-    };
+      };
 
-    travel(state);
+      travel(state);
+    }
 
     this.labels = labels;
+    this.referenceDefinitionsDirty = false;
+    return labels.size;
   }
 
   getLabelInfo(blockOrState: ParagraphContent | IParagraphState) {
